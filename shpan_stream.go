@@ -7,38 +7,6 @@ import (
 	"io"
 )
 
-type StreamLifecycle interface {
-	Open(ctx context.Context) error
-	Close()
-}
-
-type streamLifecycleWrapper struct {
-	openFunc  func(ctx context.Context) error
-	closeFunc func()
-}
-
-func NewStreamLifecycle(openFunc func(ctx context.Context) error, closeFunc func()) StreamLifecycle {
-	return &streamLifecycleWrapper{openFunc: openFunc, closeFunc: closeFunc}
-}
-
-func (s *streamLifecycleWrapper) Open(ctx context.Context) error {
-	if s.openFunc != nil {
-		return s.openFunc(ctx)
-	}
-	return nil
-}
-
-func (s *streamLifecycleWrapper) Close() {
-	if s.closeFunc != nil {
-		s.closeFunc()
-	}
-}
-
-type StreamProvider[T any] interface {
-	StreamLifecycle
-	Emit(ctx context.Context) (T, error)
-}
-
 type Stream[T any] struct {
 	provider            StreamProviderFunc[T]
 	allLifecycleElement []StreamLifecycle
@@ -216,12 +184,6 @@ func (s Stream[T]) FindLast() Lazy[T] {
 	})
 }
 
-func (s Stream[T]) Filter(predicate func(T) bool) Stream[T] {
-	return s.FilterWithErrorAndContext(func(ctx context.Context, v T) (bool, error) {
-		return predicate(v), nil
-	})
-}
-
 func (s Stream[T]) Collect(ctx context.Context) ([]T, error) {
 	var result []T
 	err := s.Consume(ctx, func(v T) {
@@ -233,13 +195,30 @@ func (s Stream[T]) Collect(ctx context.Context) ([]T, error) {
 	return result, nil
 }
 
-func (s Stream[T]) FilterWithError(predicate func(T) (bool, error)) Stream[T] {
-	return s.FilterWithErrorAndContext(func(_ context.Context, v T) (bool, error) {
-		return predicate(v)
+// MustCollect is a convenience method that panics if the stream errors
+// should be used for testing purpose or when streams are static (e.g. slice sourced streams)
+func (s Stream[T]) MustCollect() []T {
+	var result []T
+	err := s.Consume(context.Background(), func(v T) {
+		result = append(result, v)
+	})
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+func (s Stream[T]) Filter(predicate func(T) bool) Stream[T] {
+	return s.FilterWithErAndCtx(func(ctx context.Context, v T) (bool, error) {
+		return predicate(v), nil
 	})
 }
 
-func (s Stream[T]) FilterWithErrorAndContext(predicate func(context.Context, T) (bool, error)) Stream[T] {
+func (s Stream[T]) FilterWithErr(predicate func(T) (bool, error)) Stream[T] {
+	return s.FilterWithErAndCtx(errMapperToErrCtxMapper(predicate))
+}
+
+func (s Stream[T]) FilterWithErAndCtx(predicate func(context.Context, T) (bool, error)) Stream[T] {
 	return newStream[T](func(ctx context.Context) (T, error) {
 		for {
 			v, err := s.provider(ctx)
@@ -258,6 +237,7 @@ func (s Stream[T]) FilterWithErrorAndContext(predicate func(context.Context, T) 
 	}, s.allLifecycleElement)
 }
 
+// Count counts the number of elements in the stream (materializes the stream)
 func (s Stream[T]) Count(ctx context.Context) (int, error) {
 	count := 0
 	err := s.Consume(ctx, func(v T) {
@@ -267,6 +247,16 @@ func (s Stream[T]) Count(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+// MustCount is a convenience method that panics if the stream errors.
+// Should be used for testing purpose or when streams are static (e.g. slice sourced streams)
+func (s Stream[T]) MustCount() int {
+	count, err := s.Count(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	return count
 }
 
 func (s Stream[T]) IsEmpty(ctx context.Context) (bool, error) {

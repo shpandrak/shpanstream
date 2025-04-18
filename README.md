@@ -262,17 +262,22 @@ Since json is the de-facto standard for data interchange, and is used by most AP
 see example in the [full flags example] (examples/flags/flags_example.go) for a complete example of how to use these functions
 
 ## Grpc streaming example
-[//]: # (todo:docs)
+
+- [ ] TODO: Add Grpc streaming example
+
 
 ## Infinite streams
 Streams can be infinite, allowing you to work with data that is generated on the fly.
 
-todo:docs
+- [ ] TODO: Add Infinite streams example
 
-# Advance stream processing
+## Advance stream processing
 Enabler for advanced data processing: Streams provide a powerful abstraction for working with data, allowing you to easily implement advanced data processing techniques such as map-reduce, windowing, bucketing and more.
 
-todo:docs
+- [ ] TODO: Add advanced stream processing example
+
+## Documentation
+[GoDoc](https://pkg.go.dev/github.com/shpandrak/shpanstream) 
 
 ## 📝 License
 

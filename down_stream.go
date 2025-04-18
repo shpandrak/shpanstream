@@ -2,11 +2,11 @@ package shpanstream
 
 import "context"
 
-type DownStreamProviderFunc[S any, T any] func(ctx context.Context, srcProviderFunc StreamProviderFunc[S]) (T, error)
+type downStreamProviderFunc[S any, T any] func(ctx context.Context, srcProviderFunc StreamProviderFunc[S]) (T, error)
 
 func NewDownStream[S any, T any](
 	src Stream[S],
-	downStreamProviderFunc DownStreamProviderFunc[S, T],
+	downStreamProviderFunc downStreamProviderFunc[S, T],
 	openFunc func(ctx context.Context, srcProviderFunc StreamProviderFunc[S]) error,
 ) Stream[T] {
 	dsLifecycle := NewStreamLifecycle(

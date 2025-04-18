@@ -18,6 +18,7 @@ type clusterSortedStream[T any, O any, C comparable] struct {
 // it assumes the stream is sorted by the classifier function so that items with the same classifier are adjacent.
 // this is useful for many applications, e.g. when the data is time sorted and you want to group by time intervals
 // and provide aggregate values.
+// The stream is memory efficient and does not load ech cluster into memory, but stream the items down the merger function.
 func ClusterSortedStream[T any, O any, C comparable](
 	clusterFactory func(ctx context.Context, clusterClassifier C, clusterStream Stream[T]) (O, error),
 	clusterClassifierFunc func(a *T) C,

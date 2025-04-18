@@ -25,8 +25,6 @@ func intClusterMerger(ctx context.Context, _ int, clusterStream Stream[int]) (in
 }
 
 func TestClusterSortedStream(t *testing.T) {
-	ctx := context.Background()
-
 	// Create a Stream
 	clusteredStream := ClusterSortedStream(
 		intClusterMerger,
@@ -37,24 +35,16 @@ func TestClusterSortedStream(t *testing.T) {
 	// Expected result after clustering and merging
 	expected := []int{2, 4, 3, 4, 5, 6, 7, 16, 18}
 
-	// Collect results from the clustered Stream
-	results, err := clusteredStream.Collect(ctx)
-	require.NoError(t, err)
-
-	require.Equal(t, expected, results)
+	// Collect results from the clustered Stream and compare with expected
+	require.Equal(t, expected, clusteredStream.MustCollect())
 }
 
 func TestClusterSortedStream_Empty(t *testing.T) {
-	ctx := context.Background()
-
 	// Create an empty clustered Stream
 	clusteredStream := ClusterSortedStream(intClusterMerger, intClusterPredicate, EmptyStream[int]())
 	// Collect results from the clustered Stream
-	results, err := clusteredStream.Collect(ctx)
 
-	require.NoError(t, err)
-
-	require.Len(t, results, 0)
+	require.Len(t, clusteredStream.MustCollect(), 0)
 }
 
 func TestClusterSortedStream_SingleElement(t *testing.T) {

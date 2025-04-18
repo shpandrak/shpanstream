@@ -6,13 +6,13 @@ import (
 	"io"
 )
 
-type concatenatedStream2[T any] struct {
+type concatenatedStream[T any] struct {
 	streams    Stream[Stream[T]]
 	currStream *Stream[T]
 }
 
 func Concat[T any](streams Stream[Stream[T]]) Stream[T] {
-	return NewStream(&concatenatedStream2[T]{
+	return NewStream(&concatenatedStream[T]{
 		streams: streams,
 	})
 }
@@ -24,7 +24,7 @@ func ConcatStreams[T any](streams ...Stream[T]) Stream[T] {
 	return Concat(Just(streams...))
 }
 
-func (ms *concatenatedStream2[T]) Open(ctx context.Context) error {
+func (ms *concatenatedStream[T]) Open(ctx context.Context) error {
 	// Open the steam of streams
 	err := openSubStream(ctx, ms.streams)
 	if err != nil {
@@ -50,7 +50,7 @@ func (ms *concatenatedStream2[T]) Open(ctx context.Context) error {
 	return nil
 }
 
-func (ms *concatenatedStream2[T]) Close() {
+func (ms *concatenatedStream[T]) Close() {
 	if ms.currStream != nil {
 		// Close only the current Stream
 		closeSubStream(*ms.currStream)
@@ -59,7 +59,7 @@ func (ms *concatenatedStream2[T]) Close() {
 	closeSubStream(ms.streams)
 }
 
-func (ms *concatenatedStream2[T]) Emit(ctx context.Context) (T, error) {
+func (ms *concatenatedStream[T]) Emit(ctx context.Context) (T, error) {
 
 	// this means we have no streams available
 	if ms.currStream == nil {
