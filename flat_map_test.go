@@ -1,13 +1,11 @@
 package shpanstream
 
 import (
-	"context"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func TestFlatMapStream(t *testing.T) {
-	ctx := context.Background()
 
 	// Define a mapper function that transforms each integer into a Stream of integers
 	mapper := func(src int) Stream[int] {
@@ -33,7 +31,5 @@ func TestFlatMapStream(t *testing.T) {
 	expected := []int{10, 11, 20, 21, 30, 31}
 
 	// Collect results from the flat-mapped Stream
-	results, err := flatMapStream.Collect(ctx)
-	require.NoError(t, err)
-	require.EqualValues(t, expected, results)
+	require.EqualValues(t, expected, flatMapStream.MustCollect())
 }
