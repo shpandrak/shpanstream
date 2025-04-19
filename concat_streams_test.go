@@ -8,49 +8,33 @@ import (
 )
 
 func TestConcatenatedStream(t *testing.T) {
-	ctx := context.Background()
-
-	// Create constant streams using Just
-	stream1 := Just(1, 2, 3)
-	stream2 := Just(4, 5)
-	stream3 := EmptyStream[int]()
-	stream4 := Just(6)
-	stream5 := Just(7, 8)
-
-	cStream := ConcatStreams(stream1, stream2, stream3, stream4, stream5)
-
-	// Assert the results directly
-	expected := []int{1, 2, 3, 4, 5, 6, 7, 8}
-
-	// Collect results from the concatenated Stream
-	results, err := cStream.Collect(ctx)
-	require.NoError(t, err)
-	require.EqualValues(t, expected, results)
+	// Assert the results are as expected
+	require.EqualValues(
+		t,
+		[]int{1, 2, 3, 4, 5, 6, 7, 8},
+		ConcatStreams(
+			Just(1, 2, 3),
+			Just(4, 5),
+			EmptyStream[int](),
+			Just(6),
+			Just(7, 8),
+		).MustCollect(),
+	)
 }
 
 func TestEmptyConcatenatedStream(t *testing.T) {
-	ctx := context.Background()
 
-	// Create constant streams using Just
-	// Assert the results directly
-	var expected []int
+	require.Len(t, Concat(Just(EmptyStream[int](), EmptyStream[int](), EmptyStream[int]())).MustCollect(), 0)
 
-	results, err := Concat(Just(EmptyStream[int](), EmptyStream[int](), EmptyStream[int]())).Collect(ctx)
-	require.NoError(t, err)
-	require.EqualValues(t, expected, results)
+	require.Len(t, Concat(EmptyStream[Stream[int]]()).MustCollect(), 0)
 
-	results, err = Concat(EmptyStream[Stream[int]]()).Collect(ctx)
-	require.NoError(t, err)
-	require.EqualValues(t, expected, results)
-
-	results, err = Concat(Just(EmptyStream[int]())).Collect(ctx)
-	require.NoError(t, err)
-	require.EqualValues(t, expected, results)
+	require.Len(t, Concat(Just(EmptyStream[int]())).MustCollect(), 0)
 }
 
 func TestErrorConcatenatedStream(t *testing.T) {
 	ctx := context.Background()
 
+	// Check if the error is propagated correctly
 	_, err := Concat(Just(EmptyStream[int](), NewErrorStream[int](fmt.Errorf("hi")), EmptyStream[int]())).Collect(ctx)
 	require.Error(t, err)
 

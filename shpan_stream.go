@@ -20,20 +20,20 @@ func newStream[T any](streamProviderFunc StreamProviderFunc[T], allLifecycleElem
 	return Stream[T]{provider: streamProviderFunc, allLifecycleElement: allLifecycleElement}
 }
 
-type SimpleStreamOption struct {
+type CreateStreamOption struct {
 	openFunc  func(ctx context.Context) error
 	closeFunc func()
 }
 
-func WithOpenFuncOption(openFunc func(ctx context.Context) error) SimpleStreamOption {
-	return SimpleStreamOption{openFunc: openFunc}
+func WithOpenFuncOption(openFunc func(ctx context.Context) error) CreateStreamOption {
+	return CreateStreamOption{openFunc: openFunc}
 }
 
-func WithCloseFuncOption(closeFunc func()) SimpleStreamOption {
-	return SimpleStreamOption{closeFunc: closeFunc}
+func WithCloseFuncOption(closeFunc func()) CreateStreamOption {
+	return CreateStreamOption{closeFunc: closeFunc}
 }
 
-func NewSimpleStream[T any](streamProviderFunc StreamProviderFunc[T], options ...SimpleStreamOption) Stream[T] {
+func NewSimpleStream[T any](streamProviderFunc StreamProviderFunc[T], options ...CreateStreamOption) Stream[T] {
 	var openFunc func(ctx context.Context) error
 	var closeFunc func()
 
@@ -76,7 +76,20 @@ func (s Stream[T]) MustConsume(f func(T)) {
 	}
 }
 
+// ConsumeWithErr consumes the entire stream and applies the provided function to each element (sometimes named ForEach)
+// Allows to return an error from the function to stop the pipeline
+// It returns an error if the stream materialization fails in any stage of the pipeline
 func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error) error {
+	return s.ConsumeWithErrAndCtx(ctx, func(_ context.Context, v T) error {
+		return f(v)
+	})
+}
+
+// ConsumeWithErrAndCtx consumes the entire stream and applies the provided function to each element (sometimes named ForEach)
+// Allows to return an error from the function to stop the pipeline,
+// passing through the context allowing the function to gracefully cancel
+// It returns an error if the stream materialization fails in any stage of the pipeline
+func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error) error {
 
 	ctxWithCancel, cancelFunc := context.WithCancel(ctx)
 
@@ -121,7 +134,7 @@ func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error) error {
 			}
 			return err
 		}
-		err = f(v)
+		err = f(ctx, v)
 		if err != nil {
 			return err
 		}
