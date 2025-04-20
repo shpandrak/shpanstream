@@ -27,23 +27,23 @@ func (c *concurrentMapStreamOptions) mapStreamOptionName() string {
 
 func MapStream[SRC any, TGT any](
 	src Stream[SRC],
-	mapper func(SRC) TGT,
+	mapper Mapper[SRC, TGT],
 	options ...MapStreamOptions,
 ) Stream[TGT] {
-	return MapStreamWithErrAndCtx(src, mapperToErrCtxMapper(mapper), options...)
+	return MapStreamWithErrAndCtx(src, mapperToErrCtx(mapper), options...)
 }
 
 func MapStreamWithErr[SRC any, TGT any](
 	src Stream[SRC],
-	mapper func(SRC) (TGT, error),
+	mapper MapperWithErr[SRC, TGT],
 	options ...MapStreamOptions,
 ) Stream[TGT] {
-	return MapStreamWithErrAndCtx(src, errMapperToErrCtxMapper(mapper), options...)
+	return MapStreamWithErrAndCtx(src, mapperErrToErrCtx(mapper), options...)
 }
 
 func MapStreamWithErrAndCtx[SRC any, TGT any](
 	src Stream[SRC],
-	mapper func(context.Context, SRC) (TGT, error),
+	mapper MapperWithErrAndCtx[SRC, TGT],
 	options ...MapStreamOptions,
 ) Stream[TGT] {
 	if len(options) > 0 {
@@ -52,7 +52,7 @@ func MapStreamWithErrAndCtx[SRC any, TGT any](
 			case *concurrentMapStreamOptions:
 				return mapStreamConcurrently[SRC, TGT](src, cOpt.concurrency, mapper)
 			default:
-				return NewErrorStream[TGT](fmt.Errorf("unsupported map stream option type: %T", opt))
+				return ErrorStream[TGT](fmt.Errorf("unsupported map stream option type: %T", opt))
 			}
 		}
 	}
@@ -71,27 +71,27 @@ func MapStreamWithErrAndCtx[SRC any, TGT any](
 // filtering is done by returning nil from the mapper function.
 func MapStreamWhileFiltering[SRC any, TGT any](
 	src Stream[SRC],
-	mapper func(SRC) *TGT,
+	mapper Mapper[SRC, *TGT],
 	options ...MapStreamOptions,
 ) Stream[TGT] {
-	return MapStreamWhileFilteringWithErrAndCtx(src, mapperToErrCtxMapper(mapper), options...)
+	return MapStreamWhileFilteringWithErrAndCtx(src, mapperToErrCtx(mapper), options...)
 }
 
 // MapStreamWhileFilteringWithErr is a function that maps a Stream of SRC to a Stream of TGT while allowing to filter.
 // filtering is done by returning nil from the mapper function.
 func MapStreamWhileFilteringWithErr[SRC any, TGT any](
 	src Stream[SRC],
-	mapper func(SRC) (*TGT, error),
+	mapper MapperWithErr[SRC, *TGT],
 	options ...MapStreamOptions,
 ) Stream[TGT] {
-	return MapStreamWhileFilteringWithErrAndCtx(src, errMapperToErrCtxMapper[SRC, *TGT](mapper), options...)
+	return MapStreamWhileFilteringWithErrAndCtx(src, mapperErrToErrCtx[SRC, *TGT](mapper), options...)
 }
 
 // MapStreamWhileFilteringWithErrAndCtx is a function that maps a Stream of SRC to a Stream of TGT while allowing to filter while streaming.
 // filtering is done by returning nil from the mapper function.
 func MapStreamWhileFilteringWithErrAndCtx[SRC any, TGT any](
 	src Stream[SRC],
-	mapper func(context.Context, SRC) (*TGT, error),
+	mapper MapperWithErrAndCtx[SRC, *TGT],
 	options ...MapStreamOptions,
 ) Stream[TGT] {
 	return MapStream(
@@ -109,4 +109,15 @@ func MapStreamWhileFilteringWithErrAndCtx[SRC any, TGT any](
 			return *p
 		},
 	)
+}
+
+// FlatMapStream maps a single element of the source stream to a stream of elements and flattens the result to a single stream.
+func FlatMapStream[SRC any, TGT any](src Stream[SRC], mapper Mapper[SRC, Stream[TGT]]) Stream[TGT] {
+	collect, err := MapStreamWithErrAndCtx[SRC, Stream[TGT]](src, mapperToErrCtx(mapper)).
+		Collect(context.Background())
+
+	if err != nil {
+		return ErrorStream[TGT](err)
+	}
+	return ConcatStreams[TGT](collect...)
 }

@@ -141,22 +141,6 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 	}
 }
 
-func FlatMapStream[SRC any, TGT any](src Stream[SRC], mapper func(SRC) Stream[TGT]) Stream[TGT] {
-	streamOfStreams := MapStreamWithErrAndCtx[SRC, Stream[TGT]](src, func(ctx context.Context, src SRC) (Stream[TGT], error) {
-		return mapper(src), nil
-	})
-
-	collect, err := streamOfStreams.Collect(context.Background())
-	if err != nil {
-		return NewErrorStream[TGT](err)
-	}
-	return ConcatStreams[TGT](collect...)
-}
-
-func (s Stream[T]) GetFirst(ctx context.Context) (*T, error) {
-	return s.FindFirst().Get(ctx)
-}
-
 type errResult struct {
 }
 
@@ -165,7 +149,7 @@ func (e *errResult) Error() string {
 }
 
 func (s Stream[T]) FindFirst() Lazy[T] {
-	return NewLazy[T](func(ctx context.Context) (*T, error) {
+	return NewLazyOptional[T](func(ctx context.Context) (*T, error) {
 		var result *T
 		err := s.ConsumeWithErr(ctx, func(v T) error {
 			result = &v
@@ -181,11 +165,10 @@ func (s Stream[T]) FindFirst() Lazy[T] {
 		}
 		return result, nil
 	})
-
 }
 
 func (s Stream[T]) FindLast() Lazy[T] {
-	return NewLazy[T](func(ctx context.Context) (*T, error) {
+	return NewLazyOptional[T](func(ctx context.Context) (*T, error) {
 		var result *T
 		err := s.Consume(ctx, func(v T) {
 			result = &v
@@ -197,6 +180,33 @@ func (s Stream[T]) FindLast() Lazy[T] {
 	})
 }
 
+// FindFirstAndLast returns the first and last element of the stream, unless the stream is empty
+// if the stream contains only one element, the first and last element are the same
+func FindFirstAndLast[T any](s Stream[T]) Lazy[Entry[T, T]] {
+	return NewLazyOptional[Entry[T, T]](func(ctx context.Context) (*Entry[T, T], error) {
+		var first *T
+		var last *T
+		err := s.Consume(ctx, func(v T) {
+			if first == nil {
+				first = &v
+			}
+			last = &v
+		})
+		if err != nil {
+			return nil, err
+		}
+		if first == nil {
+			return nil, nil
+		}
+		return &Entry[T, T]{
+			Key:   *first,
+			Value: *last,
+		}, nil
+	})
+}
+
+// Collect materializes the stream, and collects all elements of the stream into a slice
+// It returns an error if the stream materialization fails in any stage of the pipeline
 func (s Stream[T]) Collect(ctx context.Context) ([]T, error) {
 	var result []T
 	err := s.Consume(ctx, func(v T) {
@@ -221,17 +231,15 @@ func (s Stream[T]) MustCollect() []T {
 	return result
 }
 
-func (s Stream[T]) Filter(predicate func(T) bool) Stream[T] {
-	return s.FilterWithErAndCtx(func(ctx context.Context, v T) (bool, error) {
-		return predicate(v), nil
-	})
+func (s Stream[T]) Filter(predicate Predicate[T]) Stream[T] {
+	return s.FilterWithErAndCtx(predicateToErrCtx(predicate))
 }
 
-func (s Stream[T]) FilterWithErr(predicate func(T) (bool, error)) Stream[T] {
-	return s.FilterWithErAndCtx(errMapperToErrCtxMapper(predicate))
+func (s Stream[T]) FilterWithErr(predicate PredicateWithErr[T]) Stream[T] {
+	return s.FilterWithErAndCtx(predicateErrToErrCtx(predicate))
 }
 
-func (s Stream[T]) FilterWithErAndCtx(predicate func(context.Context, T) (bool, error)) Stream[T] {
+func (s Stream[T]) FilterWithErAndCtx(predicate PredicateWithErrAndCtx[T]) Stream[T] {
 	return newStream[T](func(ctx context.Context) (T, error) {
 		for {
 			v, err := s.provider(ctx)

@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-func NewErrorStream[T any](err error) Stream[T] {
+func ErrorStream[T any](err error) Stream[T] {
 	return newStream[T](func(ctx context.Context) (T, error) {
 		return defaultValue[T](), err
 	}, []StreamLifecycle{NewStreamLifecycle(func(_ context.Context) error {

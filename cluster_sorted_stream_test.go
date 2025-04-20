@@ -12,7 +12,7 @@ func intClusterPredicate(i *int) int {
 }
 
 // Simple integer merger that combines a cluster into its sum.
-func intClusterMerger(ctx context.Context, _ int, clusterStream Stream[int]) (int, error) {
+func intClusterMerger(ctx context.Context, _ int, clusterStream Stream[int], _ *int) (int, error) {
 	sum := 0
 	collect, err := clusterStream.Collect(ctx)
 	if err != nil {

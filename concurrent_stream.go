@@ -18,9 +18,13 @@ type concurrentStreamMapperProvider[SRC any, TGT any] struct {
 
 // mapStreamConcurrently return a mapped stream using a mapper function. the mapping is done concurrently.
 // note that the resulting stream order is not guaranteed to be the same as the source stream order.
-func mapStreamConcurrently[SRC any, TGT any](src Stream[SRC], concurrency int, mapper func(context.Context, SRC) (TGT, error)) Stream[TGT] {
+func mapStreamConcurrently[SRC any, TGT any](
+	src Stream[SRC],
+	concurrency int,
+	mapper MapperWithErrAndCtx[SRC, TGT],
+) Stream[TGT] {
 	if concurrency <= 0 {
-		return NewErrorStream[TGT](fmt.Errorf("concurrency must be > 0"))
+		return ErrorStream[TGT](fmt.Errorf("concurrency must be > 0"))
 	}
 	return NewStream[TGT](&concurrentStreamMapperProvider[SRC, TGT]{
 		srcStream:   src,
