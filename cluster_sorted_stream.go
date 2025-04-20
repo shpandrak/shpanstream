@@ -1,16 +1,19 @@
 package shpanstream
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
 )
 
-type clusterSortedStream[T any, O any, C comparable] struct {
+type clusterSortedStream[T any, O any, C cmp.Ordered] struct {
 	nextItem              *T
 	currClassifier        C
 	clusterClassifierFunc func(a *T) C
-	merger                func(ctx context.Context, clusterClassifier C, clusterStream Stream[T]) (O, error)
+	merger                func(ctx context.Context, clusterClassifier C, clusterStream Stream[T], lastItemOnPreviousCluster *T) (O, error)
+
+	lastItemOnPreviousCluster *T
 }
 
 // ClusterSortedStream creates a Stream that clusters items from the source Stream based on a classifier function.
@@ -18,8 +21,8 @@ type clusterSortedStream[T any, O any, C comparable] struct {
 // this is useful for many applications, e.g. when the data is time sorted, and you want to group by time intervals
 // and provide aggregate values.
 // The stream is memory efficient and does not load ech cluster into memory, but stream the items down the merger function.
-func ClusterSortedStream[T any, O any, C comparable](
-	clusterFactory func(ctx context.Context, clusterClassifier C, clusterStream Stream[T]) (O, error),
+func ClusterSortedStream[T any, O any, C cmp.Ordered](
+	clusterFactory func(ctx context.Context, clusterClassifier C, clusterStream Stream[T], lastItemOnPreviousCluster *T) (O, error),
 	clusterClassifierFunc func(a *T) C,
 	src Stream[T]) Stream[O] {
 
@@ -76,7 +79,7 @@ func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFun
 
 			// Yield fs.nextItem
 			item := *fs.nextItem
-
+			fs.lastItemOnPreviousCluster = fs.nextItem
 			// Advance fs.nextItem
 			next, err := srcProviderFunc(ctx)
 			if err != nil {
@@ -96,7 +99,7 @@ func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFun
 	)
 
 	// Call the merger function with the current cluster classifier and the cluster Stream
-	result, mergeErr := fs.merger(ctx, currClusterClassifier, clusterStream)
+	result, mergeErr := fs.merger(ctx, currClusterClassifier, clusterStream, fs.lastItemOnPreviousCluster)
 	if mergeErr != nil {
 		// Make sure we wrap the error so e.g. even if it is io.EOF, it is not mistaken for end of Stream (because go is stupid)
 		return defaultValue[O](), fmt.Errorf("failed merging: %w", mergeErr)
@@ -104,7 +107,30 @@ func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFun
 
 	// Update fs.currClassifier if fs.nextItem is not nil
 	if fs.nextItem != nil {
-		fs.currClassifier = fs.clusterClassifierFunc(fs.nextItem)
+		nextClassifier := fs.clusterClassifierFunc(fs.nextItem)
+
+		// Advance fs.nextItem until we find the next cluster, this is needed since the merger function
+		// might have not consumed all items (e.g. limit, findFirst)
+		for nextClassifier == currClusterClassifier && fs.nextItem != nil {
+			// Advance fs.nextItem
+			var err error
+			next, err := srcProviderFunc(ctx)
+			if err != nil {
+				if err == io.EOF {
+					fs.nextItem = nil
+				} else {
+					return defaultValue[O](), err
+				}
+			} else {
+				nextClassifier = fs.clusterClassifierFunc(&next)
+				if nextClassifier < currClusterClassifier {
+					return defaultValue[O](), fmt.Errorf("cluster stream is not sorted: %v < %v", currClusterClassifier, nextClassifier)
+				}
+				fs.lastItemOnPreviousCluster = fs.nextItem
+				fs.nextItem = &next
+			}
+		}
+		fs.currClassifier = nextClassifier
 	}
 
 	return result, nil

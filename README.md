@@ -126,7 +126,7 @@ When there are errors, streams automatically close all the underlying resources 
 
 Let's go back to the country flags example, and add error handling to the pipeline
 For simplicity, previous iteration ignored errors and used the `MapStream` that is meant for simple mapping
-since fetching external resources can fail, we will use the `MapStreamWithError` that allows the mapper to return an error
+since fetching external resources can fail, we will use the `MapStreamWithErr` that allows the mapper to return an error
 
 
 ```go
@@ -171,7 +171,7 @@ and none of the downstream operations will be executed.
 func fetchCountryCodes() shpanstream.Stream[string] {
 
     if (currentUserDoesNotHavePermission()) {
-        return shpanstream.NewErrorStream[string](fmt.Errorf("user %s does not have permission", getCurrentUser()))
+        return shpanstream.ErrorStream[string](fmt.Errorf("user %s does not have permission", getCurrentUser()))
     }
     return shpanstream.Just("US", "CA", "GB")
 }
@@ -259,7 +259,14 @@ Since json is the de-facto standard for data interchange, and is used by most AP
 - ReadJsonObject: Read a json object from a reader and return a stream of the key-value pairs in the object
 - StreamJsonToWriter/StreamJsonToWriterWithInit: Stream a stream of data to a writer as json
 
-see example in the [full flags example] (examples/flags/flags_example.go) for a complete example of how to use these functions
+see example in the [Full flags example](examples/flags/flags_example.go) for a complete example of how to use these functions
+
+## Time series stream processing example
+
+Streams are very useful for processing time series data, allowing you to easily manipulate and analyze time series data
+while we stream the data from the source. a common use case is to align time series data.
+The aligner uses the ClusterSortedStream to align the time series data from a single source
+See [Time series aligner example](examples/timeseries/timeseries_stream_aligner.go)
 
 ## Grpc streaming example
 

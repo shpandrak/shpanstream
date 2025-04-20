@@ -35,18 +35,18 @@ func TestErrorConcatenatedStream(t *testing.T) {
 	ctx := context.Background()
 
 	// Check if the error is propagated correctly
-	_, err := Concat(Just(EmptyStream[int](), NewErrorStream[int](fmt.Errorf("hi")), EmptyStream[int]())).Collect(ctx)
+	_, err := Concat(Just(EmptyStream[int](), ErrorStream[int](fmt.Errorf("hi")), EmptyStream[int]())).Collect(ctx)
 	require.Error(t, err)
 
-	_, err = Concat(NewErrorStream[Stream[Stream[int]]](fmt.Errorf("hi"))).Collect(ctx)
+	_, err = Concat(ErrorStream[Stream[Stream[int]]](fmt.Errorf("hi"))).Collect(ctx)
 	require.Error(t, err)
 
-	_, err = Concat(Just(NewErrorStream[int](fmt.Errorf("hi")))).Collect(ctx)
+	_, err = Concat(Just(ErrorStream[int](fmt.Errorf("hi")))).Collect(ctx)
 	require.Error(t, err)
 
-	_, err = Concat(Just(Just(1), NewErrorStream[int](fmt.Errorf("hi")))).Collect(ctx)
+	_, err = Concat(Just(Just(1), ErrorStream[int](fmt.Errorf("hi")))).Collect(ctx)
 	require.Error(t, err)
-	_, err = Concat(Just(NewErrorStream[int](fmt.Errorf("hi")), Just(1))).Collect(ctx)
+	_, err = Concat(Just(ErrorStream[int](fmt.Errorf("hi")), Just(1))).Collect(ctx)
 	require.Error(t, err)
 
 }
