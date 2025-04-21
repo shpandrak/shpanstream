@@ -277,6 +277,26 @@ In the [stocks example](integrations/ws/examples/stocks/stocks_example.go)
 we are streaming stock prices from a websocket connection and processing the data in real time.
 The stream is aligned mapped to timeseries data and aligned to produce consistent time series data
 
+```go'
+	// Align the stream to 3 seconds getting weighted average for price
+	err := timeseries.AlignStream(
+
+		// Map stock entries prices to timeseries.TsRecord[float64] (while filtering irrelevant data)
+		shpanstream.MapStreamWhileFiltering(
+			// Get the websocket stocks stream
+			ws.CreateJsonStreamFromWebSocket[StockDto](createWebSocketFactory(apiKey)),
+
+			// Map to timeseries.TsRecord[float64]
+			mapStockToTimeSeries,
+		),
+		3*time.Second,
+	).
+		// Print the output to stdout
+		Consume(ctx, func(t timeseries.TsRecord[float64]) {
+			fmt.Printf("%+v\n", t)
+		})
+
+```
 
 ### Grpc streaming example
 
