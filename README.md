@@ -59,7 +59,7 @@ While go generics limits generic functions, making the api less "fluent" than ot
 	
 ```
 
-## Concurrency
+### Concurrency
 Concurrent processing is made easy. Stream operations can be evaluated concurrently by just adding "concurrent" option
 
 See [Full flags example](examples/flags/flags_example.go)
@@ -115,7 +115,7 @@ As you can test for yourself, using the [flags example](examples/flags/flags_exa
 > option will load more elements (up to the concurrency requested), take that into account when using
 
 
-## Error propagation
+### Error propagation
 Streams provide a clean way to handle errors, allowing you to easily propagate errors through your data processing pipeline.
 Since streams are lazily evaluated, errors are only propagated when the stream is being materialized,
 keeping the error handling to where it is relevant
@@ -177,7 +177,7 @@ func fetchCountryCodes() shpanstream.Stream[string] {
 }
 ```
 
-## Context propagation
+### Context propagation
 When using external resources, it is important to be able to cancel the request if the stream is cancelled.
 for that there is an additional version of the MapStream function that in addition to supporting errors, allows passing context to the maper
 While this is not needed in simple stream processing examples, it can be crucial when using external resources.
@@ -205,7 +205,7 @@ Passing context allows to cancel the request if the stream is cancelled, and als
 
 ```
 
-## Buffering
+### Buffering
 When using external resources, it is important to be able to buffer the data in order to avoid blocking the stream.
 this will prevent"bursty" readers from blocking the stream and allow to process the data in a more efficient way.
 ```go
@@ -217,7 +217,7 @@ this will prevent"bursty" readers from blocking the stream and allow to process 
         })
 ```
 
-## Merging
+### Merging
 There are multiple ways to merge streams together, a very useful one is to merge multiple streams that are already sorted.
 This can be very handy with time series data that tends to be sorted by time, and have multiple sources of data.
 ```go
@@ -236,7 +236,7 @@ This can be very handy with time series data that tends to be sorted by time, an
 
 ```
 
-## Paging 
+### Paging 
 When using underlying data sources that doesn't natively support paging streams can be easily paged.
 Since streams are composable this also work when composing multiple streams together into a single pageable stream.
 
@@ -253,7 +253,7 @@ Since streams are composable this also work when composing multiple streams toge
         })
 ```
 
-## Json streaming tools
+### Json streaming tools
 Since json is the de-facto standard for data interchange, and is used by most APIs, shpanstream provide some built-in stream providers functions to work with json data streams.
 - ReadJsonArray: Read a json array from a reader and return a stream of the elements in the array
 - ReadJsonObject: Read a json object from a reader and return a stream of the key-value pairs in the object
@@ -261,24 +261,24 @@ Since json is the de-facto standard for data interchange, and is used by most AP
 
 see example in the [Full flags example](examples/flags/flags_example.go) for a complete example of how to use these functions
 
-## Time series stream processing example
+### Time series stream processing example
 
 Streams are very useful for processing time series data, allowing you to easily manipulate and analyze time series data
 while we stream the data from the source. a common use case is to align time series data.
 The aligner uses the ClusterSortedStream to align the time series data from a single source
 See [Time series aligner example](examples/timeseries/timeseries_stream_aligner.go)
 
-## Grpc streaming example
+### Grpc streaming example
 
 - [ ] TODO: Add Grpc streaming example
 
 
-## Infinite streams
+### Infinite streams
 Streams can be infinite, allowing you to work with data that is generated on the fly.
 
 - [ ] TODO: Add Infinite streams example
 
-## Advance stream processing
+### Advance stream processing
 Enabler for advanced data processing: Streams provide a powerful abstraction for working with data, allowing you to easily implement advanced data processing techniques such as map-reduce, windowing, bucketing and more.
 
 - [ ] TODO: Add advanced stream processing example
