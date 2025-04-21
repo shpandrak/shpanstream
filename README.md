@@ -268,6 +268,16 @@ while we stream the data from the source. a common use case is to align time ser
 The aligner uses the ClusterSortedStream to align the time series data from a single source
 See [Time series aligner example](examples/timeseries/timeseries_stream_aligner.go)
 
+### Websocket streaming example
+Another common use case for streams is to stream data from a websocket connection.
+websocket backed streams are often being uses as "infinite" streams that are processing the pipeline of data
+as long as the connection is open.
+
+In the [stocks example](integrations/ws/examples/stocks/stocks_example.go)
+we are streaming stock prices from a websocket connection and processing the data in real time.
+The stream is aligned mapped to timeseries data and aligned to produce consistent time series data
+
+
 ### Grpc streaming example
 
 - [ ] TODO: Add Grpc streaming example
