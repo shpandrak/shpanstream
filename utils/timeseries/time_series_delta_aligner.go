@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"time"
 )
 
@@ -38,10 +39,10 @@ func AlignDeltaStream[N Number](s shpanstream.Stream[TsRecord[N]], fixedDuration
 				globalLastItem = &t
 			})
 			if err != nil {
-				return defaultValue[TsRecord[N]](), err
+				return util.DefaultValue[TsRecord[N]](), err
 			}
 			if localFirstItem == nil {
-				return defaultValue[TsRecord[N]](), fmt.Errorf("cluster stream for cluster %d is empty", clusterClassifier)
+				return util.DefaultValue[TsRecord[N]](), fmt.Errorf("cluster stream for cluster %d is empty", clusterClassifier)
 			}
 			if globalFirstItem == nil {
 				globalFirstItem = localFirstItem
@@ -72,7 +73,7 @@ func AlignDeltaStream[N Number](s shpanstream.Stream[TsRecord[N]], fixedDuration
 						localFirstItem.Value,
 					)
 					if err != nil {
-						return defaultValue[TsRecord[N]](), err
+						return util.DefaultValue[TsRecord[N]](), err
 					}
 					return TsRecord[N]{
 						Value:     avgItem,

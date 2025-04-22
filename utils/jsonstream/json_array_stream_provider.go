@@ -62,8 +62,17 @@ func (j *jsonArrayStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 	if j.jsonDecoder.More() {
 		var parsedElement T
 		// Decode the next element
+
 		if err := j.jsonDecoder.Decode(&parsedElement); err != nil {
-			return defaultValue[T](), fmt.Errorf("error parsing array element: %w", err)
+
+			// If there is a parsing error, it is helpful to read the buffered data so this can be debugged
+			bufferMessage := ""
+			buffText, bufErr := io.ReadAll(j.jsonDecoder.Buffered())
+			if bufErr == nil {
+				bufferMessage = fmt.Sprintf(". parser buffer %s", buffText)
+			}
+
+			return defaultValue[T](), fmt.Errorf("error parsing array element%s: %w", bufferMessage, err)
 		}
 
 		// Process element

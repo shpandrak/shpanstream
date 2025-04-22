@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"time"
 )
 
@@ -33,7 +34,7 @@ func AlignStream[N Number](
 			clusterTimestamp := time.UnixMilli(clusterClassifier)
 			firstItem, err := clusterStream.FindFirst().Get(ctx)
 			if err != nil {
-				return defaultValue[TsRecord[N]](), err
+				return util.DefaultValue[TsRecord[N]](), err
 			}
 
 			// If this is the first cluster, smudge the first item to the start of the cluster
@@ -61,7 +62,7 @@ func AlignStream[N Number](
 						firstItem.Value,
 					)
 					if err != nil {
-						return defaultValue[TsRecord[N]](), err
+						return util.DefaultValue[TsRecord[N]](), err
 					}
 					return TsRecord[N]{
 						Value:     avgItem,
