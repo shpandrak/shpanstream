@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/utils/jsonstream"
 	"io"
 	"log"
 	"net/http"
@@ -69,7 +70,7 @@ func main() {
 	startTime := time.Now()
 
 	// Using the StreamJsonToWriter helper to stream the JSON output directly to the writer
-	err := shpanstream.StreamJsonToWriter(
+	err := jsonstream.StreamJsonToWriter(
 		context.Background(),
 		outputWriter,
 		shpanstream.MapStreamWithErrAndCtx(
@@ -102,7 +103,7 @@ func fetchCountryFlag(_ context.Context, e shpanstream.Entry[string, string]) (C
 }
 
 func fetchCountryCodeToNames() shpanstream.Stream[shpanstream.Entry[string, string]] {
-	return shpanstream.ReadJsonObject[string](func(ctx context.Context) (io.ReadCloser, error) {
+	return jsonstream.ReadJsonObject[string](func(ctx context.Context) (io.ReadCloser, error) {
 		resp, err := http.Get(codesURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch URL %s: %w", codesURL, err)

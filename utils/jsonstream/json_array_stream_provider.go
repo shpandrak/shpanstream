@@ -1,10 +1,12 @@
-package shpanstream
+package jsonstream
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
 
@@ -14,8 +16,8 @@ type jsonArrayStreamProvider[T any] struct {
 	jsonDecoder        *json.Decoder
 }
 
-func ReadJsonArray[T any](readCloserProvider func(ctx context.Context) (io.ReadCloser, error)) Stream[T] {
-	return NewStream[T](&jsonArrayStreamProvider[T]{
+func ReadJsonArray[T any](readCloserProvider func(ctx context.Context) (io.ReadCloser, error)) shpanstream.Stream[T] {
+	return shpanstream.NewStream[T](&jsonArrayStreamProvider[T]{
 		readCloserProvider: readCloserProvider,
 	})
 }
@@ -54,7 +56,7 @@ func (j *jsonArrayStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 	// Check if the ctx is done
 	select {
 	case <-ctx.Done():
-		return defaultValue[T](), ctx.Err()
+		return util.DefaultValue[T](), ctx.Err()
 	default:
 	}
 
@@ -72,7 +74,7 @@ func (j *jsonArrayStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 				bufferMessage = fmt.Sprintf(". parser buffer %s", buffText)
 			}
 
-			return defaultValue[T](), fmt.Errorf("error parsing array element%s: %w", bufferMessage, err)
+			return util.DefaultValue[T](), fmt.Errorf("error parsing array element%s: %w", bufferMessage, err)
 		}
 
 		// Process element
@@ -82,13 +84,13 @@ func (j *jsonArrayStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 		// Read closing array token
 		t, err := j.jsonDecoder.Token()
 		if err != nil {
-			return defaultValue[T](), err
+			return util.DefaultValue[T](), err
 		}
 		if delim, ok := t.(json.Delim); !ok || delim != ']' {
-			return defaultValue[T](), fmt.Errorf("expected end of json array, got %v", t)
+			return util.DefaultValue[T](), fmt.Errorf("expected end of json array, got %v", t)
 		}
 
-		return defaultValue[T](), io.EOF
+		return util.DefaultValue[T](), io.EOF
 	}
 
 }

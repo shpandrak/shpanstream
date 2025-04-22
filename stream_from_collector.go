@@ -2,6 +2,7 @@ package shpanstream
 
 import (
 	"context"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
 
@@ -36,10 +37,10 @@ func (m *manipulatedStream[S, T]) Close() {
 
 func (m *manipulatedStream[S, T]) Emit(ctx context.Context) (T, error) {
 	if ctx.Err() != nil {
-		return defaultValue[T](), ctx.Err()
+		return util.DefaultValue[T](), ctx.Err()
 	}
 	if len(*m.collected) == 0 {
-		return defaultValue[T](), io.EOF
+		return util.DefaultValue[T](), io.EOF
 	}
 	v := (*m.collected)[0]
 	*m.collected = (*m.collected)[1:]

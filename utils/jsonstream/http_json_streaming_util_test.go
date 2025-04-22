@@ -1,8 +1,10 @@
-package shpanstream
+package jsonstream
 
 import (
 	"context"
 	"fmt"
+	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/stretchr/testify/require"
 	"io"
 	"log"
@@ -17,13 +19,13 @@ type tstData struct {
 	Int int    `json:"int"`
 }
 
-func createTestInfiniteStream() Stream[tstData] {
+func createTestInfiniteStream() shpanstream.Stream[tstData] {
 	idx := 0
-	return NewSimpleStream[tstData](func(ctx context.Context) (tstData, error) {
+	return shpanstream.NewSimpleStream[tstData](func(ctx context.Context) (tstData, error) {
 
 		select {
 		case <-ctx.Done():
-			return defaultValue[tstData](), ctx.Err()
+			return util.DefaultValue[tstData](), ctx.Err()
 		default:
 			idx++
 			return tstData{
@@ -37,7 +39,7 @@ func createTestInfiniteStream() Stream[tstData] {
 // Shared test state
 var (
 	mu   sync.Mutex
-	data Stream[tstData]
+	data shpanstream.Stream[tstData]
 	wg   sync.WaitGroup
 )
 
@@ -46,7 +48,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	data = ReadJsonArray[tstData](func(ctx context.Context) (io.ReadCloser, error) {
 		return r.Body, nil
-	}).WithAdditionalStreamLifecycle(NewStreamLifecycle(
+	}).WithAdditionalStreamLifecycle(shpanstream.NewStreamLifecycle(
 		func(ctx context.Context) error {
 			log.Println("Starting stream")
 			return nil
@@ -70,7 +72,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	_ = StreamJsonToHttpResponseWriter(
 		r.Context(),
 		w,
-		MapStream(
+		shpanstream.MapStream(
 			clientStream,
 			func(v tstData) tstData {
 				return tstData{
@@ -117,7 +119,7 @@ func TestExecuteStreamingHttpPostRequest(t *testing.T) {
 	err = ReadJsonArray[tstData](func(ctx context.Context) (io.ReadCloser, error) {
 		return getResp.Body, nil
 	}).Consume(context.Background(), func(d tstData) {
-		fmt.Printf("Received: %v", d)
+		fmt.Printf("Received: %v\n", d)
 	})
 	require.NoError(t, err)
 

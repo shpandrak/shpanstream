@@ -3,6 +3,7 @@ package shpanstream
 import (
 	"context"
 	"errors"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
 
@@ -63,7 +64,7 @@ func (ms *concatenatedStream[T]) Emit(ctx context.Context) (T, error) {
 
 	// this means we have no streams available
 	if ms.currStream == nil {
-		return defaultValue[T](), io.EOF
+		return util.DefaultValue[T](), io.EOF
 	}
 
 	currStreamNextItem, err := ms.currStream.provider(ctx)
@@ -78,16 +79,16 @@ func (ms *concatenatedStream[T]) Emit(ctx context.Context) (T, error) {
 			if err != nil {
 				// end of all streams
 				if err == io.EOF {
-					return defaultValue[T](), err
+					return util.DefaultValue[T](), err
 				} else {
 					// this is an error, not EOF
-					return defaultValue[T](), err
+					return util.DefaultValue[T](), err
 				}
 			} else {
 				// open the next stream
 				err = openSubStream(ctx, nextStream)
 				if err != nil {
-					return defaultValue[T](), err
+					return util.DefaultValue[T](), err
 				}
 				ms.currStream = &nextStream
 			}
@@ -95,7 +96,7 @@ func (ms *concatenatedStream[T]) Emit(ctx context.Context) (T, error) {
 
 		} else {
 			// This is an error, not EOF
-			return defaultValue[T](), err
+			return util.DefaultValue[T](), err
 		}
 	}
 	return currStreamNextItem, nil

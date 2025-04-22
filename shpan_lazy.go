@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
 
@@ -29,15 +30,15 @@ func (lp *lazyStreamProvider[T]) Close() {
 
 func (lp *lazyStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 	if lp.fetched {
-		return defaultValue[T](), io.EOF
+		return util.DefaultValue[T](), io.EOF
 	}
 	lp.fetched = true
 	v, err := lp.fetcher(ctx)
 	if err != nil {
-		return defaultValue[T](), err
+		return util.DefaultValue[T](), err
 	}
 	if v == nil {
-		return defaultValue[T](), io.EOF
+		return util.DefaultValue[T](), io.EOF
 	}
 	return *v, nil
 }
@@ -96,10 +97,10 @@ func (o Lazy[T]) AsStream() Stream[T] {
 func (o Lazy[T]) Get(ctx context.Context) (T, error) {
 	v, err := o.fetcher(ctx)
 	if err != nil {
-		return defaultValue[T](), err
+		return util.DefaultValue[T](), err
 	}
 	if v == nil {
-		return defaultValue[T](), fmt.Errorf("lazy value is empty")
+		return util.DefaultValue[T](), fmt.Errorf("lazy value is empty")
 	}
 	return *v, err
 }
@@ -113,7 +114,7 @@ func (o Lazy[T]) GetOptional(ctx context.Context) (*T, error) {
 func (o Lazy[T]) OrElse(ctx context.Context, v T) (T, error) {
 	d, err := o.fetcher(ctx)
 	if err != nil {
-		return defaultValue[T](), err
+		return util.DefaultValue[T](), err
 	}
 	if d == nil {
 		return v, nil
@@ -185,7 +186,7 @@ func MapLazyWithErrAndCtx[SRC any, TGT any](src Lazy[SRC], mapper MapperWithErrA
 func (o Lazy[T]) OrElseGet(ctx context.Context, alt func() T) (T, error) {
 	ret, err := o.GetOptional(ctx)
 	if err != nil {
-		return defaultValue[T](), err
+		return util.DefaultValue[T](), err
 	}
 	if ret != nil {
 		return *ret, nil

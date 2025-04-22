@@ -2,6 +2,7 @@ package shpanstream
 
 import (
 	"context"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 	"slices"
 )
@@ -28,10 +29,10 @@ func (j *justStream[T]) Close() {
 
 func (j *justStream[T]) Emit(ctx context.Context) (T, error) {
 	if ctx.Err() != nil {
-		return defaultValue[T](), ctx.Err()
+		return util.DefaultValue[T](), ctx.Err()
 	}
 	if len(j.slc) == 0 {
-		return defaultValue[T](), io.EOF
+		return util.DefaultValue[T](), io.EOF
 	}
 	v := j.slc[0]
 	j.slc = j.slc[1:]
