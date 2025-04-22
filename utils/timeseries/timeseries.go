@@ -40,8 +40,3 @@ func timeWeightedAverage[N Number](targetTime, v1Time time.Time, v1 N, v2Time ti
 
 	return N(res), nil
 }
-
-func defaultValue[T any]() T {
-	var ret T
-	return ret
-}

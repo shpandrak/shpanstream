@@ -5,13 +5,13 @@ Shpanstream is lightweight "zero-dependencies" Go library for working with strea
 ## At a glance
 
 ```go  
-    // Find the first even number in a stream
-    shpanstream.Just(1, 2, 3, 4, 5}).
-        Filter(func(x int) bool {
-            return x%2 == 0
-        }).
-        FindFirst().
-        MustGet()
+// Find the first even number in a stream
+shpanstream.Just(1, 2, 3, 4, 5}).
+    Filter(func(x int) bool {
+        return x%2 == 0
+    }).
+    FindFirst().
+    MustGet()
 	
 ```
 
@@ -43,19 +43,19 @@ While go generics limits generic functions, making the api less "fluent" than ot
 
 ```go  
     
-    // Prints the first 5 weapons of non Hobit LOTR characters
-    shpanstream.MapStream(
-        lotrCharactersRepo.Stream().
-            Filter(func(c Character) bool {
-                return c.Race != "Hobbit"
-            }),
-		func (c Character) string {
-			return c.Weapon
-	    }).
-	    Limit(5).
-        MustConsume(func (w string) {
-            fmt.Println(w)
-        })
+// Prints the first 5 weapons of non Hobit LOTR characters
+shpanstream.MapStream(
+    lotrCharactersRepo.Stream().
+        Filter(func(c Character) bool {
+            return c.Race != "Hobbit"
+        }),
+    func (c Character) string {
+        return c.Weapon
+    }).
+    Limit(5).
+    MustConsume(func (w string) {
+        fmt.Println(w)
+    })
 	
 ```
 
@@ -67,16 +67,15 @@ See [Full flags example](examples/flags/flags_example.go)
 Lets take this example, here is a non-concurrent pipeline to process a stream of country codes and maps it to a struct that contains the country name and flag SVG
 ```go
 
-    // Synchronous processing of the stream
-    shpanstream.MapStream(
-        // Query external resource for all country codes
-        fetchCountryCodes(),
-        // For each country code, fetch the country flag via external resource
-        fetchCountryFlag
-    ).MustConsume(func (countryInfo CountryInfo) {,
-        fmt.Println(countryInfo)
-    })
-
+// Synchronous processing of the stream
+shpanstream.MapStream(
+    // Query external resource for all country codes
+    fetchCountryCodes(),
+    // For each country code, fetch the country flag via external resource
+    fetchCountryFlag
+).MustConsume(func (countryInfo CountryInfo) {,
+    fmt.Println(countryInfo)
+})
     
 ```
 Since for each country code we need to fetch the country flag from an external resource, this can take a while,
@@ -85,16 +84,16 @@ changing any of the logic of the piepline or introducing lowe level code to sync
 
 ```go
 
-    // Concurrent processing of the stream 
-    shpanstream.MapStream(
-        // Query external resource for all country codes
-        fetchCountryCodes(),
-        // For each country code, fetch the country flag via external resource
-        fetchCountryFlag,
-        shpanstream.WithConcurrent(10), /* This is the only change */
-    ).MustConsume(func (countryInfo CountryInfo) {
-        fmt.Println(countryInfo)
-    })
+// Concurrent processing of the stream 
+shpanstream.MapStream(
+    // Query external resource for all country codes
+    fetchCountryCodes(),
+    // For each country code, fetch the country flag via external resource
+    fetchCountryFlag,
+    shpanstream.WithConcurrent(10), /* This is the only change */
+).MustConsume(func (countryInfo CountryInfo) {
+    fmt.Println(countryInfo)
+})
 ```
 
 As you can test for yourself, using the [flags example](examples/flags/flags_example.go), this can make a huge difference in performance.
@@ -130,27 +129,27 @@ since fetching external resources can fail, we will use the `MapStreamWithErr` t
 
 
 ```go
-    func fetchCountryFlagCanErr(string) (CountryInfo, error) {
-        // Fetch the country flag from an external resource
-        // This function can return an error if the request fails
-        // ...
-    }
-	
-	// if there is an error at any point in the pipeline, it will propagate to the final error and close the stream
-	// with all the underlying resources cleaned up
-    err: = shpanstream.MapStreamWithErr(
-        // Query external resource for all country codes
-        fetchCountryCodes(),
-        // For each country code, fetch the country flag via external resource
-        fetchCountryFlagCanErr, // this function signature allows returning an error
-		shpanstream.WithConcurrent(10),
-    ).Consume(context.Background(), func (countryInfo CountryInfo) {
-        fmt.Println(countryInfo)
-    })
+func fetchCountryFlagCanErr(string) (CountryInfo, error) {
+    // Fetch the country flag from an external resource
+    // This function can return an error if the request fails
+    // ...
+}
 
-    if err != nil {
-        // do the "normal" go error handling :)
-    }
+// if there is an error at any point in the pipeline, it will propagate to the final error and close the stream
+// with all the underlying resources cleaned up
+err: = shpanstream.MapStreamWithErr(
+    // Query external resource for all country codes
+    fetchCountryCodes(),
+    // For each country code, fetch the country flag via external resource
+    fetchCountryFlagCanErr, // this function signature allows returning an error
+    shpanstream.WithConcurrent(10),
+).Consume(context.Background(), func (countryInfo CountryInfo) {
+    fmt.Println(countryInfo)
+})
+
+if err != nil {
+    // do the "normal" go error handling :)
+}
 
 ```
 
@@ -184,23 +183,23 @@ While this is not needed in simple stream processing examples, it can be crucial
 Passing context allows to cancel the request if the stream is cancelled, and also allows to set a timeout for the entire pipeline
 
 ```go
-    func fetchCountryFlagFull(ctx context.Context, string) (CountryInfo, error) {
-        // Fetch the country flag from an external resource
-        // Pass the "materialization context" to the downstream requests so it can be cancelled
-    }
+func fetchCountryFlagFull(ctx context.Context, string) (CountryInfo, error) {
+    // Fetch the country flag from an external resource
+    // Pass the "materialization context" to the downstream requests so it can be cancelled
+}
 
-	// Creating a context with a timeout for the entire pipeline execution
-    ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	
-    err: = shpanstream.MapStreamWithErrAndCtx(
-        // Query external resource for all country codes
-        fetchCountryCodes(),
-        // For each country code, fetch the country flag via external resource
-        fetchCountryFlagCanErr, // this function signature allows returning an error
-		shpanstream.WithConcurrent(10),
-    ).Consume(ctx, func (countryInfo CountryInfo) {
-        fmt.Println(countryInfo)
-    })
+// Creating a context with a timeout for the entire pipeline execution
+ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+
+err: = shpanstream.MapStreamWithErrAndCtx(
+    // Query external resource for all country codes
+    fetchCountryCodes(),
+    // For each country code, fetch the country flag via external resource
+    fetchCountryFlagCanErr, // this function signature allows returning an error
+    shpanstream.WithConcurrent(10),
+).Consume(ctx, func (countryInfo CountryInfo) {
+    fmt.Println(countryInfo)
+})
 
 
 ```
@@ -209,29 +208,29 @@ Passing context allows to cancel the request if the stream is cancelled, and als
 When using external resources, it is important to be able to buffer the data in order to avoid blocking the stream.
 this will prevent"bursty" readers from blocking the stream and allow to process the data in a more efficient way.
 ```go
-    // Buffer the stream of country codes before processing it
-    stocks.StreamUpdates()
-        Buffer(10).
-        MustConsume(func (stockInfo StockInfo) {
-            teller.Buy(stockInfo, 13)
-        })
+// Buffer the stream of country codes before processing it
+stocks.StreamUpdates()
+    Buffer(10).
+    MustConsume(func (stockInfo StockInfo) {
+        teller.Buy(stockInfo, 13)
+    })
 ```
 
 ### Merging
 There are multiple ways to merge streams together, a very useful one is to merge multiple streams that are already sorted.
 This can be very handy with time series data that tends to be sorted by time, and have multiple sources of data.
 ```go
-    // Merge two sorted streams of integers
-    mergedStream := MergedSortedStream(
-        cmp.Compare,
-        Just(1, 4, 7),
-        Just(2, 5, 8, 9),
-        EmptyStream[int](),
-        Just(3, 6, 9),
-    )
-    
-    // Expected result after merging 
-    expected := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 9}
+// Merge two sorted streams of integers
+mergedStream := MergedSortedStream(
+    cmp.Compare,
+    Just(1, 4, 7),
+    Just(2, 5, 8, 9),
+    EmptyStream[int](),
+    Just(3, 6, 9),
+)
+
+// Expected result after merging 
+expected := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 9}
     
 
 ```
@@ -242,15 +241,15 @@ Since streams are composable this also work when composing multiple streams toge
 
 ```go
     
-    // Return page 2 of size 10 from the merged stream of LOTR and The Hobbit characters
-    shpanstream.ConcatStreams(
-        lotrCharactersRepo.Stream(),
-        theHobbitCharactersRepo.Stream(),
-    ).
-    Page(2, 10).
-        MustConsume(func (name string) {
-            fmt.Println(name)
-        })
+// Return page 2 of size 10 from the merged stream of LOTR and The Hobbit characters
+shpanstream.ConcatStreams(
+    lotrCharactersRepo.Stream(),
+    theHobbitCharactersRepo.Stream(),
+).
+Page(2, 10).
+    MustConsume(func (name string) {
+        fmt.Println(name)
+    })
 ```
 
 ### Json streaming tools
@@ -278,23 +277,23 @@ we are streaming stock prices from a websocket connection and processing the dat
 The stream is aligned mapped to timeseries data and aligned to produce consistent time series data
 
 ```go'
-	// Align the stream to 3 seconds getting weighted average for price
-	err := timeseries.AlignStream(
+// Align the stream to 3 seconds getting weighted average for price
+err := timeseries.AlignStream(
 
-		// Map stock entries prices to timeseries.TsRecord[float64] (while filtering irrelevant data)
-		shpanstream.MapStreamWhileFiltering(
-			// Get the websocket stocks stream
-			ws.CreateJsonStreamFromWebSocket[StockDto](createWebSocketFactory(apiKey)),
+    // Map stock entries prices to timeseries.TsRecord[float64] (while filtering irrelevant data)
+    shpanstream.MapStreamWhileFiltering(
+        // Get the websocket stocks stream
+        ws.CreateJsonStreamFromWebSocket[StockDto](createWebSocketFactory(apiKey)),
 
-			// Map to timeseries.TsRecord[float64]
-			mapStockToTimeSeries,
-		),
-		3*time.Second,
-	).
-		// Print the output to stdout
-		Consume(ctx, func(t timeseries.TsRecord[float64]) {
-			fmt.Printf("%+v\n", t)
-		})
+        // Map to timeseries.TsRecord[float64]
+        mapStockToTimeSeries,
+    ),
+    3*time.Second,
+).
+    // Print the output to stdout
+    Consume(ctx, func(t timeseries.TsRecord[float64]) {
+        fmt.Printf("%+v\n", t)
+    })
 
 ```
 
