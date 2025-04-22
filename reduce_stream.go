@@ -3,6 +3,7 @@ package shpanstream
 import (
 	"cmp"
 	"context"
+	"github.com/shpandrak/shpanstream/internal/util"
 )
 
 func ReduceStream[T any, R any](
@@ -41,13 +42,13 @@ func ReduceStreamWithErrAndCtx[T any, R any](
 		return err
 	})
 	if err != nil {
-		return defaultValue[R](), err
+		return util.DefaultValue[R](), err
 	}
 	return ret, nil
 }
 
 func Max[O cmp.Ordered](ctx context.Context, o Stream[O]) (O, error) {
-	return ReduceStream[O](ctx, o, defaultValue[O](), func(acc, v O) O {
+	return ReduceStream[O](ctx, o, util.DefaultValue[O](), func(acc, v O) O {
 		return max(acc, v)
 	})
 }
@@ -61,7 +62,7 @@ func MaxMust[O cmp.Ordered](o Stream[O]) O {
 }
 
 func Min[O cmp.Ordered](ctx context.Context, o Stream[O]) (O, error) {
-	return ReduceStream[O](ctx, o, defaultValue[O](), func(acc, v O) O {
+	return ReduceStream[O](ctx, o, util.DefaultValue[O](), func(acc, v O) O {
 		return min(acc, v)
 	})
 }

@@ -3,6 +3,7 @@ package shpanstream
 import (
 	"context"
 	"fmt"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 	"sync"
 )
@@ -65,7 +66,7 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context) err
 					// Check if src had error
 					if entry.Value != nil {
 						select {
-						case c.tgtChan <- Entry[TGT, error]{Key: defaultValue[TGT](), Value: entry.Value}:
+						case c.tgtChan <- Entry[TGT, error]{Key: util.DefaultValue[TGT](), Value: entry.Value}:
 						case <-ctx.Done():
 							return
 						}
@@ -76,7 +77,7 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context) err
 						tgt, err := c.mapper(ctx, entry.Key)
 						if err != nil {
 							select {
-							case c.tgtChan <- Entry[TGT, error]{Key: defaultValue[TGT](), Value: err}:
+							case c.tgtChan <- Entry[TGT, error]{Key: util.DefaultValue[TGT](), Value: err}:
 							case <-ctx.Done():
 								return
 							}
@@ -123,7 +124,7 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context) err
 						// If an error occurs, just pass it through the buffer, it will get there
 						select {
 
-						case c.srcChan <- Entry[SRC, error]{Key: defaultValue[SRC](), Value: err}:
+						case c.srcChan <- Entry[SRC, error]{Key: util.DefaultValue[SRC](), Value: err}:
 						case <-ctx.Done():
 							return
 						}
@@ -149,21 +150,21 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Close() {
 func (c *concurrentStreamMapperProvider[SRC, TGT]) Emit(ctx context.Context) (TGT, error) {
 	select {
 	case <-ctx.Done():
-		return defaultValue[TGT](), ctx.Err()
+		return util.DefaultValue[TGT](), ctx.Err()
 	case entry, stillGood := <-c.tgtChan:
 		// Channel close is expected when the source stream is done (or when the context is done)
 		if !stillGood {
 			if c.eofCtx.Err() != nil {
-				return defaultValue[TGT](), io.EOF
+				return util.DefaultValue[TGT](), io.EOF
 			}
 			if ctx.Err() != nil {
-				return defaultValue[TGT](), ctx.Err()
+				return util.DefaultValue[TGT](), ctx.Err()
 			}
 			// Should never happen
-			return defaultValue[TGT](), fmt.Errorf("concurrent stream channel closed prematurely")
+			return util.DefaultValue[TGT](), fmt.Errorf("concurrent stream channel closed prematurely")
 		}
 		if entry.Value != nil {
-			return defaultValue[TGT](), entry.Value
+			return util.DefaultValue[TGT](), entry.Value
 		}
 		return entry.Key, nil
 	}

@@ -3,6 +3,7 @@ package shpanstream
 import (
 	"context"
 	"fmt"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 	"sync"
 )
@@ -61,10 +62,10 @@ func (b *bufferedStreamProvider[T]) Close() {
 func (b *bufferedStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 	select {
 	case <-ctx.Done():
-		return defaultValue[T](), ctx.Err()
+		return util.DefaultValue[T](), ctx.Err()
 	case entry, ok := <-b.bufferChan:
 		if !ok {
-			return defaultValue[T](), fmt.Errorf("an attempt to read from streamed buffer, after it has already been closed")
+			return util.DefaultValue[T](), fmt.Errorf("an attempt to read from streamed buffer, after it has already been closed")
 		}
 		return entry.Key, entry.Value
 	}

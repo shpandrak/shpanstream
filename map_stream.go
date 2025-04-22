@@ -3,6 +3,7 @@ package shpanstream
 import (
 	"context"
 	"fmt"
+	"github.com/shpandrak/shpanstream/internal/util"
 )
 
 type MapStreamOptions interface {
@@ -60,7 +61,7 @@ func MapStreamWithErrAndCtx[SRC any, TGT any](
 		func(ctx context.Context) (TGT, error) {
 			v, err := src.provider(ctx)
 			if err != nil {
-				return defaultValue[TGT](), err
+				return util.DefaultValue[TGT](), err
 			}
 			return mapper(ctx, v)
 		}, src.allLifecycleElement,

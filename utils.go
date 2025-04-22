@@ -2,11 +2,6 @@ package shpanstream
 
 import "context"
 
-func defaultValue[T any]() T {
-	var ret T
-	return ret
-}
-
 type Entry[K any, V any] struct {
 	Key   K
 	Value V

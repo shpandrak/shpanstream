@@ -265,7 +265,7 @@ see example in the [Full flags example](examples/flags/flags_example.go) for a c
 Streams are very useful for processing time series data, allowing you to easily manipulate and analyze time series data
 while we stream the data from the source. a common use case is to align time series data.
 The aligner uses the ClusterSortedStream to align the time series data from a single source
-See [Time series aligner example](examples/timeseries/timeseries_stream_aligner.go)
+See [Time series aligner example](utils/timeseries/timeseries_stream_aligner.go)
 
 ### Websocket streaming example
 Another common use case for streams is to stream data from a websocket connection.

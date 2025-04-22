@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
 
@@ -56,7 +57,7 @@ func (fs *clusterSortedStream[T, O, C]) open(ctx context.Context, srcProviderFun
 
 func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFunc StreamProviderFunc[T]) (O, error) {
 	if fs.nextItem == nil {
-		return defaultValue[O](), io.EOF
+		return util.DefaultValue[O](), io.EOF
 	}
 
 	currClusterClassifier := fs.currClassifier
@@ -68,13 +69,13 @@ func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFun
 
 		func(ctx context.Context) (T, error) {
 			if fs.nextItem == nil {
-				return defaultValue[T](), io.EOF
+				return util.DefaultValue[T](), io.EOF
 			}
 
 			nextClassifier := fs.clusterClassifierFunc(fs.nextItem)
 			if nextClassifier != currClusterClassifier {
 				// Next item belongs to a new cluster
-				return defaultValue[T](), io.EOF
+				return util.DefaultValue[T](), io.EOF
 			}
 
 			// Yield fs.nextItem
@@ -88,7 +89,7 @@ func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFun
 					fs.nextItem = nil
 				} else {
 					// Error occurred
-					return defaultValue[T](), err
+					return util.DefaultValue[T](), err
 				}
 			} else {
 				fs.nextItem = &next
@@ -102,7 +103,7 @@ func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFun
 	result, mergeErr := fs.merger(ctx, currClusterClassifier, clusterStream, fs.lastItemOnPreviousCluster)
 	if mergeErr != nil {
 		// Make sure we wrap the error so e.g. even if it is io.EOF, it is not mistaken for end of Stream (because go is stupid)
-		return defaultValue[O](), fmt.Errorf("failed merging: %w", mergeErr)
+		return util.DefaultValue[O](), fmt.Errorf("failed merging: %w", mergeErr)
 	}
 
 	// Update fs.currClassifier if fs.nextItem is not nil
@@ -119,12 +120,12 @@ func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFun
 				if err == io.EOF {
 					fs.nextItem = nil
 				} else {
-					return defaultValue[O](), err
+					return util.DefaultValue[O](), err
 				}
 			} else {
 				nextClassifier = fs.clusterClassifierFunc(&next)
 				if nextClassifier < currClusterClassifier {
-					return defaultValue[O](), fmt.Errorf("cluster stream is not sorted: %v < %v", currClusterClassifier, nextClassifier)
+					return util.DefaultValue[O](), fmt.Errorf("cluster stream is not sorted: %v < %v", currClusterClassifier, nextClassifier)
 				}
 				fs.lastItemOnPreviousCluster = fs.nextItem
 				fs.nextItem = &next

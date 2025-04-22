@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
 
@@ -249,7 +250,7 @@ func (s Stream[T]) FilterWithErAndCtx(predicate PredicateWithErrAndCtx[T]) Strea
 			shouldKeep, err := predicate(ctx, v)
 			if err != nil {
 				// Wrapping errors, e.g. we don't want EOF accidentally returned from here
-				return defaultValue[T](), fmt.Errorf("filter failed for Stream: %w", err)
+				return util.DefaultValue[T](), fmt.Errorf("filter failed for Stream: %w", err)
 			}
 			if shouldKeep {
 				return v, nil

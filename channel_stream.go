@@ -2,6 +2,7 @@ package shpanstream
 
 import (
 	"context"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 	"log/slog"
 )
@@ -20,11 +21,11 @@ func (cp chanelStreamProvider[T]) Close() {
 func (cp chanelStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 	select {
 	case <-ctx.Done():
-		return defaultValue[T](), ctx.Err()
+		return util.DefaultValue[T](), ctx.Err()
 	case msg, stillGood := <-cp.originalChannel:
 		if !stillGood {
 			slog.Debug("Stream channel closed externally")
-			return defaultValue[T](), io.EOF
+			return util.DefaultValue[T](), io.EOF
 		}
 		return msg, nil
 	}

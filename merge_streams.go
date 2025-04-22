@@ -3,6 +3,7 @@ package shpanstream
 import (
 	"context"
 	"errors"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
 
@@ -86,7 +87,7 @@ func (ms *mergeSortedStreamsProvider[T]) Emit(ctx context.Context) (T, error) {
 	}
 
 	if minVal == nil {
-		return defaultValue[T](), io.EOF
+		return util.DefaultValue[T](), io.EOF
 	}
 
 	ms.nextBuffer[minIndex] = nil

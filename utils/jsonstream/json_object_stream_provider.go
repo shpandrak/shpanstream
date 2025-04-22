@@ -1,9 +1,11 @@
-package shpanstream
+package jsonstream
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
 
@@ -13,8 +15,8 @@ type jsonObjectStreamProvider[T any] struct {
 	jsonDecoder        *json.Decoder
 }
 
-func ReadJsonObject[T any](readCloserProvider func(ctx context.Context) (io.ReadCloser, error)) Stream[Entry[string, T]] {
-	return NewStream(&jsonObjectStreamProvider[T]{
+func ReadJsonObject[T any](readCloserProvider func(ctx context.Context) (io.ReadCloser, error)) shpanstream.Stream[shpanstream.Entry[string, T]] {
+	return shpanstream.NewStream(&jsonObjectStreamProvider[T]{
 		readCloserProvider: readCloserProvider,
 	})
 }
@@ -48,12 +50,12 @@ func (j *jsonObjectStreamProvider[T]) Close() {
 	j.jsonDecoder = nil
 }
 
-func (j *jsonObjectStreamProvider[T]) Emit(ctx context.Context) (Entry[string, T], error) {
+func (j *jsonObjectStreamProvider[T]) Emit(ctx context.Context) (shpanstream.Entry[string, T], error) {
 
 	// Check if the ctx is done
 	select {
 	case <-ctx.Done():
-		return defaultValue[Entry[string, T]](), ctx.Err()
+		return util.DefaultValue[shpanstream.Entry[string, T]](), ctx.Err()
 	default:
 	}
 
@@ -64,35 +66,35 @@ func (j *jsonObjectStreamProvider[T]) Emit(ctx context.Context) (Entry[string, T
 		// Read key using Token()
 		tok, err := j.jsonDecoder.Token()
 		if err != nil {
-			return defaultValue[Entry[string, T]](),
+			return util.DefaultValue[shpanstream.Entry[string, T]](),
 				fmt.Errorf("error reading key token: %w", err)
 		}
 
 		fieldName, ok := tok.(string)
 		if !ok {
-			return defaultValue[Entry[string, T]](),
+			return util.DefaultValue[shpanstream.Entry[string, T]](),
 				fmt.Errorf("expected string key for json, got %T: %v", tok, tok)
 		}
 		if err := j.jsonDecoder.Decode(&parsedFieldValue); err != nil {
-			return defaultValue[Entry[string, T]](), fmt.Errorf("error decoding value: %w", err)
+			return util.DefaultValue[shpanstream.Entry[string, T]](), fmt.Errorf("error decoding value: %w", err)
 		}
 
 		// Process fieldName and parsedFieldValue
-		return Entry[string, T]{Key: fieldName, Value: parsedFieldValue}, nil
+		return shpanstream.Entry[string, T]{Key: fieldName, Value: parsedFieldValue}, nil
 	} else {
 
 		// Read closing brace
 		t, err := j.jsonDecoder.Token()
 		if err != nil {
-			return defaultValue[Entry[string, T]](),
+			return util.DefaultValue[shpanstream.Entry[string, T]](),
 				fmt.Errorf("failed to read closing token: %w", err)
 		}
 		if delim, ok := t.(json.Delim); !ok || delim != '}' {
-			return defaultValue[Entry[string, T]](),
+			return util.DefaultValue[shpanstream.Entry[string, T]](),
 				fmt.Errorf("expected end of object, got %v", t)
 		}
 
-		return defaultValue[Entry[string, T]](), io.EOF
+		return util.DefaultValue[shpanstream.Entry[string, T]](), io.EOF
 	}
 
 }

@@ -2,6 +2,7 @@ package shpanstream
 
 import (
 	"context"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
 
@@ -12,12 +13,12 @@ func (s Stream[T]) Limit(limit int) Stream[T] {
 	alreadyConsumed := 1
 	return newStream[T](func(ctx context.Context) (T, error) {
 		if alreadyConsumed > limit {
-			return defaultValue[T](), io.EOF
+			return util.DefaultValue[T](), io.EOF
 		}
 
 		v, err := s.provider(ctx)
 		if err != nil {
-			return defaultValue[T](), err
+			return util.DefaultValue[T](), err
 		}
 		alreadyConsumed++
 		return v, nil
