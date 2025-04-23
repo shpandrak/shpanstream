@@ -17,21 +17,68 @@ Just(1, 2, 3, 4, 5).
 
 ## But... go has channels
 
-Channels are a low-level concurrency primitive, and is use by this library as the backbone of some of the stream implementations.
-Working with low level channels requires a lot of boilerplate code and lack of composability and other tooling like filtering mapping or reducing.
+Channels are powerful low-level concurrency primitives and are the backbone of Go's concurrency model.
+Shpanstream library is work on top of channels, among other options for steam source. 
 
-ShpanStream Streams are a high-level abstraction for working with sequences of data. Streams provide a more functional approach to processing data, 
+While channels are great, they lack the composability needed for building complex data processing pipelines.
+Shpanstream streams provide a higher-level abstraction for working with streams of data, 
 allowing you to easily compose operations and work with infinite sequences.
 
-Streams are lazy, meaning that they only evaluate the data when needed. This allows for efficient processing of large data sets 
-without loading everything into memory at once.
+shpanstream reduces the boilerplate and coordination needed to work directly with channels, while adding features as
+we'll see below.
 
-Streams allow memory efficient processing of large data sets. e.g. stream data from the database, manipulate it and stream json response to a client.
+ShpanStream offers memory efficient processing of large data sets. e.g. stream data from the database, 
+manipulate it and stream json response to a clients.
+
+## Addressing the elephant in the room
+
+So... Go is not a functional programming language, not even close. Go syntax makes it impossible to write "fluent" functional code like in other languages.
+
+E.g. the following typescript code:
+
+```typescript
+
+people
+    .filter(p => p.age > 18)
+    .map(p => p.name)
+    .findFirst()
+
+````
+
+is not possible in Go. go generics as implemented today do not allow generics when invoking methods on a type.
+
+with shpanstream you can write similar code, but it will be less fluent and more verbose.
+we have to use the `MapStream` function to map the stream.
+
+```go
+MapStream(
+    people.
+        Filter(func(p Person) bool {
+            return p.Age > 18
+        }),
+	func (p Person) string {
+        return p.Name
+    }).
+    FindFirst().
+    MustGet()
+```
+
+Together with go's verbose lambda syntax, and error handling model, it makes the code less fluent and more verbose than in other languages.
+
+But... This alone doesn't mean we have to throw the baby out with the bathwater.
+when working with stream processing, functional programming paradigm is more than just syntax sugar.
+
+With shpanstream we can write code that is less imperative, moving a lot of the complex repetitive streaming code to the library, 
+preventing hours of debugging and ensuring that the code is more maintainable.
+
+With that out of the way, let's see what shpanstream has to offer.
+
+Time to unleash the power of functional programming for gophers!
 
 ## 🚀 Install
 
 ```sh
-go get github.com/shpandrak/shpanstream@v0.1.0
+go get github.com/shpandrak/shpanstream@v0.1.2
 ```
 
 ## Examples
@@ -59,7 +106,99 @@ shpanstream.MapStream(
 	
 ```
 
+### Error propagation
+Streams provide a clean way to handle errors, allowing you to easily propagate errors through your data processing pipeline.
+Since streams are lazily evaluated, errors are only propagated when the stream is being materialized,
+keeping the error handling to where it is relevant
+functions that return Stream[T] doesn't have to return an error since when the stream is materialized it will be available
+this allows streams operations to be composed together without having to add boilerplate 'if err != nil' where it is not needed
+
+When there are errors, streams automatically close all the underlying resources (e.g database cursor, file...) and propagate the error to the final consumer
+
+Let's go back to the country flags example, and add error handling to the pipeline
+For simplicity, previous iteration ignored errors and used the `MapStream` that is meant for simple mapping
+since fetching external resources can fail, we will use the `MapStreamWithErr` that allows the mapper to return an error
+
+
+```go
+func fetchCountryFlagCanErr(string) (CountryInfo, error) {
+    // Fetch the country flag from an external resource
+    // This function can return an error if the request fails
+    // ...
+}
+
+// if there is an error at any point in the pipeline, it will propagate to the final error and close the stream
+// with all the underlying resources cleaned up
+err: = shpanstream.MapStreamWithErr(
+    // Query external resource for all country codes
+    fetchCountryCodes(),
+    // For each country code, fetch the country flag via external resource
+    fetchCountryFlagCanErr, // this function signature allows returning an error
+    shpanstream.WithConcurrent(10),
+).Consume(context.Background(), func (countryInfo CountryInfo) {
+    fmt.Println(countryInfo)
+})
+
+if err != nil {
+    // do the "normal" go error handling :)
+}
+
+```
+
+What about when fetchCountryCodes()  fail?
+
+Great question 🙂! Since fetchCountryCodesToNames() also access external resources, it might fail.
+Since it returns a stream, it the error is already 'included' , and will be propagated to the final consumer.
+
+stream processing will fail if
+- stream init sequence fails (e.g. opening a file, an http request, a database connection, etc.)
+- one of the underlying pipeline fails. (e.g. mapper function returns an error)
+
+In cases function can't event create the stream (e.g. due to an invalid input) it can simply return an "Error stream".
+when the stream materializes, the error will be propagated immediately to the final consumer
+and none of the downstream operations will be executed.
+
+```go
+func fetchCountryCodes() shpanstream.Stream[string] {
+
+    if (currentUserDoesNotHavePermission()) {
+        return shpanstream.ErrorStream[string](fmt.Errorf("user %s does not have permission", getCurrentUser()))
+    }
+    return shpanstream.Just("US", "CA", "GB")
+}
+```
+
+### Context propagation
+When using external resources, it is important to be able to cancel the request if the stream is cancelled.
+for that there is an additional version of the MapStream function that in addition to supporting errors, allows passing context to the maper
+While this is not needed in simple stream processing examples, it can be crucial when using external resources.
+Passing context allows to cancel the request if the stream is cancelled, and also allows to set a timeout for the entire pipeline
+
+```go
+func fetchCountryFlagFull(ctx context.Context, string) (CountryInfo, error) {
+    // Fetch the country flag from an external resource
+    // Pass the "materialization context" to the downstream requests so it can be cancelled
+}
+
+// Creating a context with a timeout for the entire pipeline execution
+ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+
+err: = shpanstream.MapStreamWithErrAndCtx(
+    // Query external resource for all country codes
+    fetchCountryCodes(),
+    // For each country code, fetch the country flag via external resource
+    fetchCountryFlagCanErr, // this function signature allows returning an error
+    shpanstream.WithConcurrent(10),
+).Consume(ctx, func (countryInfo CountryInfo) {
+    fmt.Println(countryInfo)
+})
+
+
+```
+
 ### Concurrency
+While shpanstream focuses on memory efficient sequential processing of data, and allow others to build concurrent processing on top of it,
+it does provide simple helpers to allow simple concurrent manipulation of streams.
 Concurrent processing is made easy. Stream operations can be evaluated concurrently by just adding "concurrent" option
 
 See [Full flags example](examples/flags/flags_example.go)
@@ -113,95 +252,47 @@ As you can test for yourself, using the [flags example](examples/flags/flags_exa
 > In addition, while the first example only loaded into memory one element at a time, the concurrent
 > option will load more elements (up to the concurrency requested), take that into account when using
 
+### Redcue
 
-### Error propagation
-Streams provide a clean way to handle errors, allowing you to easily propagate errors through your data processing pipeline.
-Since streams are lazily evaluated, errors are only propagated when the stream is being materialized,
-keeping the error handling to where it is relevant
-functions that return Stream[T] doesn't have to return an error since when the stream is materialized it will be available
-this allows streams operations to be composed together without having to add boilerplate 'if err != nil' where it is not needed
+Shpanstream provides a standard reduce implementation for streams
 
-When there are errors, streams automatically close all the underlying resources (e.g database cursor, file...) and propagate the error to the final consumer
-
-Let's go back to the country flags example, and add error handling to the pipeline
-For simplicity, previous iteration ignored errors and used the `MapStream` that is meant for simple mapping
-since fetching external resources can fail, we will use the `MapStreamWithErr` that allows the mapper to return an error
 
 
 ```go
-func fetchCountryFlagCanErr(string) (CountryInfo, error) {
-    // Fetch the country flag from an external resource
-    // This function can return an error if the request fails
-    // ...
-}
+sum := MustReduce(
+    Just(2, 4, 6),
+    0,
+    func(acc, v int) int {
+        return acc + v
+    },
+)
 
-// if there is an error at any point in the pipeline, it will propagate to the final error and close the stream
-// with all the underlying resources cleaned up
-err: = shpanstream.MapStreamWithErr(
-    // Query external resource for all country codes
-    fetchCountryCodes(),
-    // For each country code, fetch the country flag via external resource
-    fetchCountryFlagCanErr, // this function signature allows returning an error
-    shpanstream.WithConcurrent(10),
-).Consume(context.Background(), func (countryInfo CountryInfo) {
-    fmt.Println(countryInfo)
-})
-
-if err != nil {
-    // do the "normal" go error handling :)
-}
+// Output: 12
+fmt.Println(sum)
 
 ```
 
-What about when fetchCountryCodes()  fail?
-
-Great question 🙂! Since fetchCountryCodesToNames() also access external resources, it might fail. 
-Since it returns a stream, it the error is already 'included' , and will be propagated to the final consumer.
-
-stream processing will fail if 
-- stream init sequence fails (e.g. opening a file, an http request, a database connection, etc.)
-- one of the underlying pipeline fails. (e.g. mapper function returns an error)
-
-In cases function can't event create the stream (e.g. due to an invalid input) it can simply return an "Error stream".
-when the stream materializes, the error will be propagated immediately to the final consumer 
-and none of the downstream operations will be executed.
+### Sliding windows
+Shpanstream provides a simple way to create sliding windows over streams of data, allowing you to easily manipulate and analyze data over time.
 
 ```go
-func fetchCountryCodes() shpanstream.Stream[string] {
+// demonstrates how to use the Window function with a sliding window.
+// It returns the first window of 3 elements that contains at least 2 even numbers.
+results := Window(
+    Just(1, 3, 3, 5, 11, 6, 7, 8, 8, 8, 10, 10, 12, 13, 14, 15, 16, 17, 18, 19),
+    3,
+    WithSlidingWindowStepOption(1),
+).
+    Filter(func(currWindow []int) bool {
+        return Just(currWindow...).
+            Filter(func(src int) bool {
+                return src%2 == 0
+            }).MustCount() >= 2
+    }).FindFirst().MustGet()
 
-    if (currentUserDoesNotHavePermission()) {
-        return shpanstream.ErrorStream[string](fmt.Errorf("user %s does not have permission", getCurrentUser()))
-    }
-    return shpanstream.Just("US", "CA", "GB")
-}
-```
-
-### Context propagation
-When using external resources, it is important to be able to cancel the request if the stream is cancelled.
-for that there is an additional version of the MapStream function that in addition to supporting errors, allows passing context to the maper
-While this is not needed in simple stream processing examples, it can be crucial when using external resources.
-Passing context allows to cancel the request if the stream is cancelled, and also allows to set a timeout for the entire pipeline
-
-```go
-func fetchCountryFlagFull(ctx context.Context, string) (CountryInfo, error) {
-    // Fetch the country flag from an external resource
-    // Pass the "materialization context" to the downstream requests so it can be cancelled
-}
-
-// Creating a context with a timeout for the entire pipeline execution
-ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-
-err: = shpanstream.MapStreamWithErrAndCtx(
-    // Query external resource for all country codes
-    fetchCountryCodes(),
-    // For each country code, fetch the country flag via external resource
-    fetchCountryFlagCanErr, // this function signature allows returning an error
-    shpanstream.WithConcurrent(10),
-).Consume(ctx, func (countryInfo CountryInfo) {
-    fmt.Println(countryInfo)
-})
-
-
+// Print the result
+fmt.Println(results)
+// Output: [6 7 8]
 ```
 
 ### Buffering
