@@ -181,3 +181,70 @@ func ExampleWindow() {
 	fmt.Println(results)
 	// Output: [6 7 8]
 }
+
+func Test_Alert(t *testing.T) {
+	type alert struct {
+		Severity int
+		Message  string
+	}
+
+	alertsStream := Just([]alert{
+		{Severity: 4, Message: "Alert 1"},
+		{Severity: 2, Message: "Alert 2"},
+		{Severity: 1, Message: "Alert 3"},
+		{Severity: 3, Message: "Alert 3"},
+		{Severity: 4, Message: "Alert 4"},
+		{Severity: 3, Message: "Alert 5"},
+		{Severity: 4, Message: "Alert 6"},
+	}...)
+
+	// Constructing a message first time server alerts (severity > 2) occur 2 times in the stream,
+	// within a sliding window of size 3
+	require.Equal(
+		t,
+		"Messages:\nAlert 3\nAlert 4",
+		MapLazy(
+
+			// Creating a sliding window of alerts of size 3 with a sliding step of 1
+			Window(
+				alertsStream,
+				3,
+				WithSlidingWindowStepOption(1),
+			).
+
+				// Filtering the windows to only include those with at least 2 severe alerts
+				Filter(func(currWindow []alert) bool {
+					return Just(currWindow...).
+						Filter(func(a alert) bool {
+							return a.Severity > 2
+						}).MustCount() >= 2
+				}).
+
+				// Return the first occurrence of the violation as it happens
+				FindFirst(),
+
+			// Mapping the filtered windows to a the expected summary message
+			func(alertsInWindow []alert) string {
+
+				// Reducing the sever alerts to a single message with individual alert messages
+				return MustReduce(
+					MapStreamWhileFiltering(
+						Just(alertsInWindow...),
+						func(a alert) *string {
+							// Only for the severe alerts
+							if a.Severity > 2 {
+								return &a.Message
+							} else {
+								return nil
+							}
+						},
+					),
+					"Messages:",
+					func(acc string, a string) string {
+						return acc + "\n" + a
+					},
+				)
+			},
+		).MustGet(),
+	)
+}
