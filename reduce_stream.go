@@ -6,30 +6,36 @@ import (
 	"github.com/shpandrak/shpanstream/internal/util"
 )
 
-func ReduceStream[T any, R any](
+// Reduce consumes the entire stream and combines values using the given reduceFunc,
+// starting from the provided initialValue. It returns the final accumulated result.
+func Reduce[T any, R any](
 	ctx context.Context,
 	s Stream[T],
 	initialValue R,
 	reduceFunc func(acc R, v T) R,
 ) (R, error) {
-	return ReduceStreamWithErr(ctx, s, initialValue, func(acc R, v T) (R, error) {
+	return ReduceWithErr(ctx, s, initialValue, func(acc R, v T) (R, error) {
 		return reduceFunc(acc, v), nil
 	})
 }
 
-func ReduceStreamWithErr[T any, R any](
+// ReduceWithErr consumes the entire stream and combines values using the given reduceFunc,
+// starting from the provided initialValue. It returns the final accumulated result.
+func ReduceWithErr[T any, R any](
 	ctx context.Context,
 	s Stream[T],
 	initialValue R,
 	reduceFunc func(acc R, v T) (R, error),
 ) (R, error) {
-	return ReduceStreamWithErrAndCtx(ctx, s, initialValue, func(_ context.Context, acc R, v T) (R, error) {
+	return ReduceWithErrAndCtx(ctx, s, initialValue, func(_ context.Context, acc R, v T) (R, error) {
 		return reduceFunc(acc, v)
 	})
 
 }
 
-func ReduceStreamWithErrAndCtx[T any, R any](
+// ReduceWithErrAndCtx consumes the entire stream and combines values using the given reduceFunc,
+// starting from the provided initialValue. It returns the final accumulated result.
+func ReduceWithErrAndCtx[T any, R any](
 	ctx context.Context,
 	s Stream[T],
 	initialValue R,
@@ -48,12 +54,12 @@ func ReduceStreamWithErrAndCtx[T any, R any](
 }
 
 func Max[O cmp.Ordered](ctx context.Context, o Stream[O]) (O, error) {
-	return ReduceStream[O](ctx, o, util.DefaultValue[O](), func(acc, v O) O {
+	return Reduce[O](ctx, o, util.DefaultValue[O](), func(acc, v O) O {
 		return max(acc, v)
 	})
 }
 
-func MaxMust[O cmp.Ordered](o Stream[O]) O {
+func MustMax[O cmp.Ordered](o Stream[O]) O {
 	v, err := Max(context.Background(), o)
 	if err != nil {
 		panic(err)
@@ -62,15 +68,60 @@ func MaxMust[O cmp.Ordered](o Stream[O]) O {
 }
 
 func Min[O cmp.Ordered](ctx context.Context, o Stream[O]) (O, error) {
-	return ReduceStream[O](ctx, o, util.DefaultValue[O](), func(acc, v O) O {
+	return Reduce[O](ctx, o, util.DefaultValue[O](), func(acc, v O) O {
 		return min(acc, v)
 	})
 }
 
-func MinMust[O cmp.Ordered](o Stream[O]) O {
+func MustMin[O cmp.Ordered](o Stream[O]) O {
 	v, err := Min(context.Background(), o)
 	if err != nil {
 		panic(err)
 	}
 	return v
+}
+
+func ReduceLazy[T any, R any](
+	s Stream[T],
+	initialValue R,
+	reduceFunc func(acc R, v T) R,
+) Lazy[R] {
+	return ReduceLazyWithErrAndCtx(s, initialValue, func(_ context.Context, acc R, v T) (R, error) {
+		return reduceFunc(acc, v), nil
+	})
+}
+
+func ReduceLazyWithErr[T any, R any](
+	s Stream[T],
+	initialValue R,
+	reduceFunc func(acc R, v T) (R, error),
+) Lazy[R] {
+	return ReduceLazyWithErrAndCtx(s, initialValue, func(_ context.Context, acc R, v T) (R, error) {
+		return reduceFunc(acc, v)
+	})
+}
+
+func ReduceLazyWithErrAndCtx[T any, R any](
+	s Stream[T],
+	initialValue R,
+	reduceFunc func(ctx context.Context, acc R, v T) (R, error),
+) Lazy[R] {
+	return NewLazy(func(ctx context.Context) (R, error) {
+		return ReduceWithErrAndCtx(ctx, s, initialValue, reduceFunc)
+	})
+}
+
+// MustReduce consumes the entire stream and combines values using the given reduceFunc,
+// starting from the provided initialValue. It returns the final accumulated result.
+// It panics if an error occurs during the reduction process. it should be used only for testing or when the stream is static.
+func MustReduce[T any, R any](
+	s Stream[T],
+	initialValue R,
+	reduceFunc func(acc R, v T) R,
+) R {
+	reduce, err := Reduce(context.Background(), s, initialValue, reduceFunc)
+	if err != nil {
+		panic(err)
+	}
+	return reduce
 }

@@ -49,9 +49,9 @@ func NewLazyOptional[T any](fetcher func(ctx context.Context) (*T, error)) Lazy[
 }
 
 // JustLazy creates a new Lazy with value
-func JustLazy[T any](v T, err error) Lazy[T] {
+func JustLazy[T any](v T) Lazy[T] {
 	return Lazy[T]{fetcher: func(ctx context.Context) (*T, error) {
-		return &v, err
+		return &v, nil
 	}}
 }
 
@@ -120,6 +120,19 @@ func (o Lazy[T]) OrElse(ctx context.Context, v T) (T, error) {
 		return v, nil
 	}
 	return *d, nil
+}
+
+// MustOrElse returns the int value or a default value if the value is not present.
+// it will panic in case of error, use for testing or when the value is static
+func (o Lazy[T]) MustOrElse(v T) T {
+	d, err := o.fetcher(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	if d == nil {
+		return v
+	}
+	return *d
 }
 
 // Filter filters the value of the Lazy using the provided predicate function.

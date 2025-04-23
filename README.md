@@ -1,12 +1,12 @@
 # Stream library for go
 
-Shpanstream is lightweight "zero-dependencies" Go library for working with streams in a simple and efficient way inspired by modern functional programming languages.
+Shpanstream is lightweight "zero-dependencies" Go library for working with streams, inspired by modern functional programming languages.
 
 ## At a glance
 
 ```go  
 // Find the first even number in a stream
-shpanstream.Just(1, 2, 3, 4, 5}).
+Just(1, 2, 3, 4, 5).
     Filter(func(x int) bool {
         return x%2 == 0
     }).
