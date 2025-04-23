@@ -22,11 +22,12 @@ func WithSlidingWindowStepOption(n int) WindowOption {
 	}
 }
 
-func WithWindowTimeoutOption(d time.Duration) WindowOption {
-	return func(cfg *windowConfig) {
-		cfg.timeout = d
-	}
-}
+// todo:support this :)
+//func WithWindowTimeoutOption(d time.Duration) WindowOption {
+//	return func(cfg *windowConfig) {
+//		cfg.timeout = d
+//	}
+//}
 
 // WithOmitLastPartialWindowOption causes the stream to avoid emitting last window even if it is not full.
 func WithOmitLastPartialWindowOption() WindowOption {
