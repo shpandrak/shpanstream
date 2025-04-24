@@ -4,30 +4,55 @@ import "context"
 
 type downStreamProviderFunc[S any, T any] func(ctx context.Context, srcProviderFunc StreamProviderFunc[S]) (T, error)
 
+type DownStreamProvider[SRC any, TGT any] interface {
+	Open(ctx context.Context, srcProviderFunc StreamProviderFunc[SRC]) error
+	Emit(ctx context.Context, srcProviderFunc StreamProviderFunc[SRC]) (TGT, error)
+	Close()
+}
+
 func NewDownStream[S any, T any](
 	src Stream[S],
-	downStreamProviderFunc downStreamProviderFunc[S, T],
-	optOpenFunc func(ctx context.Context, srcProviderFunc StreamProviderFunc[S]) error,
-	optCloseFunc func(),
+	downStreamProvider DownStreamProvider[S, T],
 ) Stream[T] {
 	createStreamOptions := []CreateStreamOption{WithOpenFuncOption(func(ctx context.Context) error {
-		err := openSubStream(ctx, src)
+		ctx, _, err := doOpenStream(ctx, src)
 		if err != nil {
 			return err
 		}
-		if optOpenFunc != nil {
-			return optOpenFunc(ctx, src.provider)
-		}
-		return nil
+		return downStreamProvider.Open(ctx, src.provider)
 	})}
 
-	if optCloseFunc != nil {
-		createStreamOptions = append(createStreamOptions, WithCloseFuncOption(optCloseFunc))
-	}
+	createStreamOptions = append(createStreamOptions, WithCloseFuncOption(downStreamProvider.Close))
 	return NewSimpleStream[T](
 		func(ctx context.Context) (T, error) {
-			return downStreamProviderFunc(ctx, src.provider)
+			return downStreamProvider.Emit(ctx, src.provider)
 		},
 		createStreamOptions...,
 	)
+}
+
+func NewDownStreamSimple[S any, T any](
+	src Stream[S],
+	downStreamProviderFunc downStreamProviderFunc[S, T],
+) Stream[T] {
+	return NewDownStream[S, T](
+		src,
+		simpleDownStreamProvider[S, T]{
+			downStreamProviderFunc: downStreamProviderFunc,
+		})
+}
+
+type simpleDownStreamProvider[S any, T any] struct {
+	downStreamProviderFunc downStreamProviderFunc[S, T]
+}
+
+func (sd simpleDownStreamProvider[S, T]) Open(_ context.Context, _ StreamProviderFunc[S]) error {
+	return nil
+}
+
+func (sd simpleDownStreamProvider[S, T]) Emit(ctx context.Context, srcProviderFunc StreamProviderFunc[S]) (T, error) {
+	return sd.downStreamProviderFunc(ctx, srcProviderFunc)
+}
+
+func (sd simpleDownStreamProvider[S, T]) Close() {
 }

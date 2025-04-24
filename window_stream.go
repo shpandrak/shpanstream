@@ -57,7 +57,7 @@ func Window[T any](s Stream[T], size int, opts ...WindowOption) Stream[[]T] {
 	var buffer []T
 	done := false
 
-	return NewDownStream(
+	return NewDownStreamSimple(
 		s,
 		func(ctx context.Context, srcProviderFunc StreamProviderFunc[T]) ([]T, error) {
 
@@ -104,7 +104,5 @@ func Window[T any](s Stream[T], size int, opts ...WindowOption) Stream[[]T] {
 
 			return window, nil
 		},
-		nil,
-		nil,
 	)
 }

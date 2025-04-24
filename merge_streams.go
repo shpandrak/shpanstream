@@ -52,6 +52,10 @@ func (ms *mergeSortedStreamsProvider[T]) Emit(ctx context.Context) (T, error) {
 	if ms.nextBuffer == nil {
 		ms.nextBuffer = make([]*T, len(ms.streams))
 		for i, s := range ms.streams {
+			// Always check if the context is done before trying to pull elements from a stream
+			if ctx.Err() != nil {
+				return util.DefaultValue[T](), ctx.Err()
+			}
 			v, err := s.provider(ctx)
 			if err != nil && err != io.EOF {
 				return v, err
@@ -63,6 +67,10 @@ func (ms *mergeSortedStreamsProvider[T]) Emit(ctx context.Context) (T, error) {
 	} else {
 		for i, s := range ms.streams {
 			if ms.nextBuffer[i] == nil {
+				// Always check if the context is done before trying to pull elements from a stream
+				if ctx.Err() != nil {
+					return util.DefaultValue[T](), ctx.Err()
+				}
 				v, err := s.provider(ctx)
 				if err != nil && err != io.EOF {
 					return v, err

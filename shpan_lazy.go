@@ -33,6 +33,10 @@ func (lp *lazyStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 		return util.DefaultValue[T](), io.EOF
 	}
 	lp.fetched = true
+
+	if ctx.Err() != nil {
+		return util.DefaultValue[T](), ctx.Err()
+	}
 	v, err := lp.fetcher(ctx)
 	if err != nil {
 		return util.DefaultValue[T](), err

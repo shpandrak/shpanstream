@@ -92,24 +92,9 @@ func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error) error {
 // It returns an error if the stream materialization fails in any stage of the pipeline
 func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error) error {
 
-	ctxWithCancel, cancelFunc := context.WithCancel(ctx)
-
-	// Running all lifecycle elements
-	for lcIdx, l := range s.allLifecycleElement {
-		err := l.Open(ctxWithCancel)
-		if err != nil {
-			// If we fail to open a lifecycle element, we need to close all previously opened elements
-			// and return the error
-
-			// Close only the successfully opened lifecycle elements
-			for i := 0; i < lcIdx; i++ {
-				s.allLifecycleElement[i].Close()
-			}
-			// Cancel the context to stop any ongoing operations
-			cancelFunc()
-
-			return fmt.Errorf("failed to open stream lifecycle element %d: %w", lcIdx, err)
-		}
+	ctx, cancelFunc, err := doOpenStream[T](ctx, s)
+	if err != nil {
+		return err
 	}
 
 	// If we reach here, all lifecycle elements have been opened successfully
@@ -122,13 +107,14 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 	}()
 
 	for {
+
+		// Make sure to check if the context is done before trying to get the next item
 		if ctx.Err() != nil {
 			// If the context is cancelled, we need to close all lifecycle elements
 			// return
 			return ctx.Err()
 		}
-
-		v, err := s.provider(ctxWithCancel)
+		v, err := s.provider(ctx)
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -287,4 +273,34 @@ func (s Stream[T]) IsEmpty(ctx context.Context) (bool, error) {
 
 func (s Stream[T]) WithAdditionalStreamLifecycle(lch StreamLifecycle) Stream[T] {
 	return newStream(s.provider, append(s.allLifecycleElement, lch))
+}
+
+func doOpenStream[T any](ctx context.Context, s Stream[T]) (context.Context, context.CancelFunc, error) {
+
+	ctxWithCancel, cancelFunc := context.WithCancel(ctx)
+
+	// Running all lifecycle elements
+	for lcIdx, l := range s.allLifecycleElement {
+		err := l.Open(ctxWithCancel)
+		if err != nil {
+			// If we fail to open a lifecycle element, we need to close all previously opened elements
+			// and return the error
+
+			// Close only the successfully opened lifecycle elements
+			for i := 0; i < lcIdx; i++ {
+				s.allLifecycleElement[i].Close()
+			}
+			// Cancel the context to stop any ongoing operations
+			cancelFunc()
+
+			return nil, nil, fmt.Errorf("failed to open stream lifecycle element %d: %w", lcIdx, err)
+		}
+	}
+	return ctxWithCancel, cancelFunc, nil
+}
+
+func closeSubStream[T any](s Stream[T]) {
+	for _, l := range s.allLifecycleElement {
+		l.Close()
+	}
 }

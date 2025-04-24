@@ -27,20 +27,16 @@ func ClusterSortedStream[T any, O any, C cmp.Ordered](
 	clusterClassifierFunc func(a *T) C,
 	src Stream[T]) Stream[O] {
 
-	css := &clusterSortedStream[T, O, C]{
-		clusterClassifierFunc: clusterClassifierFunc,
-		merger:                clusterFactory,
-	}
-
 	return NewDownStream[T, O](
 		src,
-		css.emit,
-		css.open,
-		nil,
+		&clusterSortedStream[T, O, C]{
+			clusterClassifierFunc: clusterClassifierFunc,
+			merger:                clusterFactory,
+		},
 	)
 }
 
-func (fs *clusterSortedStream[T, O, C]) open(ctx context.Context, srcProviderFunc StreamProviderFunc[T]) error {
+func (fs *clusterSortedStream[T, O, C]) Open(ctx context.Context, srcProviderFunc StreamProviderFunc[T]) error {
 	nextItem, firstErr := srcProviderFunc(ctx)
 	if firstErr != nil {
 		if firstErr == io.EOF {
@@ -55,7 +51,7 @@ func (fs *clusterSortedStream[T, O, C]) open(ctx context.Context, srcProviderFun
 	return nil
 }
 
-func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFunc StreamProviderFunc[T]) (O, error) {
+func (fs *clusterSortedStream[T, O, C]) Emit(ctx context.Context, srcProviderFunc StreamProviderFunc[T]) (O, error) {
 	if fs.nextItem == nil {
 		return util.DefaultValue[O](), io.EOF
 	}
@@ -135,4 +131,8 @@ func (fs *clusterSortedStream[T, O, C]) emit(ctx context.Context, srcProviderFun
 	}
 
 	return result, nil
+}
+
+func (fs *clusterSortedStream[T, O, C]) Close() {
+	// Nop
 }
