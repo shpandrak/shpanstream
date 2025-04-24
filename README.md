@@ -89,7 +89,7 @@ Time to unleash the power of functional programming for gophers!
 ## 🚀 Install
 
 ```sh
-go get github.com/shpandrak/shpanstream@v0.1.2
+go get github.com/shpandrak/shpanstream@v0.1.3
 ```
 
 ## Examples
@@ -439,7 +439,7 @@ E.g. websocket, grpc, kafka, postgres etc.
 
 The repository is structured as follows:
 
-```bash`
+```
 ├core library files
 │ ....
 ├── examples
@@ -451,6 +451,7 @@ The repository is structured as follows:
 ├── utils
 │   ├── util1
 │   ├── ...
+```
 
 ## Documentation
 [GoDoc](https://pkg.go.dev/github.com/shpandrak/shpanstream) 
