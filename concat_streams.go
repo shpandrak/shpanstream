@@ -2,7 +2,6 @@ package shpanstream
 
 import (
 	"context"
-	"errors"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
 )
@@ -12,12 +11,14 @@ type concatenatedStream[T any] struct {
 	currStream *Stream[T]
 }
 
+// Concat concatenates multiple streams into a single stream. the streams are joined sequentially one after the other.
 func Concat[T any](streams Stream[Stream[T]]) Stream[T] {
 	return NewStream(&concatenatedStream[T]{
 		streams: streams,
 	})
 }
 
+// ConcatStreams concatenates multiple streams into a single stream. the streams are joined sequentially one after the other.
 func ConcatStreams[T any](streams ...Stream[T]) Stream[T] {
 	if len(streams) == 0 {
 		return EmptyStream[T]()
@@ -27,10 +28,11 @@ func ConcatStreams[T any](streams ...Stream[T]) Stream[T] {
 
 func (ms *concatenatedStream[T]) Open(ctx context.Context) error {
 	// Open the steam of streams
-	err := openSubStream(ctx, ms.streams)
+	ctx, cancelOpenStreamOfStreams, err := doOpenStream(ctx, ms.streams)
 	if err != nil {
 		return err
 	}
+
 	firstStream, err := ms.streams.provider(ctx)
 	if err != nil {
 
@@ -38,11 +40,14 @@ func (ms *concatenatedStream[T]) Open(ctx context.Context) error {
 		if err == io.EOF {
 			return nil
 		}
+
+		// In case of error on first open, close the stream of streams
+		cancelOpenStreamOfStreams()
 		return err
 	}
 
 	// Open the first Stream
-	err = openSubStream(ctx, firstStream)
+	ctx, _, err = doOpenStream(ctx, firstStream)
 	if err != nil {
 		return err
 	}
@@ -67,12 +72,21 @@ func (ms *concatenatedStream[T]) Emit(ctx context.Context) (T, error) {
 		return util.DefaultValue[T](), io.EOF
 	}
 
+	// First check if the context is done
+	if ctx.Err() != nil {
+		return util.DefaultValue[T](), ctx.Err()
+	}
 	currStreamNextItem, err := ms.currStream.provider(ctx)
 	if err != nil {
 		if err == io.EOF {
 			// If current Stream is done, close it and continue with the next one
 			closeSubStream(*ms.currStream)
 			ms.currStream = nil
+
+			// Always check if the context is done before trying to get the next stream
+			if ctx.Err() != nil {
+				return util.DefaultValue[T](), ctx.Err()
+			}
 
 			// try getting the next stream
 			nextStream, err := ms.streams.provider(ctx)
@@ -86,7 +100,7 @@ func (ms *concatenatedStream[T]) Emit(ctx context.Context) (T, error) {
 				}
 			} else {
 				// open the next stream
-				err = openSubStream(ctx, nextStream)
+				ctx, _, err = doOpenStream(ctx, nextStream)
 				if err != nil {
 					return util.DefaultValue[T](), err
 				}
@@ -101,20 +115,4 @@ func (ms *concatenatedStream[T]) Emit(ctx context.Context) (T, error) {
 	}
 	return currStreamNextItem, nil
 
-}
-
-func openSubStream[T any](ctx context.Context, s Stream[T]) error {
-	var allErrors []error
-	for _, l := range s.allLifecycleElement {
-		if err := l.Open(ctx); err != nil {
-			allErrors = append(allErrors, err)
-		}
-	}
-	return errors.Join(allErrors...)
-}
-
-func closeSubStream[T any](s Stream[T]) {
-	for _, l := range s.allLifecycleElement {
-		l.Close()
-	}
 }

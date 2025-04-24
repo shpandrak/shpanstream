@@ -28,7 +28,7 @@ type CountryInfo struct {
 }
 
 var outputFilenameFlag = flag.String("output-file", "", "Output filename")
-var concurrencyFlag = flag.Int("concurrency", 10, "Number of concurrent requests")
+var concurrencyFlag = flag.Int("concurrency", 0, "Number of concurrent requests")
 
 // Fun with flags!
 // This example demonstrates how to use the shpanstream package to fetch country codes and their corresponding SVG flags concurrently.
@@ -60,11 +60,13 @@ func main() {
 	}
 
 	// By default, the concurrency is set to 10
-	flagRequestsConcurrency := 10
 
+	var flagRequestsConcurrency int
 	// if a concurrency flag is provided, use that value
 	if concurrencyFlag != nil && *concurrencyFlag > 0 {
 		flagRequestsConcurrency = *concurrencyFlag
+	} else {
+		flagRequestsConcurrency = 10
 	}
 
 	startTime := time.Now()

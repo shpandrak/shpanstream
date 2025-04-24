@@ -18,7 +18,18 @@ Just(1, 2, 3, 4, 5).
 ## But... go has channels
 
 Channels are powerful low-level concurrency primitives and are the backbone of Go's concurrency model.
-Shpanstream library is work on top of channels, among other options for steam source. 
+Shpanstream library is work on top of channels, among other options for steam source.
+
+To get create a stream from a channel, you can use the `FromChannel` function:
+```go
+ch := make(chan string)
+
+shpanstream.FromChannel(ch).
+    Filter(func(x string) bool {
+        return len(strings) > 10
+    }).
+    //... the rest of the pipeline
+```
 
 While channels are great, they lack the composability needed for building complex data processing pipelines.
 Shpanstream streams provide a higher-level abstraction for working with streams of data, 
@@ -195,6 +206,18 @@ err: = shpanstream.MapStreamWithErrAndCtx(
 
 
 ```
+
+### Using channels
+Using channels is a great way to get data into Shpanstream. Just use the `FromChannel` function to create a stream from a channel.
+The channel can be either a buffered or unbuffered channel. from the stream perspective, it doesn't matter.
+The stream will stay open until the channel is closed, and will automatically close and collapse the pipeline accordingly.
+In case the channel is never closed, the stream will keep processing as any other infinite stream source
+
+for full example using channels see the [Channel Test Example](channel_stream_provider_test.go)
+
+```go
+
+
 
 ### Concurrency
 While shpanstream focuses on memory efficient sequential processing of data, and allow others to build concurrent processing on top of it,
@@ -402,6 +425,32 @@ Streams can be infinite, allowing you to work with data that is generated on the
 Enabler for advanced data processing: Streams provide a powerful abstraction for working with data, allowing you to easily implement advanced data processing techniques such as map-reduce, windowing, bucketing and more.
 
 - [ ] TODO: Add advanced stream processing example
+
+## Repository structure
+
+The philosophy of the repository structure is to keep the library minimal and zero-dependencies.
+If user wants to use a specific integration, or a utility, they can simply import the additional package and use it.
+In case the integration or utility requires additional dependencies, or is large, it will be declared as a separate go module.
+the same for examples
+
+Utilities are helper functions and/or types that use the core library to provide additional functionality. e.g. time series aligner, json streaming, etc.
+Integrations are external integrations that implement usually implement a specific "provider" to allow integration with a specific data source.
+E.g. websocket, grpc, kafka, postgres etc.
+
+The repository is structured as follows:
+
+```bash`
+├core library files
+│ ....
+├── examples
+│   ├── example1
+│   ├── ...
+├── integrations
+│   ├── integration1
+│   ├── ...
+├── utils
+│   ├── util1
+│   ├── ...
 
 ## Documentation
 [GoDoc](https://pkg.go.dev/github.com/shpandrak/shpanstream) 

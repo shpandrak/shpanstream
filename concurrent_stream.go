@@ -9,12 +9,14 @@ import (
 )
 
 type concurrentStreamMapperProvider[SRC any, TGT any] struct {
-	srcStream   Stream[SRC]
 	concurrency int
 	srcChan     chan Entry[SRC, error]
 	tgtChan     chan Entry[TGT, error]
 	mapper      func(context.Context, SRC) (TGT, error)
 	eofCtx      context.Context
+}
+
+func (c *concurrentStreamMapperProvider[SRC, TGT]) Close() {
 }
 
 // mapStreamConcurrently return a mapped stream using a mapper function. the mapping is done concurrently.
@@ -27,18 +29,16 @@ func mapStreamConcurrently[SRC any, TGT any](
 	if concurrency <= 0 {
 		return ErrorStream[TGT](fmt.Errorf("concurrency must be > 0"))
 	}
-	return NewStream[TGT](&concurrentStreamMapperProvider[SRC, TGT]{
-		srcStream:   src,
-		concurrency: concurrency,
-		mapper:      mapper,
-	})
+	return NewDownStream[SRC, TGT](
+		src,
+		&concurrentStreamMapperProvider[SRC, TGT]{
+			concurrency: concurrency,
+			mapper:      mapper,
+		},
+	)
 }
 
-func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context) error {
-	err := openSubStream(ctx, c.srcStream)
-	if err != nil {
-		return err
-	}
+func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context, srcProviderFunc StreamProviderFunc[SRC]) error {
 
 	// Source channel has concurrency length to allow for concurrent reads
 	c.srcChan = make(chan Entry[SRC, error], c.concurrency)
@@ -112,7 +112,7 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context) err
 				return
 			default:
 				// Read from the source stream
-				v, err := c.srcStream.provider(ctx)
+				v, err := srcProviderFunc(ctx)
 				if err != nil {
 					if err == io.EOF {
 						// If the source stream is done, we need to deplete the buffer and only then return the EOF
@@ -143,11 +143,7 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context) err
 	return nil
 }
 
-func (c *concurrentStreamMapperProvider[SRC, TGT]) Close() {
-	closeSubStream(c.srcStream)
-}
-
-func (c *concurrentStreamMapperProvider[SRC, TGT]) Emit(ctx context.Context) (TGT, error) {
+func (c *concurrentStreamMapperProvider[SRC, TGT]) Emit(ctx context.Context, srcProviderFunc StreamProviderFunc[SRC]) (TGT, error) {
 	select {
 	case <-ctx.Done():
 		return util.DefaultValue[TGT](), ctx.Err()
