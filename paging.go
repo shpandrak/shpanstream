@@ -28,6 +28,9 @@ func (s Stream[T]) Limit(limit int) Stream[T] {
 func (s Stream[T]) Skip(skip int) Stream[T] {
 	alreadySkipped := false
 	return newStream[T](func(ctx context.Context) (T, error) {
+		if ctx.Err() != nil {
+			return util.DefaultValue[T](), ctx.Err()
+		}
 		if !alreadySkipped {
 			alreadySkipped = true
 			for i := 0; i < skip; i++ {
