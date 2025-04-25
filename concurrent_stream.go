@@ -10,8 +10,8 @@ import (
 
 type concurrentStreamMapperProvider[SRC any, TGT any] struct {
 	concurrency int
-	srcChan     chan Entry[SRC, error]
-	tgtChan     chan Entry[TGT, error]
+	srcChan     chan Result[SRC]
+	tgtChan     chan Result[TGT]
 	mapper      func(context.Context, SRC) (TGT, error)
 	eofCtx      context.Context
 }
@@ -41,9 +41,9 @@ func mapStreamConcurrently[SRC any, TGT any](
 func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context, srcProviderFunc StreamProviderFunc[SRC]) error {
 
 	// Source channel has concurrency length to allow for concurrent reads
-	c.srcChan = make(chan Entry[SRC, error], c.concurrency)
+	c.srcChan = make(chan Result[SRC], c.concurrency)
 	// Target channel has concurrency length to allow for concurrent reads
-	c.tgtChan = make(chan Entry[TGT, error], c.concurrency)
+	c.tgtChan = make(chan Result[TGT], c.concurrency)
 
 	eofCtx, eofCancelFunc := context.WithCancel(context.Background())
 	c.eofCtx = eofCtx
@@ -64,9 +64,9 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context, src
 						return
 					}
 					// Check if src had error
-					if entry.Value != nil {
+					if entry.Err != nil {
 						select {
-						case c.tgtChan <- Entry[TGT, error]{Key: util.DefaultValue[TGT](), Value: entry.Value}:
+						case c.tgtChan <- Result[TGT]{Err: entry.Err}:
 						case <-ctx.Done():
 							return
 						}
@@ -74,16 +74,16 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context, src
 					} else {
 						// Run the mapper function concurrently
 
-						tgt, err := c.mapper(ctx, entry.Key)
+						tgt, err := c.mapper(ctx, entry.Value)
 						if err != nil {
 							select {
-							case c.tgtChan <- Entry[TGT, error]{Key: util.DefaultValue[TGT](), Value: err}:
+							case c.tgtChan <- Result[TGT]{Err: err}:
 							case <-ctx.Done():
 								return
 							}
 						} else {
 							select {
-							case c.tgtChan <- Entry[TGT, error]{Key: tgt, Value: nil}:
+							case c.tgtChan <- Result[TGT]{Value: tgt}:
 							case <-ctx.Done():
 								return
 							}
@@ -124,14 +124,14 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context, src
 						// If an error occurs, just pass it through the buffer, it will get there
 						select {
 
-						case c.srcChan <- Entry[SRC, error]{Key: util.DefaultValue[SRC](), Value: err}:
+						case c.srcChan <- Result[SRC]{Err: err}:
 						case <-ctx.Done():
 							return
 						}
 					}
 				} else {
 					select {
-					case c.srcChan <- Entry[SRC, error]{Key: v, Value: nil}:
+					case c.srcChan <- Result[SRC]{Value: v}:
 					case <-ctx.Done():
 						return
 					}
@@ -143,11 +143,11 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context, src
 	return nil
 }
 
-func (c *concurrentStreamMapperProvider[SRC, TGT]) Emit(ctx context.Context, srcProviderFunc StreamProviderFunc[SRC]) (TGT, error) {
+func (c *concurrentStreamMapperProvider[SRC, TGT]) Emit(ctx context.Context, _ StreamProviderFunc[SRC]) (TGT, error) {
 	select {
 	case <-ctx.Done():
 		return util.DefaultValue[TGT](), ctx.Err()
-	case entry, stillGood := <-c.tgtChan:
+	case r, stillGood := <-c.tgtChan:
 		// Channel close is expected when the source stream is done (or when the context is done)
 		if !stillGood {
 			if c.eofCtx.Err() != nil {
@@ -159,9 +159,6 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Emit(ctx context.Context, src
 			// Should never happen
 			return util.DefaultValue[TGT](), fmt.Errorf("concurrent stream channel closed prematurely")
 		}
-		if entry.Value != nil {
-			return util.DefaultValue[TGT](), entry.Value
-		}
-		return entry.Key, nil
+		return r.Unpack()
 	}
 }

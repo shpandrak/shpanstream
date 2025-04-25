@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
+	"go/types"
 	"io"
 )
 
@@ -169,8 +170,9 @@ func (s Stream[T]) FindLast() Lazy[T] {
 
 // FindFirstAndLast returns the first and last element of the stream, unless the stream is empty
 // if the stream contains only one element, the first and last element are the same
-func FindFirstAndLast[T any](s Stream[T]) Lazy[Entry[T, T]] {
-	return NewLazyOptional[Entry[T, T]](func(ctx context.Context) (*Entry[T, T], error) {
+func FindFirstAndLast[T any](s Stream[T]) Lazy[Tuple2[T, T]] {
+	types.NewTuple()
+	return NewLazyOptional[Tuple2[T, T]](func(ctx context.Context) (*Tuple2[T, T], error) {
 		var first *T
 		var last *T
 		err := s.Consume(ctx, func(v T) {
@@ -185,9 +187,9 @@ func FindFirstAndLast[T any](s Stream[T]) Lazy[Entry[T, T]] {
 		if first == nil {
 			return nil, nil
 		}
-		return &Entry[T, T]{
-			Key:   *first,
-			Value: *last,
+		return &Tuple2[T, T]{
+			A: *first,
+			B: *last,
 		}, nil
 	})
 }
