@@ -91,15 +91,15 @@ func main() {
 
 func fetchCountryFlag(_ context.Context, e shpanstream.Entry[string, string]) (CountryInfo, error) {
 
-	svg, err := fetchCountrySvg(e.Left, e.Right)
+	svg, err := fetchCountrySvg(e.Key, e.Value)
 	if err != nil {
 		return CountryInfo{},
-			fmt.Errorf("failed to fetch SVG for %s (%s): %w", e.Right, e.Left, err)
+			fmt.Errorf("failed to fetch SVG for %s (%s): %w", e.Key, e.Value, err)
 	}
 
 	return CountryInfo{
-		CountryCode: e.Left,
-		Name:        e.Right,
+		CountryCode: e.Key,
+		Name:        e.Value,
 		SVG:         fmt.Sprintf("<img width=\"%s\" src=\"%s\"/>", newWidth, svgToBase64DataURI(string(svg))),
 	}, nil
 }

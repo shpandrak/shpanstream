@@ -16,6 +16,18 @@ type TsRecord[T any] struct {
 	Value     T         `json:"value,omitempty"`
 }
 
+func mapRecordValue[T any](r TsRecord[T]) T {
+	return r.Value
+}
+func recordMapper[T any](t time.Time) func(T) TsRecord[T] {
+	return func(v T) TsRecord[T] {
+		return TsRecord[T]{
+			Timestamp: t,
+			Value:     v,
+		}
+	}
+}
+
 // timeWeightedAverage computes the time-weighted average of two values (v1 and v2) at their respective times (v1Time and v2Time).
 func timeWeightedAverage[N Number](targetTime, v1Time time.Time, v1 N, v2Time time.Time, v2 N) (N, error) {
 	if v1Time.Equal(v2Time) {

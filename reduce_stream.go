@@ -6,6 +6,8 @@ import (
 	"github.com/shpandrak/shpanstream/internal/util"
 )
 
+type Reducer[S any, T any] func(Stream[S]) Lazy[T]
+
 // Reduce consumes the entire stream and combines values using the given reduceFunc,
 // starting from the provided initialValue. It returns the final accumulated result.
 func Reduce[T any, R any](
@@ -58,7 +60,11 @@ func Max[O cmp.Ordered](ctx context.Context, o Stream[O]) (O, error) {
 		return max(acc, v)
 	})
 }
-
+func MaxLazy[O cmp.Ordered](o Stream[O]) Lazy[O] {
+	return ReduceLazy[O](o, util.DefaultValue[O](), func(acc, v O) O {
+		return max(acc, v)
+	})
+}
 func MustMax[O cmp.Ordered](o Stream[O]) O {
 	v, err := Max(context.Background(), o)
 	if err != nil {
