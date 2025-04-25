@@ -114,6 +114,16 @@ func (o Lazy[T]) GetOptional(ctx context.Context) (*T, error) {
 	return o.fetcher(ctx)
 }
 
+// MustGetOptional returns the value or an error. it will return nil if lazy value is empty
+// it will panic in case of error, use for testing or when the value is static
+func (o Lazy[T]) MustGetOptional() *T {
+	optional, err := o.GetOptional(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	return optional
+}
+
 // OrElse returns the int value or a default value if the value is not present.
 func (o Lazy[T]) OrElse(ctx context.Context, v T) (T, error) {
 	d, err := o.fetcher(ctx)
