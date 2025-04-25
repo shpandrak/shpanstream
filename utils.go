@@ -2,11 +2,21 @@ package shpanstream
 
 import "context"
 
-type Entry[K any, V any] struct {
+// Entry defines a key/value pairs.
+type Entry[K comparable, V any] struct {
 	Key   K
 	Value V
 }
 
+type Result[T any] struct {
+	Value T
+	Err   error
+}
+
+func (r Result[T]) Unpack() (T, error) {
+	return r.Value, nil
+
+}
 func mapperErrToErrCtx[SRC any, TGT any](errMapper MapperWithErr[SRC, TGT]) MapperWithErrAndCtx[SRC, TGT] {
 	return func(_ context.Context, src SRC) (TGT, error) {
 		return errMapper(src)

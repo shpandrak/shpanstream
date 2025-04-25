@@ -65,11 +65,11 @@ func TestAlignStream_NonAligned(t *testing.T) {
 		[]TsRecord[int64]{
 			// t=45, v=100
 			{Value: 100, Timestamp: time.Unix(45, 0)}, // 00:00:45
-			// t=105, v=200 (Interval: 60s, Value delta: 100)
+			// t=105, v=200 (Interval: 60s, Right delta: 100)
 			{Value: 200, Timestamp: time.Unix(105, 0)}, // 00:01:45
-			// t=165, v=300 (Interval: 60s, Value delta: 100)
+			// t=165, v=300 (Interval: 60s, Right delta: 100)
 			{Value: 300, Timestamp: time.Unix(165, 0)}, // 00:02:45
-			// t=225, v=400 (Interval: 60s, Value delta: 100)
+			// t=225, v=400 (Interval: 60s, Right delta: 100)
 			{Value: 400, Timestamp: time.Unix(225, 0)}, // 00:03:45
 		},
 		[]TsRecord[int64]{
@@ -119,7 +119,7 @@ func TestAlignStream_TwoItems(t *testing.T) {
 			{Value: 200, Timestamp: time.Unix(105, 0)}, // 00:01:45
 		},
 		[]TsRecord[int64]{
-			// Target t=60: Between t=45 (100) and t=105 (200). Value is 125 (as calculated in NonAligned test).
+			// Target t=60: Between t=45 (100) and t=105 (200). Right is 125 (as calculated in NonAligned test).
 			{Value: 100, Timestamp: time.Unix(0, 0)},  // 00:00:00
 			{Value: 125, Timestamp: time.Unix(60, 0)}, // 00:01:00
 

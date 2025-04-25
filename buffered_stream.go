@@ -10,7 +10,7 @@ import (
 
 type bufferedStreamProvider[T any] struct {
 	src        Stream[T]
-	bufferChan chan Entry[T, error]
+	bufferChan chan Result[T]
 	bufferSize int
 	wg         sync.WaitGroup
 }
@@ -25,27 +25,27 @@ func (s Stream[T]) Buffer(size int) Stream[T] {
 
 func (b *bufferedStreamProvider[T]) Open(ctx context.Context) error {
 	b.wg.Add(1)
-	b.bufferChan = make(chan Entry[T, error], b.bufferSize)
+	b.bufferChan = make(chan Result[T], b.bufferSize)
 	// Start Reading from the source stream
 	go func() {
 		defer b.wg.Done()
 		err := b.src.Consume(ctx, func(v T) {
 			// Write to the buffer channel
 			select {
-			case b.bufferChan <- Entry[T, error]{Key: v}:
+			case b.bufferChan <- Result[T]{Value: v}:
 			case <-ctx.Done():
 			}
 		})
 		if err != nil {
 			// Handle error by putting it in the buffer channel
 			select {
-			case b.bufferChan <- Entry[T, error]{Value: err}:
+			case b.bufferChan <- Result[T]{Err: err}:
 			case <-ctx.Done():
 			}
 		} else {
 			// This means the source stream has finished, put EOF in the buffer channel
 			select {
-			case b.bufferChan <- Entry[T, error]{Value: io.EOF}:
+			case b.bufferChan <- Result[T]{Err: io.EOF}:
 			case <-ctx.Done():
 			}
 		}
@@ -63,10 +63,10 @@ func (b *bufferedStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 	select {
 	case <-ctx.Done():
 		return util.DefaultValue[T](), ctx.Err()
-	case entry, ok := <-b.bufferChan:
+	case t, ok := <-b.bufferChan:
 		if !ok {
 			return util.DefaultValue[T](), fmt.Errorf("an attempt to read from streamed buffer, after it has already been closed")
 		}
-		return entry.Key, entry.Value
+		return t.Value, t.Err
 	}
 }
