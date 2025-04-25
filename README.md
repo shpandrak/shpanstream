@@ -35,8 +35,8 @@ While channels are great, they lack the composability needed for building comple
 Shpanstream streams provide a higher-level abstraction for working with streams of data, 
 allowing you to easily compose operations and work with infinite sequences.
 
-shpanstream reduces the boilerplate and coordination needed to work directly with channels, while adding features as
-we'll see below.
+shpanstream reduces the boilerplate for coordination and resource management needed to work directly with channels, 
+while adding features as we'll see below.
 
 ShpanStream offers memory efficient processing of large data sets. e.g. stream data from the database, 
 manipulate it and stream json response to a clients.
@@ -80,7 +80,8 @@ But... This alone doesn't mean we have to throw the baby out with the bathwater.
 when working with stream processing, functional programming paradigm is more than just syntax sugar.
 
 With shpanstream we can write code that is less imperative, moving a lot of the complex repetitive streaming code to the library, 
-preventing hours of debugging and ensuring that the code is more maintainable.
+preventing hours of debugging and ensuring that the code is more maintainable. 
+Specifically, when working with stream processing, encapsulating the resource management concern is a life saver.
 
 With that out of the way, let's see what shpanstream has to offer.
 
@@ -203,8 +204,6 @@ err: = shpanstream.MapStreamWithErrAndCtx(
 ).Consume(ctx, func (countryInfo CountryInfo) {
     fmt.Println(countryInfo)
 })
-
-
 ```
 
 ### Using channels
@@ -215,9 +214,15 @@ In case the channel is never closed, the stream will keep processing as any othe
 
 for full example using channels see the [Channel Test Example](channel_stream_provider_test.go)
 
+### Iterate over a stream
+Shpanstream supports iterating over a stream using the range operator via the `Iterate` function.
+The stream will be automatically closed when the iteration is done, and the pipeline will be collapsed accordingly.
+
 ```go
-
-
+for curr := range Just(1, 1, 2, 3, 5, 8, 13, 21, 34, 55).Iterator {
+    fmt.Sprintf(" %d", curr)
+}
+```
 
 ### Concurrency
 While shpanstream focuses on memory efficient sequential processing of data, and allow others to build concurrent processing on top of it,
