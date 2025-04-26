@@ -214,6 +214,11 @@ In case the channel is never closed, the stream will keep processing as any othe
 
 for full example using channels see the [Channel Test Example](channel_stream_provider_test.go)
 
+Since channels are powerful, shpanstream uses them internally to implement some of the out-of-the-box functionality.
+for example "Buffer" exposes a shpanstream backed by a buffer channel. see [Buffer implementation](buffered_stream.go)
+
+```go
+
 ### Iterate over a stream
 Shpanstream supports iterating over a stream using the range operator via the `Iterate` function.
 The stream will be automatically closed when the iteration is done, and the pipeline will be collapsed accordingly.
@@ -328,8 +333,7 @@ When using external resources, it is important to be able to buffer the data in 
 this will prevent"bursty" readers from blocking the stream and allow to process the data in a more efficient way.
 ```go
 // Buffer the stream of country codes before processing it
-stocks.StreamUpdates()
-    Buffer(10).
+Buffer(stocks.StreamUpdates(), 10).
     MustConsume(func (stockInfo StockInfo) {
         teller.Buy(stockInfo, 13)
     })

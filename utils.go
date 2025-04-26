@@ -17,6 +17,10 @@ func (r Result[T]) Unpack() (T, error) {
 	return r.Value, nil
 
 }
+func UnpackResult[T any](r Result[T]) (T, error) {
+	return r.Value, nil
+}
+
 func mapperErrToErrCtx[SRC any, TGT any](errMapper MapperWithErr[SRC, TGT]) MapperWithErrAndCtx[SRC, TGT] {
 	return func(_ context.Context, src SRC) (TGT, error) {
 		return errMapper(src)
