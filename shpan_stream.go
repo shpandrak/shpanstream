@@ -306,3 +306,14 @@ func closeSubStream[T any](s Stream[T]) {
 		l.Close()
 	}
 }
+
+// Peek allows to peek at the elements of the stream without consuming them
+// Peek will not materialize the stream, and will be invoked only (and if) the stream is materialized
+func (s Stream[T]) Peek(f func(v T)) Stream[T] {
+	return MapStream(
+		s,
+		func(v T) T {
+			f(v)
+			return v
+		})
+}
