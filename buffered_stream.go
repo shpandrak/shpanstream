@@ -3,70 +3,65 @@ package shpanstream
 import (
 	"context"
 	"fmt"
-	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
-	"sync"
 )
 
-type bufferedStreamProvider[T any] struct {
-	src        Stream[T]
-	bufferChan chan Result[T]
-	bufferSize int
-	wg         sync.WaitGroup
-}
-
-// Buffer creates a buffered stream from the source stream with a given buffer size.
-func (s Stream[T]) Buffer(size int) Stream[T] {
-	return NewStream(&bufferedStreamProvider[T]{
-		src:        s,
-		bufferSize: size,
-	})
-}
-
-func (b *bufferedStreamProvider[T]) Open(ctx context.Context) error {
-	b.wg.Add(1)
-	b.bufferChan = make(chan Result[T], b.bufferSize)
-	// Start Reading from the source stream
-	go func() {
-		defer b.wg.Done()
-		err := b.src.Consume(ctx, func(v T) {
-			// Write to the buffer channel
-			select {
-			case b.bufferChan <- Result[T]{Value: v}:
-			case <-ctx.Done():
-			}
-		})
-		if err != nil {
-			// Handle error by putting it in the buffer channel
-			select {
-			case b.bufferChan <- Result[T]{Err: err}:
-			case <-ctx.Done():
-			}
-		} else {
-			// This means the source stream has finished, put EOF in the buffer channel
-			select {
-			case b.bufferChan <- Result[T]{Err: io.EOF}:
-			case <-ctx.Done():
-			}
-		}
-	}()
-	return nil
-
-}
-
-func (b *bufferedStreamProvider[T]) Close() {
-	b.wg.Wait()
-	close(b.bufferChan)
-}
-
-func (b *bufferedStreamProvider[T]) Emit(ctx context.Context) (T, error) {
-	select {
-	case <-ctx.Done():
-		return util.DefaultValue[T](), ctx.Err()
-	case t, ok := <-b.bufferChan:
-		if !ok {
-			return util.DefaultValue[T](), fmt.Errorf("an attempt to read from streamed buffer, after it has already been closed")
-		}
-		return t.Value, t.Err
+// Buffered creates a buffered stream from the source stream with a given buffer size.
+func Buffered[T any](s Stream[T], size int) Stream[T] {
+	if size <= 0 {
+		return ErrorStream[T](fmt.Errorf("buffer size must be greater than 0"))
 	}
+	if size == 1 {
+		return s
+	}
+
+	// Create a buffered channel of type Result size-1
+	// (-1 since one item will block while trying to write to the channel)
+	// Result will either be T or an upstream error
+	bufferChan := make(chan Result[T], size-1)
+
+	return MapStreamWithErr(
+		// Create a new stream with the buffer channel as the source
+		StreamFromChannel(bufferChan),
+
+		// Unpack the result from the buffer channel to the original type or error
+		UnpackResult[T],
+	).
+		// Attach handler to the Open func of the stream lifecycle to trigger the buffering goroutine
+		WithAdditionalStreamLifecycle(NewStreamLifecycle(
+			func(ctx context.Context) error {
+
+				// Make sure to close the buffer channel when either the source stream is done, or the context is cancelled
+				defer close(bufferChan)
+
+				// Start Reading from the source stream and populate the buffer channel
+				go func() {
+					err := s.Consume(ctx, func(v T) {
+						// Write to the buffer channel
+						select {
+						case bufferChan <- Result[T]{Value: v}:
+						case <-ctx.Done():
+						}
+					})
+
+					// If an upstream error occurs, we need to send it to the buffer channel
+					if err != nil {
+						select {
+						case bufferChan <- Result[T]{Err: err}:
+						case <-ctx.Done():
+						}
+					} else {
+						// If we are here, it means processing the source stream finished successfully,
+						// "celebrating" it by putting an EOF in the buffer channel
+						select {
+						case bufferChan <- Result[T]{Err: io.EOF}:
+						case <-ctx.Done():
+						}
+					}
+				}()
+				return nil
+			},
+			func() {
+			},
+		))
 }
