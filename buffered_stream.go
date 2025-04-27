@@ -31,11 +31,11 @@ func Buffered[T any](s Stream[T], size int) Stream[T] {
 		WithAdditionalStreamLifecycle(NewStreamLifecycle(
 			func(ctx context.Context) error {
 
-				// Make sure to close the buffer channel when either the source stream is done, or the context is cancelled
-				defer close(bufferChan)
-
 				// Start Reading from the source stream and populate the buffer channel
 				go func() {
+					// Make sure to close the buffer channel when either the source stream is done, or the context is cancelled
+					defer close(bufferChan)
+
 					err := s.Consume(ctx, func(v T) {
 						// Write to the buffer channel
 						select {
