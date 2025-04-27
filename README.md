@@ -90,7 +90,7 @@ Time to unleash the power of functional programming for gophers!
 ## 🚀 Install
 
 ```sh
-go get github.com/shpandrak/shpanstream@v0.2.0
+go get github.com/shpandrak/shpanstream@v0.2.1
 ```
 
 ## Examples
