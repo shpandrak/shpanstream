@@ -13,6 +13,18 @@ type Result[T any] struct {
 	Err   error
 }
 
+type Comparable[T any] interface {
+	Compare(other T) int
+}
+
+type Comparator[T any] func(one, other T) int
+
+func ComparatorForComparable[T Comparable[T]]() Comparator[T] {
+	return func(one, other T) int {
+		return one.Compare(other)
+	}
+}
+
 func (r Result[T]) Unpack() (T, error) {
 	return r.Value, nil
 

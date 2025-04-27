@@ -119,8 +119,7 @@ func testAsExpected(
 	inputStream := shpanstream.Just(records...)
 
 	// Create the delta stream using the CreateAlignedDeltaStream function
-	deltaStream := AlignDeltaStream[int64](inputStream, fixedDuration)
-	//deltaStream := CreateAlignedDeltaStream[int64](fixedDuration, inputStream)
+	deltaStream := AlignDeltaStream[int64](inputStream, NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Collect the resulting delta records
 	result := deltaStream.MustCollect()

@@ -2,7 +2,6 @@ package timeseries
 
 import (
 	"context"
-	"fmt"
 	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"time"
@@ -13,25 +12,17 @@ import (
 // aligned points use the time weighted average to calculate the value of the aligned point
 func AlignStream[N Number](
 	s shpanstream.Stream[TsRecord[N]],
-	fixedDuration time.Duration,
+	alignmentPeriod AlignmentPeriod,
 ) shpanstream.Stream[TsRecord[N]] {
-	// Check if the fixed duration is valid
-	if fixedDuration <= 0 {
-		return shpanstream.ErrorStream[TsRecord[N]](
-			fmt.Errorf("invalid fixed duration for alignment of timeseries stream: %s", fixedDuration),
-		)
-	}
-
-	// Using ClusterSortedStream to group the items by the duration slot
-	return shpanstream.ClusterSortedStream[TsRecord[N], TsRecord[N], int64](
+	// Using ClusterSortedStreamComparable to group the items by the duration slot
+	return shpanstream.ClusterSortedStreamComparable[TsRecord[N], TsRecord[N], time.Time](
 		func(
 			ctx context.Context,
-			clusterClassifier int64,
+			clusterTimestampClassifier time.Time,
 			clusterStream shpanstream.Stream[TsRecord[N]],
 			lastItemOnPreviousCluster *TsRecord[N],
 		) (TsRecord[N], error) {
 
-			clusterTimestamp := time.UnixMilli(clusterClassifier)
 			firstItem, err := clusterStream.FindFirst().Get(ctx)
 			if err != nil {
 				return util.DefaultValue[TsRecord[N]](), err
@@ -41,21 +32,21 @@ func AlignStream[N Number](
 			if lastItemOnPreviousCluster == nil {
 				return TsRecord[N]{
 					Value:     firstItem.Value,
-					Timestamp: clusterTimestamp,
+					Timestamp: clusterTimestampClassifier,
 				}, nil
 			} else {
 				// If this is not the first cluster
 
 				// Check if  the first item is magically aligned to the slot, return it
-				if firstItem.Timestamp == clusterTimestamp {
+				if firstItem.Timestamp == clusterTimestampClassifier {
 					return TsRecord[N]{
 						Value:     firstItem.Value,
-						Timestamp: clusterTimestamp,
+						Timestamp: clusterTimestampClassifier,
 					}, nil
 				} else {
 					// If not, we need to calculate the time weighted average
 					avgItem, err := timeWeightedAverage[N](
-						clusterTimestamp,
+						clusterTimestampClassifier,
 						lastItemOnPreviousCluster.Timestamp,
 						lastItemOnPreviousCluster.Value,
 						firstItem.Timestamp,
@@ -66,14 +57,12 @@ func AlignStream[N Number](
 					}
 					return TsRecord[N]{
 						Value:     avgItem,
-						Timestamp: clusterTimestamp,
+						Timestamp: clusterTimestampClassifier,
 					}, nil
 				}
 			}
 		},
-		func(a *TsRecord[N]) int64 {
-			return a.Timestamp.Truncate(fixedDuration).UnixMilli()
-		},
+		alignmentPeriodClassifierFunc[N](alignmentPeriod),
 		s,
 	)
 }
