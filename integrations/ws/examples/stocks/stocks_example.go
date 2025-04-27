@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/integrations/ws"
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"log"
 	"os"
@@ -38,14 +38,14 @@ func main() {
 	err := timeseries.AlignStream(
 
 		// Map the source to a stream of timeseries.TsRecord[float64] (while filtering irrelevant data)
-		shpanstream.MapStreamWhileFiltering(
+		stream.MapStreamWhileFiltering(
 			// Get the websocket stocks stream
 			ws.CreateJsonStreamFromWebSocket[StockDto](createWebSocketFactory(apiKey)),
 
 			// Map to timeseries.TsRecord[float64]
 			mapStockToTimeSeries,
 		),
-		3*time.Second,
+		timeseries.NewFixedAlignmentPeriod(3*time.Second, time.UTC),
 	).
 		// Print the output to stdout
 		Consume(ctx, func(t timeseries.TsRecord[float64]) {
