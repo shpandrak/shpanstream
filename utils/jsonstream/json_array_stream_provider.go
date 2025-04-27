@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
+	"github.com/shpandrak/shpanstream/stream"
 	"io"
 )
 
@@ -16,8 +16,8 @@ type jsonArrayStreamProvider[T any] struct {
 	jsonDecoder        *json.Decoder
 }
 
-func ReadJsonArray[T any](readCloserProvider func(ctx context.Context) (io.ReadCloser, error)) shpanstream.Stream[T] {
-	return shpanstream.NewStream[T](&jsonArrayStreamProvider[T]{
+func ReadJsonArray[T any](readCloserProvider func(ctx context.Context) (io.ReadCloser, error)) stream.Stream[T] {
+	return stream.NewStream[T](&jsonArrayStreamProvider[T]{
 		readCloserProvider: readCloserProvider,
 	})
 }

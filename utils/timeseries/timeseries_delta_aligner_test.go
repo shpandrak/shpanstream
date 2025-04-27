@@ -1,7 +1,7 @@
 package timeseries
 
 import (
-	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -116,7 +116,7 @@ func testAsExpected(
 	expected []TsRecord[int64],
 ) {
 	// Use Just to create the input stream
-	inputStream := shpanstream.Just(records...)
+	inputStream := stream.Just(records...)
 
 	// Create the delta stream using the CreateAlignedDeltaStream function
 	deltaStream := AlignDeltaStream[int64](inputStream, NewFixedAlignmentPeriod(fixedDuration, time.Local))

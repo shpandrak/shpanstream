@@ -24,7 +24,7 @@ To get create a stream from a channel, you can use the `FromChannel` function:
 ```go
 ch := make(chan string)
 
-shpanstream.FromChannel(ch).
+stream.FromChannel(ch).
     Filter(func(x string) bool {
         return len(strings) > 10
     }).
@@ -90,7 +90,7 @@ Time to unleash the power of functional programming for gophers!
 ## 🚀 Install
 
 ```sh
-go get github.com/shpandrak/shpanstream@v0.1.3
+go get github.com/shpandrak/shpanstream@v0.2.0
 ```
 
 ## Examples
@@ -103,7 +103,7 @@ While go generics limits generic functions, making the api less "fluent" than ot
 ```go  
     
 // Prints the first 5 weapons of non Hobit LOTR characters
-shpanstream.MapStream(
+stream.MapStream(
     lotrCharactersRepo.Stream().
         Filter(func(c Character) bool {
             return c.Race != "Hobbit"
@@ -141,12 +141,12 @@ func fetchCountryFlagCanErr(string) (CountryInfo, error) {
 
 // if there is an error at any point in the pipeline, it will propagate to the final error and close the stream
 // with all the underlying resources cleaned up
-err: = shpanstream.MapStreamWithErr(
+err: = stream.MapStreamWithErr(
     // Query external resource for all country codes
     fetchCountryCodes(),
     // For each country code, fetch the country flag via external resource
     fetchCountryFlagCanErr, // this function signature allows returning an error
-    shpanstream.WithConcurrent(10),
+    stream.WithConcurrent(10),
 ).Consume(context.Background(), func (countryInfo CountryInfo) {
     fmt.Println(countryInfo)
 })
@@ -171,12 +171,12 @@ when the stream materializes, the error will be propagated immediately to the fi
 and none of the downstream operations will be executed.
 
 ```go
-func fetchCountryCodes() shpanstream.Stream[string] {
+func fetchCountryCodes() stream.Stream[string] {
 
     if (currentUserDoesNotHavePermission()) {
-        return shpanstream.ErrorStream[string](fmt.Errorf("user %s does not have permission", getCurrentUser()))
+        return stream.ErrorStream[string](fmt.Errorf("user %s does not have permission", getCurrentUser()))
     }
-    return shpanstream.Just("US", "CA", "GB")
+    return stream.Just("US", "CA", "GB")
 }
 ```
 
@@ -195,12 +195,12 @@ func fetchCountryFlagFull(ctx context.Context, string) (CountryInfo, error) {
 // Creating a context with a timeout for the entire pipeline execution
 ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 
-err: = shpanstream.MapStreamWithErrAndCtx(
+err: = stream.MapStreamWithErrAndCtx(
     // Query external resource for all country codes
     fetchCountryCodes(),
     // For each country code, fetch the country flag via external resource
     fetchCountryFlagCanErr, // this function signature allows returning an error
-    shpanstream.WithConcurrent(10),
+    stream.WithConcurrent(10),
 ).Consume(ctx, func (countryInfo CountryInfo) {
     fmt.Println(countryInfo)
 })
@@ -240,7 +240,7 @@ Lets take this example, here is a non-concurrent pipeline to process a stream of
 ```go
 
 // Synchronous processing of the stream
-shpanstream.MapStream(
+stream.MapStream(
     // Query external resource for all country codes
     fetchCountryCodes(),
     // For each country code, fetch the country flag via external resource
@@ -257,12 +257,12 @@ changing any of the logic of the piepline or introducing lowe level code to sync
 ```go
 
 // Concurrent processing of the stream 
-shpanstream.MapStream(
+stream.MapStream(
     // Query external resource for all country codes
     fetchCountryCodes(),
     // For each country code, fetch the country flag via external resource
     fetchCountryFlag,
-    shpanstream.WithConcurrent(10), /* This is the only change */
+    stream.WithConcurrent(10), /* This is the only change */
 ).MustConsume(func (countryInfo CountryInfo) {
     fmt.Println(countryInfo)
 })
@@ -365,7 +365,7 @@ Since streams are composable this also work when composing multiple streams toge
 ```go
     
 // Return page 2 of size 10 from the merged stream of LOTR and The Hobbit characters
-shpanstream.ConcatStreams(
+stream.ConcatStreams(
     lotrCharactersRepo.Stream(),
     theHobbitCharactersRepo.Stream(),
 ).
@@ -399,12 +399,12 @@ In the [stocks example](integrations/ws/examples/stocks/stocks_example.go)
 we are streaming stock prices from a websocket connection and processing the data in real time.
 The stream is aligned mapped to timeseries data and aligned to produce consistent time series data
 
-```go'
+```go
 // Align the stream to 3 seconds getting weighted average for price
-err := timeseries.AlignStream(
+timeseries.AlignStream(
 
     // Map stock entries prices to timeseries.TsRecord[float64] (while filtering irrelevant data)
-    shpanstream.MapStreamWhileFiltering(
+    stream.MapStreamWhileFiltering(
         // Get the websocket stocks stream
         ws.CreateJsonStreamFromWebSocket[StockDto](createWebSocketFactory(apiKey)),
 
@@ -449,8 +449,14 @@ E.g. websocket, grpc, kafka, postgres etc.
 The repository is structured as follows:
 
 ```
-├core library files
+├common library files
 │ ....
+├── stream
+│   ├── all "Stream" types and functions
+│   ├── ...
+├── lazy
+│   ├── all "Lazy" types and functions
+│   ├── ...
 ├── examples
 │   ├── example1
 │   ├── ...

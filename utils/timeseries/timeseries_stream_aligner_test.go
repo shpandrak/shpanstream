@@ -1,10 +1,10 @@
 package timeseries
 
 import (
+	"github.com/shpandrak/shpanstream/stream"
 	"testing"
 	"time"
 
-	"github.com/shpandrak/shpanstream" // Assuming this is your stream library path
 	"github.com/stretchr/testify/require"
 )
 
@@ -197,7 +197,7 @@ func testAlignAsExpected[N Number](
 	t.Helper() // Marks this function as a test helper
 
 	// Use Just to create the input stream
-	inputStream := shpanstream.Just(records...)
+	inputStream := stream.Just(records...)
 
 	alignedStream := AlignStream[N](inputStream, NewFixedAlignmentPeriod(fixedDuration, time.Local))
 

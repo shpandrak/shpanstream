@@ -2,23 +2,24 @@ package timeseries
 
 import (
 	"context"
-	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
+	"github.com/shpandrak/shpanstream/lazy"
+	"github.com/shpandrak/shpanstream/stream"
 	"time"
 )
 
-type Reducer[N Number] func(forTime time.Time, stream shpanstream.Stream[TsRecord[N]]) shpanstream.Lazy[TsRecord[N]]
+type Reducer[N Number] func(forTime time.Time, stream stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]]
 
-func Max[N Number](forTime time.Time, stream shpanstream.Stream[TsRecord[N]]) shpanstream.Lazy[TsRecord[N]] {
-	return shpanstream.MapLazy(
-		shpanstream.MaxLazy(shpanstream.MapStream(stream, mapRecordValue)),
+func Max[N Number](forTime time.Time, s stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]] {
+	return lazy.MapLazy(
+		stream.MaxLazy(stream.MapStream(s, mapRecordValue)),
 		recordMapper[N](forTime),
 	)
 }
 
-func Avg[N Number](forTime time.Time, stream shpanstream.Stream[TsRecord[N]]) shpanstream.Lazy[TsRecord[N]] {
-	return shpanstream.MapLazy(
-		shpanstream.NewLazy(func(ctx context.Context) (N, error) {
+func Avg[N Number](forTime time.Time, stream stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]] {
+	return lazy.MapLazy(
+		lazy.NewLazy(func(ctx context.Context) (N, error) {
 			var avg N
 			var count uint64
 			err := stream.Consume(ctx, func(currVal TsRecord[N]) {

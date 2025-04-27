@@ -2,12 +2,12 @@ package jsonstream
 
 import (
 	"context"
-	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/stream"
 	"io"
 	"net/http"
 )
 
-func StreamJsonToHttpResponseWriter[T any](ctx context.Context, w http.ResponseWriter, stream shpanstream.Stream[T]) error {
+func StreamJsonToHttpResponseWriter[T any](ctx context.Context, w http.ResponseWriter, stream stream.Stream[T]) error {
 	return StreamJsonToWriterWithInit(ctx, w, stream, func() error {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -19,7 +19,7 @@ func ExecuteStreamingHttpPostRequest[T any](
 	ctx context.Context,
 	client *http.Client,
 	url string,
-	stream shpanstream.Stream[T],
+	stream stream.Stream[T],
 ) (*http.Response, error) {
 
 	return StreamJsonAsReaderAndReturn(ctx, stream, func(ctx context.Context, r io.Reader) (*http.Response, error) {

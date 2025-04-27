@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/stream"
 	"io"
 	"log/slog"
 	"os"
@@ -27,8 +27,8 @@ type rawFileStreamProvider struct {
 }
 
 // StreamFromFile creates a lazy stream from a file path.
-func StreamFromFile(filePath string, reverse bool) shpanstream.Stream[[]byte] {
-	return shpanstream.NewStream(&rawFileStreamProvider{
+func StreamFromFile(filePath string, reverse bool) stream.Stream[[]byte] {
+	return stream.NewStream(&rawFileStreamProvider{
 		filePath: filePath,
 		reverse:  reverse,
 	})

@@ -27,33 +27,33 @@ func ComparatorForComparable[T Comparable[T]]() Comparator[T] {
 
 func (r Result[T]) Unpack() (T, error) {
 	return r.Value, nil
-
 }
+
 func UnpackResult[T any](r Result[T]) (T, error) {
 	return r.Value, nil
 }
 
-func mapperErrToErrCtx[SRC any, TGT any](errMapper MapperWithErr[SRC, TGT]) MapperWithErrAndCtx[SRC, TGT] {
+func (em MapperWithErr[SRC, TGT]) ToErrCtx() MapperWithErrAndCtx[SRC, TGT] {
 	return func(_ context.Context, src SRC) (TGT, error) {
-		return errMapper(src)
+		return em(src)
 	}
 }
 
-func mapperToErrCtx[SRC any, TGT any](mapper Mapper[SRC, TGT]) MapperWithErrAndCtx[SRC, TGT] {
+func (m Mapper[SRC, TGT]) ToErrCtx() MapperWithErrAndCtx[SRC, TGT] {
 	return func(_ context.Context, src SRC) (TGT, error) {
-		return mapper(src), nil
+		return m(src), nil
 	}
 }
 
-func predicateToErrCtx[SRC any](predicate Predicate[SRC]) PredicateWithErrAndCtx[SRC] {
+func (p Predicate[SRC]) ToErrCtx() PredicateWithErrAndCtx[SRC] {
 	return func(_ context.Context, src SRC) (bool, error) {
-		return predicate(src), nil
+		return p(src), nil
 	}
 }
 
-func predicateErrToErrCtx[SRC any](predicate PredicateWithErr[SRC]) PredicateWithErrAndCtx[SRC] {
+func (p PredicateWithErr[SRC]) ToErrCtx() PredicateWithErrAndCtx[SRC] {
 	return func(_ context.Context, src SRC) (bool, error) {
-		return predicate(src)
+		return p(src)
 	}
 }
 

@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/stream"
 	"io"
 )
 
-func StreamJsonToWriter[T any](ctx context.Context, w io.Writer, stream shpanstream.Stream[T]) error {
+func StreamJsonToWriter[T any](ctx context.Context, w io.Writer, stream stream.Stream[T]) error {
 	return StreamJsonToWriterWithInit(ctx, w, stream, func() error {
 		return nil
 	})
@@ -17,7 +17,7 @@ func StreamJsonToWriter[T any](ctx context.Context, w io.Writer, stream shpanstr
 func StreamJsonToWriterWithInit[T any](
 	ctx context.Context,
 	w io.Writer,
-	stream shpanstream.Stream[T],
+	stream stream.Stream[T],
 	initFunc func() error,
 ) error {
 	first := true
@@ -65,7 +65,7 @@ func StreamJsonToWriterWithInit[T any](
 
 func StreamJsonAsReaderAndReturn[T any, V any](
 	ctx context.Context,
-	stream shpanstream.Stream[T],
+	stream stream.Stream[T],
 	consumer func(ctx context.Context, r io.Reader) (V, error),
 ) (V, error) {
 

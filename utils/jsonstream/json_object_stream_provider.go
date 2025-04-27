@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
+	"github.com/shpandrak/shpanstream/stream"
 	"io"
 )
 
@@ -15,8 +16,8 @@ type jsonObjectStreamProvider[T any] struct {
 	jsonDecoder        *json.Decoder
 }
 
-func ReadJsonObject[T any](readCloserProvider func(ctx context.Context) (io.ReadCloser, error)) shpanstream.Stream[shpanstream.Entry[string, T]] {
-	return shpanstream.NewStream(&jsonObjectStreamProvider[T]{
+func ReadJsonObject[T any](readCloserProvider func(ctx context.Context) (io.ReadCloser, error)) stream.Stream[shpanstream.Entry[string, T]] {
+	return stream.NewStream(&jsonObjectStreamProvider[T]{
 		readCloserProvider: readCloserProvider,
 	})
 }

@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/integrations/file"
 	"github.com/shpandrak/shpanstream/internal/util"
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"strconv"
 	"strings"
@@ -26,7 +26,7 @@ The example will read the file and print the average temperature for each year a
 func main() {
 
 	locationToUse := time.Local
-	samplesStream := shpanstream.MapStreamWithErr(
+	samplesStream := stream.MapStreamWithErr(
 		file.StreamFromFile("examples/globalwarming/huge_time_series_csv.csv", false),
 		parseCsvLine,
 	).Filter(func(src timeseries.TsRecord[float64]) bool {
