@@ -199,7 +199,7 @@ func testAlignAsExpected[N Number](
 	// Use Just to create the input stream
 	inputStream := shpanstream.Just(records...)
 
-	alignedStream := AlignStream[N](inputStream, fixedDuration)
+	alignedStream := AlignStream[N](inputStream, NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Collect the resulting aligned records
 	result := alignedStream.MustCollect() // Use MustCollect for simplicity in tests
