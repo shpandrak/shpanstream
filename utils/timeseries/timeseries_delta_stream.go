@@ -2,12 +2,12 @@ package timeseries
 
 import (
 	"fmt"
-	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/stream"
 )
 
-func DeltaStream[N Number](s shpanstream.Stream[TsRecord[N]]) shpanstream.Stream[TsRecord[N]] {
+func DeltaStream[N Number](s stream.Stream[TsRecord[N]]) stream.Stream[TsRecord[N]] {
 	var prevItem *TsRecord[N]
-	return shpanstream.MapStreamWhileFilteringWithErr(
+	return stream.MapStreamWhileFilteringWithErr(
 		s,
 		func(item TsRecord[N]) (*TsRecord[N], error) {
 			if prevItem == nil {

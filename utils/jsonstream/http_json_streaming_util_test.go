@@ -3,8 +3,8 @@ package jsonstream
 import (
 	"context"
 	"fmt"
-	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/stretchr/testify/require"
 	"io"
 	"log"
@@ -20,9 +20,9 @@ type tstData struct {
 }
 
 // Creating an infinite stream of tstData with ascending integers
-func createTestInfiniteStream() shpanstream.Stream[tstData] {
+func createTestInfiniteStream() stream.Stream[tstData] {
 	idx := 0
-	return shpanstream.NewSimpleStream[tstData](func(ctx context.Context) (tstData, error) {
+	return stream.NewSimpleStream[tstData](func(ctx context.Context) (tstData, error) {
 		select {
 		case <-ctx.Done():
 			return util.DefaultValue[tstData](), ctx.Err()
@@ -45,7 +45,7 @@ func TestStreamingAcrossHttp(t *testing.T) {
 	// Setting up the test server
 	mux := http.NewServeMux()
 
-	var requestStream shpanstream.Stream[tstData]
+	var requestStream stream.Stream[tstData]
 	// The POST request will accept a stream of JSON objects in its body and store it on the request stream variable
 	mux.HandleFunc("/post", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancelFunc := context.WithCancel(r.Context())
@@ -54,7 +54,7 @@ func TestStreamingAcrossHttp(t *testing.T) {
 		}).
 			// When the request stream is closed, cancel the context and return the post request
 			// We can easily do that using WithAdditionalStreamLifecycle to attach handlers for stream lifecycle events
-			WithAdditionalStreamLifecycle(shpanstream.NewStreamLifecycle(
+			WithAdditionalStreamLifecycle(stream.NewStreamLifecycle(
 				func(ctx context.Context) error {
 					log.Println("Starting stream")
 					return nil
@@ -83,7 +83,7 @@ func TestStreamingAcrossHttp(t *testing.T) {
 		_ = StreamJsonToHttpResponseWriter(
 			r.Context(),
 			w,
-			shpanstream.MapStream(
+			stream.MapStream(
 				requestStream,
 				func(v tstData) tstData {
 					return tstData{

@@ -2,7 +2,8 @@ package file
 
 import (
 	"fmt"
-	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/lazy"
+	"github.com/shpandrak/shpanstream/stream"
 	"strconv"
 	"strings"
 )
@@ -38,9 +39,9 @@ func ExampleStreamProvider() {
 		return ret, nil
 	}
 
-	tallestXmenName := shpanstream.MapLazy(
-		shpanstream.ReduceLazy(
-			shpanstream.MapStreamWithErr(
+	tallestXmenName := lazy.MapLazy(
+		stream.ReduceLazy(
+			stream.MapStreamWithErr(
 				StreamFromFile("xmen-heights.csv", false).
 					// Skip the header
 					Skip(1),

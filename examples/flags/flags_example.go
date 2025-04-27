@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/jsonstream"
 	"io"
 	"log"
@@ -75,10 +76,10 @@ func main() {
 	err := jsonstream.StreamJsonToWriter(
 		context.Background(),
 		outputWriter,
-		shpanstream.MapStreamWithErrAndCtx(
+		stream.MapStreamWithErrAndCtx(
 			fetchCountryCodeToNames(),
 			fetchCountryFlag,
-			shpanstream.WithConcurrentMapStreamOption(flagRequestsConcurrency),
+			stream.WithConcurrentMapStreamOption(flagRequestsConcurrency),
 		),
 	)
 
@@ -104,7 +105,7 @@ func fetchCountryFlag(_ context.Context, e shpanstream.Entry[string, string]) (C
 	}, nil
 }
 
-func fetchCountryCodeToNames() shpanstream.Stream[shpanstream.Entry[string, string]] {
+func fetchCountryCodeToNames() stream.Stream[shpanstream.Entry[string, string]] {
 	return jsonstream.ReadJsonObject[string](func(ctx context.Context) (io.ReadCloser, error) {
 		resp, err := http.Get(codesURL)
 		if err != nil {
