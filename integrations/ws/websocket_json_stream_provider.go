@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/stream"
 	"log"
 )
 
@@ -13,8 +13,8 @@ type wsJsonStreamProvider[T any] struct {
 	ws        *websocket.Conn
 }
 
-func CreateJsonStreamFromWebSocket[T any](wsFactory func(ctx context.Context) (*websocket.Conn, error)) shpanstream.Stream[T] {
-	return shpanstream.NewStream(&wsJsonStreamProvider[T]{
+func CreateJsonStreamFromWebSocket[T any](wsFactory func(ctx context.Context) (*websocket.Conn, error)) stream.Stream[T] {
+	return stream.NewStream(&wsJsonStreamProvider[T]{
 		wsFactory: wsFactory,
 	})
 }
