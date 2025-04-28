@@ -38,7 +38,7 @@ func main() {
 	err := timeseries.AlignStream(
 
 		// Map the source to a stream of timeseries.TsRecord[float64] (while filtering irrelevant data)
-		stream.MapStreamWhileFiltering(
+		stream.MapWhileFiltering(
 			// Get the websocket stocks stream
 			ws.CreateJsonStreamFromWebSocket[StockDto](createWebSocketFactory(apiKey)),
 

@@ -28,7 +28,7 @@ func mapStreamConcurrently[SRC any, TGT any](
 	mapper shpanstream.MapperWithErrAndCtx[SRC, TGT],
 ) Stream[TGT] {
 	if concurrency <= 0 {
-		return ErrorStream[TGT](fmt.Errorf("concurrency must be > 0"))
+		return Error[TGT](fmt.Errorf("concurrency must be > 0"))
 	}
 	return NewDownStream[SRC, TGT](
 		src,

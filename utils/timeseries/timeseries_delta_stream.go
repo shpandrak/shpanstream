@@ -7,7 +7,7 @@ import (
 
 func DeltaStream[N Number](s stream.Stream[TsRecord[N]]) stream.Stream[TsRecord[N]] {
 	var prevItem *TsRecord[N]
-	return stream.MapStreamWhileFilteringWithErr(
+	return stream.MapWhileFilteringWithErr(
 		s,
 		func(item TsRecord[N]) (*TsRecord[N], error) {
 			if prevItem == nil {

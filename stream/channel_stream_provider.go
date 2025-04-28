@@ -31,7 +31,7 @@ func (cp chanelStreamProvider[T]) Emit(ctx context.Context) (T, error) {
 	}
 }
 
-func StreamFromChannel[T any](ch <-chan T) Stream[T] {
+func FromChannel[T any](ch <-chan T) Stream[T] {
 	return NewStream[T](&chanelStreamProvider[T]{
 		originalChannel: ch,
 	})

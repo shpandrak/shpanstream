@@ -7,54 +7,57 @@ import (
 	"github.com/shpandrak/shpanstream/internal/util"
 )
 
-type MapStreamOptions interface {
+type MapOption interface {
 	mapStreamOptionName() string
 }
 
-type concurrentMapStreamOptions struct {
+type concurrentMapOption struct {
 	concurrency int
 }
 
-// WithConcurrentMapStreamOption is causing the mapper function to be called concurrently in separate goroutines.
+// WithConcurrentMapOption is causing the mapper function to be called concurrently in separate goroutines.
 // note that the resulting stream order is not guaranteed to be the same as the source stream order.
 // Note that source stream is being read sequentially, and only the mapper function is called concurrently.
 // This is useful when the mapper function is expensive, and you want to parallelize the mapping process.
-func WithConcurrentMapStreamOption(concurrency int) MapStreamOptions {
-	return &concurrentMapStreamOptions{concurrency: concurrency}
+func WithConcurrentMapOption(concurrency int) MapOption {
+	return &concurrentMapOption{concurrency: concurrency}
 }
 
-func (c *concurrentMapStreamOptions) mapStreamOptionName() string {
+func (c *concurrentMapOption) mapStreamOptionName() string {
 	return "concurrent"
 }
 
-func MapStream[SRC any, TGT any](
+// Map maps the source stream to a target stream using the provided mapper function.
+func Map[SRC any, TGT any](
 	src Stream[SRC],
 	mapper shpanstream.Mapper[SRC, TGT],
-	options ...MapStreamOptions,
+	options ...MapOption,
 ) Stream[TGT] {
-	return MapStreamWithErrAndCtx(src, mapper.ToErrCtx(), options...)
+	return MapWithErrAndCtx(src, mapper.ToErrCtx(), options...)
 }
 
-func MapStreamWithErr[SRC any, TGT any](
+// MapWithErr maps the source stream to a target stream using the provided mapper function.
+func MapWithErr[SRC any, TGT any](
 	src Stream[SRC],
 	mapper shpanstream.MapperWithErr[SRC, TGT],
-	options ...MapStreamOptions,
+	options ...MapOption,
 ) Stream[TGT] {
-	return MapStreamWithErrAndCtx(src, mapper.ToErrCtx(), options...)
+	return MapWithErrAndCtx(src, mapper.ToErrCtx(), options...)
 }
 
-func MapStreamWithErrAndCtx[SRC any, TGT any](
+// MapWithErrAndCtx maps the source stream to a target stream using the provided mapper function.
+func MapWithErrAndCtx[SRC any, TGT any](
 	src Stream[SRC],
 	mapper shpanstream.MapperWithErrAndCtx[SRC, TGT],
-	options ...MapStreamOptions,
+	options ...MapOption,
 ) Stream[TGT] {
 	if len(options) > 0 {
 		for _, opt := range options {
 			switch cOpt := opt.(type) {
-			case *concurrentMapStreamOptions:
+			case *concurrentMapOption:
 				return mapStreamConcurrently[SRC, TGT](src, cOpt.concurrency, mapper)
 			default:
-				return ErrorStream[TGT](fmt.Errorf("unsupported map stream option type: %T", opt))
+				return Error[TGT](fmt.Errorf("unsupported map stream option type: %T", opt))
 			}
 		}
 	}
@@ -69,37 +72,40 @@ func MapStreamWithErrAndCtx[SRC any, TGT any](
 	)
 }
 
-// MapStreamWhileFiltering is a function that maps a Stream of SRC to a Stream of TGT while allowing to filter.
+// MapWhileFiltering is a function that maps a Stream of SRC to a Stream of TGT while allowing to filter.
 // filtering is done by returning nil from the mapper function.
-func MapStreamWhileFiltering[SRC any, TGT any](
+// This is a convenience function to avoid chaining filter and the Map and do it in one go.
+func MapWhileFiltering[SRC any, TGT any](
 	src Stream[SRC],
 	mapper shpanstream.Mapper[SRC, *TGT],
-	options ...MapStreamOptions,
+	options ...MapOption,
 ) Stream[TGT] {
-	return MapStreamWhileFilteringWithErrAndCtx(src, mapper.ToErrCtx(), options...)
+	return MapWhileFilteringWithErrAndCtx(src, mapper.ToErrCtx(), options...)
 }
 
-// MapStreamWhileFilteringWithErr is a function that maps a Stream of SRC to a Stream of TGT while allowing to filter.
+// MapWhileFilteringWithErr is a function that maps a Stream of SRC to a Stream of TGT while allowing to filter.
 // filtering is done by returning nil from the mapper function.
-func MapStreamWhileFilteringWithErr[SRC any, TGT any](
+// This is a convenience function to avoid chaining filter and the Map and do it in one go.
+func MapWhileFilteringWithErr[SRC any, TGT any](
 	src Stream[SRC],
 	mapper shpanstream.MapperWithErr[SRC, *TGT],
-	options ...MapStreamOptions,
+	options ...MapOption,
 ) Stream[TGT] {
-	return MapStreamWhileFilteringWithErrAndCtx(src, mapper.ToErrCtx(), options...)
+	return MapWhileFilteringWithErrAndCtx(src, mapper.ToErrCtx(), options...)
 }
 
-// MapStreamWhileFilteringWithErrAndCtx is a function that maps a Stream of SRC to a Stream of TGT while allowing to filter while streaming.
+// MapWhileFilteringWithErrAndCtx is a function that maps a Stream of SRC to a Stream of TGT while allowing to filter while streaming.
 // filtering is done by returning nil from the mapper function.
-func MapStreamWhileFilteringWithErrAndCtx[SRC any, TGT any](
+// This is a convenience function to avoid chaining filter and the Map and do it in one go.
+func MapWhileFilteringWithErrAndCtx[SRC any, TGT any](
 	src Stream[SRC],
 	mapper shpanstream.MapperWithErrAndCtx[SRC, *TGT],
-	options ...MapStreamOptions,
+	options ...MapOption,
 ) Stream[TGT] {
-	return MapStream(
+	return Map(
 
 		// First we map the stream to a stream of pointers to TGT using the mapper
-		MapStreamWithErrAndCtx(src, mapper, options...).
+		MapWithErrAndCtx(src, mapper, options...).
 
 			// Then we filter the stream to remove nil values
 			Filter(func(tgt *TGT) bool {
@@ -113,13 +119,7 @@ func MapStreamWhileFilteringWithErrAndCtx[SRC any, TGT any](
 	)
 }
 
-// FlatMapStream maps a single element of the source stream to a stream of elements and flattens the result to a single stream.
-func FlatMapStream[SRC any, TGT any](src Stream[SRC], mapper shpanstream.Mapper[SRC, Stream[TGT]]) Stream[TGT] {
-	collect, err := MapStreamWithErrAndCtx[SRC, Stream[TGT]](src, mapper.ToErrCtx()).
-		Collect(context.Background())
-
-	if err != nil {
-		return ErrorStream[TGT](err)
-	}
-	return ConcatStreams[TGT](collect...)
+// FlatMap maps a single element of the source stream to a stream of elements and flattens the result to a single stream.
+func FlatMap[SRC any, TGT any](src Stream[SRC], mapper shpanstream.Mapper[SRC, Stream[TGT]]) Stream[TGT] {
+	return Concat[TGT](MapWithErrAndCtx[SRC, Stream[TGT]](src, mapper.ToErrCtx()))
 }

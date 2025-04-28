@@ -26,7 +26,7 @@ The example will read the file and print the average temperature for each year a
 func main() {
 
 	locationToUse := time.Local
-	samplesStream := stream.MapStreamWithErr(
+	samplesStream := stream.MapWithErr(
 		file.StreamFromFile("examples/globalwarming/huge_time_series_csv.csv", false),
 		parseCsvLine,
 	).Filter(func(src timeseries.TsRecord[float64]) bool {

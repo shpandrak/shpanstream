@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-func EmptyStream[T any]() Stream[T] {
+func Empty[T any]() Stream[T] {
 	return newStream(func(ctx context.Context) (T, error) {
 		return util.DefaultValue[T](), io.EOF
 	}, nil)

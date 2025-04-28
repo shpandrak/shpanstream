@@ -11,14 +11,14 @@ import (
 type Reducer[N Number] func(forTime time.Time, stream stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]]
 
 func Max[N Number](forTime time.Time, s stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]] {
-	return lazy.MapLazy(
-		stream.MaxLazy(stream.MapStream(s, mapRecordValue)),
+	return lazy.Map(
+		stream.MaxLazy(stream.Map(s, mapRecordValue)),
 		recordMapper[N](forTime),
 	)
 }
 
 func Avg[N Number](forTime time.Time, stream stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]] {
-	return lazy.MapLazy(
+	return lazy.Map(
 		lazy.NewLazy(func(ctx context.Context) (N, error) {
 			var avg N
 			var count uint64

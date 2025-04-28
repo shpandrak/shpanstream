@@ -1,32 +1,46 @@
 package stream
 
 import (
-	"context"
+	"github.com/shpandrak/shpanstream/lazy"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
-func TestBasicStreamsYey(t *testing.T) {
-	collect, err :=
+func TestStream_FindFirst(t *testing.T) {
+	addOne := func(i int) int {
+		return i + 1
+	}
+
+	require.Equal(t, 1, Just(1, 2, 3, 4, 5).FindFirst().MustGet())
+	require.Equal(t, 2, lazy.Map(Just(1, 2, 3, 4, 5).FindFirst(), addOne).MustGet())
+	require.Equal(t, 2, Just(1, 2, 3, 4, 5).Skip(1).FindFirst().MustGet())
+	require.Nil(t, Empty[int]().FindFirst().MustGetOptional())
+	require.Nil(t, Just[int]().FindFirst().MustGetOptional())
+}
+
+func TestStream_Filter(t *testing.T) {
+	addOne := func(i int) int {
+		return i + 1
+	}
+
+	require.Len(
+		t,
 		Just(1, 2, 3, 4, 5).
 			Filter(func(i int) bool {
 				return i > 2
 			}).
-			Collect(context.Background())
+			MustCollect(),
+		3,
+	)
 
-	require.NoError(t, err)
-	require.Equal(t, 3, len(collect))
-
-	collect, err =
-		MapStream(Just(1, 2, 3, 4, 5), func(i int) int {
-			return i + 1
-		}).
+	require.Len(
+		t,
+		Map(Just(1, 2, 3, 4, 5), addOne).
 			Filter(func(i int) bool {
 				return i > 2
 			}).
-			Collect(context.Background())
-
-	require.NoError(t, err)
-	require.Equal(t, 4, len(collect))
+			MustCollect(),
+		4,
+	)
 
 }

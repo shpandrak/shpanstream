@@ -83,7 +83,7 @@ func TestStreamingAcrossHttp(t *testing.T) {
 		_ = StreamJsonToHttpResponseWriter(
 			r.Context(),
 			w,
-			stream.MapStream(
+			stream.Map(
 				requestStream,
 				func(v tstData) tstData {
 					return tstData{

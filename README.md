@@ -1,6 +1,7 @@
 # Stream library for go
 
-Shpanstream is lightweight "zero-dependencies" Go library for working with streams, inspired by modern functional programming languages.
+Shpanstream is lightweight "zero-dependencies" Go library introducing a toolset for working with lazily evaluated streams, 
+inspired by modern functional programming languages.
 
 ## At a glance
 
@@ -18,7 +19,7 @@ Just(1, 2, 3, 4, 5).
 ## But... go has channels
 
 Channels are powerful low-level concurrency primitives and are the backbone of Go's concurrency model.
-Shpanstream library is work on top of channels, among other options for steam source.
+Shpanstream library leverage that, and works great on top of channels, among other options for stream sources.
 
 To get create a stream from a channel, you can use the `FromChannel` function:
 ```go
@@ -38,7 +39,7 @@ allowing you to easily compose operations and work with infinite sequences.
 shpanstream reduces the boilerplate for coordination and resource management needed to work directly with channels, 
 while adding features as we'll see below.
 
-ShpanStream offers memory efficient processing of large data sets. e.g. stream data from the database, 
+ShpanStream offers memory efficient "lazy" processing of large data sets. e.g. stream data from the database, 
 manipulate it and stream json response to a clients.
 
 ## Addressing the elephant in the room
@@ -59,10 +60,10 @@ people
 is not possible in Go. go generics as implemented today do not allow generics when invoking methods on a type.
 
 with shpanstream you can write similar code, but it will be less fluent and more verbose.
-we have to use the `MapStream` function to map the stream.
+we have to use the `stream.Map` function to map the stream.
 
 ```go
-MapStream(
+stream.Map(
     people.
         Filter(func(p Person) bool {
             return p.Age > 18
@@ -80,17 +81,17 @@ But... This alone doesn't mean we have to throw the baby out with the bathwater.
 when working with stream processing, functional programming paradigm is more than just syntax sugar.
 
 With shpanstream we can write code that is less imperative, moving a lot of the complex repetitive streaming code to the library, 
-preventing hours of debugging and ensuring that the code is more maintainable. 
-Specifically, when working with stream processing, encapsulating the resource management concern is a life saver.
+preventing hours of debugging and ensuring that the code is maintainable. 
+Specifically, when working with stream processing, encapsulating the resource management concern is a life-saver.
 
 With that out of the way, let's see what shpanstream has to offer.
 
-Time to unleash the power of functional programming for gophers!
+Time to unleash the power of functional style stream-processing for Gophers!
 
 ## 🚀 Install
 
 ```sh
-go get github.com/shpandrak/shpanstream@v0.2.1
+go get github.com/shpandrak/shpanstream@v0.3.0
 ```
 
 ## Examples
@@ -103,7 +104,7 @@ While go generics limits generic functions, making the api less "fluent" than ot
 ```go  
     
 // Prints the first 5 weapons of non Hobit LOTR characters
-stream.MapStream(
+stream.Map(
     lotrCharactersRepo.Stream().
         Filter(func(c Character) bool {
             return c.Race != "Hobbit"
@@ -128,8 +129,8 @@ this allows streams operations to be composed together without having to add boi
 When there are errors, streams automatically close all the underlying resources (e.g database cursor, file...) and propagate the error to the final consumer
 
 Let's go back to the country flags example, and add error handling to the pipeline
-For simplicity, previous iteration ignored errors and used the `MapStream` that is meant for simple mapping
-since fetching external resources can fail, we will use the `MapStreamWithErr` that allows the mapper to return an error
+For simplicity, previous iteration ignored errors and used the `stream.Map` that is meant for simple mapping
+since fetching external resources can fail, we will use the `stream.MapWithErr` that allows the mapper to return an error
 
 
 ```go
@@ -141,7 +142,7 @@ func fetchCountryFlagCanErr(string) (CountryInfo, error) {
 
 // if there is an error at any point in the pipeline, it will propagate to the final error and close the stream
 // with all the underlying resources cleaned up
-err: = stream.MapStreamWithErr(
+err: = stream.MapWithErr(
     // Query external resource for all country codes
     fetchCountryCodes(),
     // For each country code, fetch the country flag via external resource
@@ -174,7 +175,7 @@ and none of the downstream operations will be executed.
 func fetchCountryCodes() stream.Stream[string] {
 
     if (currentUserDoesNotHavePermission()) {
-        return stream.ErrorStream[string](fmt.Errorf("user %s does not have permission", getCurrentUser()))
+        return stream.Error[string](fmt.Errorf("user %s does not have permission", getCurrentUser()))
     }
     return stream.Just("US", "CA", "GB")
 }
@@ -182,7 +183,7 @@ func fetchCountryCodes() stream.Stream[string] {
 
 ### Context propagation
 When using external resources, it is important to be able to cancel the request if the stream is cancelled.
-for that there is an additional version of the MapStream function that in addition to supporting errors, allows passing context to the maper
+for that there is an additional version of the Map function that in addition to supporting errors, allows passing context to the maper
 While this is not needed in simple stream processing examples, it can be crucial when using external resources.
 Passing context allows to cancel the request if the stream is cancelled, and also allows to set a timeout for the entire pipeline
 
@@ -195,7 +196,7 @@ func fetchCountryFlagFull(ctx context.Context, string) (CountryInfo, error) {
 // Creating a context with a timeout for the entire pipeline execution
 ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 
-err: = stream.MapStreamWithErrAndCtx(
+err: = stream.MapWithErrAndCtx(
     // Query external resource for all country codes
     fetchCountryCodes(),
     // For each country code, fetch the country flag via external resource
@@ -240,7 +241,7 @@ Lets take this example, here is a non-concurrent pipeline to process a stream of
 ```go
 
 // Synchronous processing of the stream
-stream.MapStream(
+stream.Map(
     // Query external resource for all country codes
     fetchCountryCodes(),
     // For each country code, fetch the country flag via external resource
@@ -257,7 +258,7 @@ changing any of the logic of the piepline or introducing lowe level code to sync
 ```go
 
 // Concurrent processing of the stream 
-stream.MapStream(
+stream.Map(
     // Query external resource for all country codes
     fetchCountryCodes(),
     // For each country code, fetch the country flag via external resource
@@ -344,12 +345,12 @@ There are multiple ways to merge streams together, a very useful one is to merge
 This can be very handy with time series data that tends to be sorted by time, and have multiple sources of data.
 ```go
 // Merge two sorted streams of integers
-mergedStream := MergedSortedStream(
+mergedStream := stream.MergedSortedStream(
     cmp.Compare,
-    Just(1, 4, 7),
-    Just(2, 5, 8, 9),
-    EmptyStream[int](),
-    Just(3, 6, 9),
+    stream.Just(1, 4, 7),
+    stream.Just(2, 5, 8, 9),
+    stream.Empty[int](),
+    stream.Just(3, 6, 9),
 )
 
 // Expected result after merging 
@@ -404,14 +405,14 @@ The stream is aligned mapped to timeseries data and aligned to produce consisten
 timeseries.AlignStream(
 
     // Map stock entries prices to timeseries.TsRecord[float64] (while filtering irrelevant data)
-    stream.MapStreamWhileFiltering(
+    stream.MapWhileFiltering(
         // Get the websocket stocks stream
         ws.CreateJsonStreamFromWebSocket[StockDto](createWebSocketFactory(apiKey)),
 
         // Map to timeseries.TsRecord[float64]
         mapStockToTimeSeries,
     ),
-    3*time.Second,
+    timeseries.NewFixedAlignmentPeriod(3*time.Second, time.UTC),
 ).
     // Print the output to stdout
     Consume(ctx, func(t timeseries.TsRecord[float64]) {
@@ -429,11 +430,6 @@ timeseries.AlignStream(
 Streams can be infinite, allowing you to work with data that is generated on the fly.
 
 - [ ] TODO: Add Infinite streams example
-
-### Advance stream processing
-Enabler for advanced data processing: Streams provide a powerful abstraction for working with data, allowing you to easily implement advanced data processing techniques such as map-reduce, windowing, bucketing and more.
-
-- [ ] TODO: Add advanced stream processing example
 
 ## Repository structure
 

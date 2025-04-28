@@ -38,7 +38,7 @@ func WithOmitLastPartialWindowOption() WindowOption {
 
 func Window[T any](s Stream[T], size int, opts ...WindowOption) Stream[[]T] {
 	if size <= 0 {
-		return ErrorStream[[]T](fmt.Errorf("window size must be greater than 0"))
+		return Error[[]T](fmt.Errorf("window size must be greater than 0"))
 	}
 
 	cfg := windowConfig{
@@ -49,10 +49,10 @@ func Window[T any](s Stream[T], size int, opts ...WindowOption) Stream[[]T] {
 		opt(&cfg)
 	}
 	if cfg.step <= 0 {
-		return ErrorStream[[]T](fmt.Errorf("step must be greater than 0, or omit the option for no overlap"))
+		return Error[[]T](fmt.Errorf("step must be greater than 0, or omit the option for no overlap"))
 	}
 	if cfg.step > size {
-		return ErrorStream[[]T](fmt.Errorf("step must be less than or equal to size"))
+		return Error[[]T](fmt.Errorf("step must be less than or equal to size"))
 	}
 	var buffer []T
 	done := false

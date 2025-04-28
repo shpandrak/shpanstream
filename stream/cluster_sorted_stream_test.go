@@ -41,7 +41,7 @@ func TestClusterSortedStream(t *testing.T) {
 
 func TestClusterSortedStream_Empty(t *testing.T) {
 	// Create an empty clustered Stream
-	clusteredStream := ClusterSortedStreamOrdered(intClusterMerger, intClusterPredicate, EmptyStream[int]())
+	clusteredStream := ClusterSortedStreamOrdered(intClusterMerger, intClusterPredicate, Empty[int]())
 	// Collect results from the clustered Stream
 
 	require.Len(t, clusteredStream.MustCollect(), 0)

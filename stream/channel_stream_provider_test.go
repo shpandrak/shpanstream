@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func ExampleStreamFromChannel() {
+func ExampleFromChannel() {
 	type tstLogEvent struct {
 		Level string
 		Msg   string
@@ -35,9 +35,9 @@ func ExampleStreamFromChannel() {
 
 	// Output:
 	// [Oh no4,Oh no5,Oh no6 Oh no7,Oh no8,Oh no9]
-	fmt.Println(MapStream(
+	fmt.Println(Map(
 		Window(
-			StreamFromChannel(ch),
+			FromChannel(ch),
 			3,
 			WithSlidingWindowStepOption(1),
 		).Filter(func(currWindow []tstLogEvent) bool {

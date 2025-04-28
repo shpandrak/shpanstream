@@ -10,7 +10,7 @@ import (
 // Buffered creates a buffered stream from the source stream with a given buffer size.
 func Buffered[T any](s Stream[T], size int) Stream[T] {
 	if size <= 0 {
-		return ErrorStream[T](fmt.Errorf("buffer size must be greater than 0"))
+		return Error[T](fmt.Errorf("buffer size must be greater than 0"))
 	}
 	if size == 1 {
 		return s
@@ -21,9 +21,9 @@ func Buffered[T any](s Stream[T], size int) Stream[T] {
 	// Result will either be T or an upstream error
 	bufferChan := make(chan shpanstream.Result[T], size-1)
 
-	return MapStreamWithErr(
+	return MapWithErr(
 		// Create a new stream with the buffer channel as the source
-		StreamFromChannel(bufferChan),
+		FromChannel(bufferChan),
 
 		// Unpack the result from the buffer channel to the original type or error
 		shpanstream.UnpackResult[T],

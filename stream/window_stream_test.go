@@ -79,7 +79,7 @@ func TestStepIncompleteWindow(t *testing.T) {
 }
 
 func TestWindow_Errors(t *testing.T) {
-	errStream := ErrorStream[int](errors.New("boom"))
+	errStream := Error[int](errors.New("boom"))
 	windowed := Window(errStream, 3)
 
 	_, err := windowed.Collect(context.Background())
@@ -158,7 +158,7 @@ func TestEmptySource(t *testing.T) {
 	// for smart asses, this is a valid case
 	require.Len(
 		t,
-		Window(EmptyStream[int](), 10).MustCollect(),
+		Window(Empty[int](), 10).MustCollect(),
 		0,
 	)
 }
@@ -204,7 +204,7 @@ func Test_Alert(t *testing.T) {
 	require.Equal(
 		t,
 		"Messages:\nAlert 3\nAlert 4",
-		lazy.MapLazy(
+		lazy.Map(
 
 			// Creating a sliding window of alerts of size 3 with a sliding step of 1
 			Window(
@@ -229,7 +229,7 @@ func Test_Alert(t *testing.T) {
 
 				// Reducing the sever alerts to a single message with individual alert messages
 				return MustReduce(
-					MapStreamWhileFiltering(
+					MapWhileFiltering(
 						Just(alertsInWindow...),
 						func(a alert) *string {
 							// Only for the severe alerts
