@@ -76,10 +76,10 @@ func main() {
 	err := jsonstream.StreamJsonToWriter(
 		context.Background(),
 		outputWriter,
-		stream.MapStreamWithErrAndCtx(
+		stream.MapWithErrAndCtx(
 			fetchCountryCodeToNames(),
 			fetchCountryFlag,
-			stream.WithConcurrentMapStreamOption(flagRequestsConcurrency),
+			stream.WithConcurrentMapOption(flagRequestsConcurrency),
 		),
 	)
 

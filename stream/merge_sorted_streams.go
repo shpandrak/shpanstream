@@ -15,7 +15,7 @@ type mergeSortedStreamsProvider[T any] struct {
 // The streams must be sorted according to the provided comparator function.
 func MergeSortedStreams[T any](comparator func(a, b T) int, streams ...Stream[T]) Stream[T] {
 	if len(streams) == 0 {
-		return EmptyStream[T]()
+		return Empty[T]()
 	}
 	ms := &mergeSortedStreamsProvider[T]{
 		comparator: comparator,

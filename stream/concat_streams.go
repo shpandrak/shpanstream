@@ -21,7 +21,7 @@ func Concat[T any](streams Stream[Stream[T]]) Stream[T] {
 // ConcatStreams concatenates multiple streams into a single stream. the streams are joined sequentially one after the other.
 func ConcatStreams[T any](streams ...Stream[T]) Stream[T] {
 	if len(streams) == 0 {
-		return EmptyStream[T]()
+		return Empty[T]()
 	}
 	return Concat(Just(streams...))
 }

@@ -4,5 +4,7 @@ go 1.23
 
 require (
 	github.com/gorilla/websocket v1.5.3
-	github.com/shpandrak/shpanstream v0.2.1
+	github.com/shpandrak/shpanstream v0.3.0
 )
+
+replace github.com/shpandrak/shpanstream => ../../

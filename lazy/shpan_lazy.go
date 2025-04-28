@@ -44,13 +44,13 @@ func NewLazy[T any](fetcher func(ctx context.Context) (T, error)) Lazy[T] {
 	}}
 }
 
-// EmptyLazy gets an empty Lazy
-func EmptyLazy[T any]() Lazy[T] {
+// Empty gets an empty Lazy
+func Empty[T any]() Lazy[T] {
 	return NewLazyOptional[T](nil)
 }
 
-// ErrorLazy creates a new Lazy with error
-func ErrorLazy[T any](err error) Lazy[T] {
+// Error creates a new Lazy with error
+func Error[T any](err error) Lazy[T] {
 	return Lazy[T]{fetcher: func(_ context.Context) (*T, error) {
 		return nil, err
 	}}
@@ -137,21 +137,21 @@ func (o Lazy[T]) FilterWithErrAndCtx(predicate shpanstream.PredicateWithErrAndCt
 	})
 }
 
-// MapLazy maps the value of the Lazy to a new value using the provided mapper function.
+// Map maps the value of the Lazy to a new value using the provided mapper function.
 // If lazy is empty, it will return an empty Lazy.
-func MapLazy[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.Mapper[SRC, TGT]) Lazy[TGT] {
-	return MapLazyWithErrAndCtx(src, mapper.ToErrCtx())
+func Map[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.Mapper[SRC, TGT]) Lazy[TGT] {
+	return MapWithErrAndCtx(src, mapper.ToErrCtx())
 }
 
-// MapLazyWithErr maps the value of the Lazy to a new value using the provided mapper function.
+// MapWithErr maps the value of the Lazy to a new value using the provided mapper function.
 // If lazy is empty, it will return an empty Lazy.
-func MapLazyWithErr[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.MapperWithErr[SRC, TGT]) Lazy[TGT] {
-	return MapLazyWithErrAndCtx(src, mapper.ToErrCtx())
+func MapWithErr[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.MapperWithErr[SRC, TGT]) Lazy[TGT] {
+	return MapWithErrAndCtx(src, mapper.ToErrCtx())
 }
 
-// MapLazyWithErrAndCtx maps the value of the Lazy to a new value using the provided mapper function.
+// MapWithErrAndCtx maps the value of the Lazy to a new value using the provided mapper function.
 // If lazy is empty, it will return an empty Lazy.
-func MapLazyWithErrAndCtx[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.MapperWithErrAndCtx[SRC, TGT]) Lazy[TGT] {
+func MapWithErrAndCtx[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.MapperWithErrAndCtx[SRC, TGT]) Lazy[TGT] {
 	return NewLazyOptional[TGT](func(ctx context.Context) (*TGT, error) {
 		srcValue, err := src.GetOptional(ctx)
 		if err != nil {
@@ -163,6 +163,26 @@ func MapLazyWithErrAndCtx[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.Ma
 				return nil, err
 			}
 			return &tgt, nil
+		} else {
+			return nil, nil
+		}
+	})
+}
+
+func MapWhileFiltering[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.Mapper[SRC, *TGT]) Lazy[TGT] {
+	return MapWhileFilteringWithErrAndCtx(src, mapper.ToErrCtx())
+}
+func MapWhileFilteringWithErr[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.MapperWithErr[SRC, *TGT]) Lazy[TGT] {
+	return MapWhileFilteringWithErrAndCtx(src, mapper.ToErrCtx())
+}
+func MapWhileFilteringWithErrAndCtx[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.MapperWithErrAndCtx[SRC, *TGT]) Lazy[TGT] {
+	return NewLazyOptional[TGT](func(ctx context.Context) (*TGT, error) {
+		srcValue, err := src.GetOptional(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if srcValue != nil {
+			return mapper(ctx, *srcValue)
 		} else {
 			return nil, nil
 		}
@@ -248,4 +268,12 @@ func (o Lazy[T]) MustIsEmpty() bool {
 		panic(err)
 	}
 	return isEmpty
+}
+
+// FlatMap maps the value of the Lazy to a new Lazy using the provided mapper function.
+// If lazy is empty, it will return an empty Lazy.
+func FlatMap[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.Mapper[SRC, Lazy[TGT]]) Lazy[TGT] {
+	return MapWhileFilteringWithErrAndCtx(src, func(ctx context.Context, src SRC) (*TGT, error) {
+		return mapper(src).GetOptional(ctx)
+	})
 }

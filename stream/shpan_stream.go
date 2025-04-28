@@ -7,7 +7,6 @@ import (
 	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/lazy"
-	"go/types"
 	"io"
 )
 
@@ -131,29 +130,36 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 	}
 }
 
-type errResult struct {
+// errStopProcessingAndReturnResult is a custom error used when we want to signal that we want to stop processing the stream,
+// but this is a valid case, and we also want to return a single result
+type errStopProcessingAndReturnResult[T any] struct {
+	result T
 }
 
-func (e *errResult) Error() string {
+func (e *errStopProcessingAndReturnResult[T]) Error() string {
 	return "error"
 }
 
 func (s Stream[T]) FindFirst() lazy.Lazy[T] {
+
 	return lazy.NewLazyOptional[T](func(ctx context.Context) (*T, error) {
-		var result *T
 		err := s.ConsumeWithErr(ctx, func(v T) error {
-			result = &v
-			return &errResult{}
+			return &errStopProcessingAndReturnResult[T]{
+				result: v,
+			}
 		})
 
+		// If there is an error, we check if it is a valid result or a "real" error
 		if err != nil {
-			var r *errResult
+			var r *errStopProcessingAndReturnResult[T]
 			if errors.As(err, &r) {
-				return result, nil
+				return &r.result, nil
 			}
 			return nil, err
 		}
-		return result, nil
+
+		// If the stream is empty, we return nil (empty lazy)
+		return nil, nil
 	})
 }
 
@@ -173,7 +179,6 @@ func (s Stream[T]) FindLast() lazy.Lazy[T] {
 // FindFirstAndLast returns the first and last element of the stream, unless the stream is empty
 // if the stream contains only one element, the first and last element are the same
 func FindFirstAndLast[T any](s Stream[T]) lazy.Lazy[shpanstream.Tuple2[T, T]] {
-	types.NewTuple()
 	return lazy.NewLazyOptional[shpanstream.Tuple2[T, T]](func(ctx context.Context) (*shpanstream.Tuple2[T, T], error) {
 		var first *T
 		var last *T
@@ -312,7 +317,7 @@ func closeSubStream[T any](s Stream[T]) {
 // Peek allows to peek at the elements of the stream without consuming them
 // Peek will not materialize the stream, and will be invoked only (and if) the stream is materialized
 func (s Stream[T]) Peek(f func(v T)) Stream[T] {
-	return MapStream(
+	return Map(
 		s,
 		func(v T) T {
 			f(v)
@@ -332,37 +337,4 @@ func FromLazy[T any](l lazy.Lazy[T]) Stream[T] {
 		}
 		return *lazyValue, nil
 	})
-}
-
-type lazyStreamProvider[T any] struct {
-	fetcher func(ctx context.Context) (*T, error)
-	fetched bool
-}
-
-func (lp *lazyStreamProvider[T]) Open(_ context.Context) error {
-	lp.fetched = false
-	return nil
-}
-
-func (lp *lazyStreamProvider[T]) Close() {
-
-}
-
-func (lp *lazyStreamProvider[T]) Emit(ctx context.Context) (T, error) {
-	if lp.fetched {
-		return util.DefaultValue[T](), io.EOF
-	}
-	lp.fetched = true
-
-	if ctx.Err() != nil {
-		return util.DefaultValue[T](), ctx.Err()
-	}
-	v, err := lp.fetcher(ctx)
-	if err != nil {
-		return util.DefaultValue[T](), err
-	}
-	if v == nil {
-		return util.DefaultValue[T](), io.EOF
-	}
-	return *v, nil
 }

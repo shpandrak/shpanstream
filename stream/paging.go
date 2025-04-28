@@ -8,7 +8,7 @@ import (
 
 func (s Stream[T]) Limit(limit int) Stream[T] {
 	if limit <= 0 {
-		return EmptyStream[T]()
+		return Empty[T]()
 	}
 	alreadyConsumed := 1
 	return newStream[T](func(ctx context.Context) (T, error) {
@@ -47,7 +47,7 @@ func (s Stream[T]) Skip(skip int) Stream[T] {
 
 func (s Stream[T]) Page(pageNum int, pageSize int) Stream[T] {
 	if pageNum <= 0 || pageSize <= 0 {
-		return EmptyStream[T]()
+		return Empty[T]()
 	}
 	skipped := (pageNum - 1) * pageSize
 	return s.Skip(skipped).Limit(pageSize)
