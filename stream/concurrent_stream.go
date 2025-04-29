@@ -39,7 +39,7 @@ func mapStreamConcurrently[SRC any, TGT any](
 	)
 }
 
-func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context, srcProviderFunc StreamProviderFunc[SRC]) error {
+func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context, srcProviderFunc ProviderFunc[SRC]) error {
 
 	// Source channel has concurrency length to allow for concurrent reads
 	c.srcChan = make(chan shpanstream.Result[SRC], c.concurrency)
@@ -144,7 +144,7 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) Open(ctx context.Context, src
 	return nil
 }
 
-func (c *concurrentStreamMapperProvider[SRC, TGT]) Emit(ctx context.Context, _ StreamProviderFunc[SRC]) (TGT, error) {
+func (c *concurrentStreamMapperProvider[SRC, TGT]) Emit(ctx context.Context, _ ProviderFunc[SRC]) (TGT, error) {
 	select {
 	case <-ctx.Done():
 		return util.DefaultValue[TGT](), ctx.Err()

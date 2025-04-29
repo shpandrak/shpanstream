@@ -29,7 +29,7 @@ func Buffered[T any](s Stream[T], size int) Stream[T] {
 		shpanstream.UnpackResult[T],
 	).
 		// Attach handler to the Open func of the stream lifecycle to trigger the buffering goroutine
-		WithAdditionalStreamLifecycle(NewStreamLifecycle(
+		WithAdditionalLifecycle(NewLifecycle(
 			func(ctx context.Context) error {
 
 				// Start Reading from the source stream and populate the buffer channel

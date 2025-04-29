@@ -2,11 +2,11 @@ package stream
 
 import "context"
 
-// StreamProvider is what needs to implement to expose a stream.
+// Provider is what needs to implement to expose a stream.
 // it includes the lifecycle methods Open and Close.
 // and a "generator method" Emit that returns the next item in the stream.
-type StreamProvider[T any] interface {
-	StreamLifecycle
+type Provider[T any] interface {
+	Lifecycle
 
 	// Emit returns the next item in the stream, or an error
 	// When the stream is done, it should return io.EOF
@@ -17,29 +17,29 @@ type StreamProvider[T any] interface {
 	Emit(ctx context.Context) (T, error)
 }
 
-// StreamLifecycle is an interface that is used to add functionality to the stream lifecycle.
-type StreamLifecycle interface {
+// Lifecycle is an interface that is used to add functionality to the stream lifecycle.
+type Lifecycle interface {
 	Open(ctx context.Context) error
 	Close()
 }
 
-type streamLifecycleWrapper struct {
+type lifecycleWrapper struct {
 	openFunc  func(ctx context.Context) error
 	closeFunc func()
 }
 
-func NewStreamLifecycle(openFunc func(ctx context.Context) error, closeFunc func()) StreamLifecycle {
-	return &streamLifecycleWrapper{openFunc: openFunc, closeFunc: closeFunc}
+func NewLifecycle(openFunc func(ctx context.Context) error, closeFunc func()) Lifecycle {
+	return &lifecycleWrapper{openFunc: openFunc, closeFunc: closeFunc}
 }
 
-func (s *streamLifecycleWrapper) Open(ctx context.Context) error {
+func (s *lifecycleWrapper) Open(ctx context.Context) error {
 	if s.openFunc != nil {
 		return s.openFunc(ctx)
 	}
 	return nil
 }
 
-func (s *streamLifecycleWrapper) Close() {
+func (s *lifecycleWrapper) Close() {
 	if s.closeFunc != nil {
 		s.closeFunc()
 	}

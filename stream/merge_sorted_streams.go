@@ -27,7 +27,7 @@ func MergeSortedStreams[T any](comparator func(a, b T) int, streams ...Stream[T]
 	)
 }
 
-func (ms *mergeSortedStreamsProvider[T]) emitMerged(ctx context.Context, srcProviders []StreamProviderFunc[T]) (T, error) {
+func (ms *mergeSortedStreamsProvider[T]) emitMerged(ctx context.Context, srcProviders []ProviderFunc[T]) (T, error) {
 	if ms.nextBuffer == nil {
 		ms.nextBuffer = make([]*T, len(srcProviders))
 		for i, currProvider := range srcProviders {

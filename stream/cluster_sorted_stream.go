@@ -77,7 +77,7 @@ func ClusterSortedStreamOrdered[T any, O any, C cmp.Ordered](
 	)
 }
 
-func (fs *clusterSortedStream[T, O, C]) Open(ctx context.Context, srcProviderFunc StreamProviderFunc[T]) error {
+func (fs *clusterSortedStream[T, O, C]) Open(ctx context.Context, srcProviderFunc ProviderFunc[T]) error {
 	nextItem, firstErr := srcProviderFunc(ctx)
 	if firstErr != nil {
 		if firstErr == io.EOF {
@@ -92,7 +92,7 @@ func (fs *clusterSortedStream[T, O, C]) Open(ctx context.Context, srcProviderFun
 	return nil
 }
 
-func (fs *clusterSortedStream[T, O, C]) Emit(ctx context.Context, srcProviderFunc StreamProviderFunc[T]) (O, error) {
+func (fs *clusterSortedStream[T, O, C]) Emit(ctx context.Context, srcProviderFunc ProviderFunc[T]) (O, error) {
 	if fs.nextItem == nil {
 		return util.DefaultValue[O](), io.EOF
 	}

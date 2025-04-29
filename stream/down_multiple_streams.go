@@ -2,11 +2,11 @@ package stream
 
 import "context"
 
-type downMultiStreamProviderFunc[S any, T any] func(ctx context.Context, srcProviderFuncs []StreamProviderFunc[S]) (T, error)
+type downMultiStreamProviderFunc[S any, T any] func(ctx context.Context, srcProviderFuncs []ProviderFunc[S]) (T, error)
 
 type DownMultiStreamProvider[SRC any, TGT any] interface {
-	Open(ctx context.Context, srcProviderFuncs []StreamProviderFunc[SRC]) error
-	Emit(ctx context.Context, srcProviderFuncs []StreamProviderFunc[SRC]) (TGT, error)
+	Open(ctx context.Context, srcProviderFuncs []ProviderFunc[SRC]) error
+	Emit(ctx context.Context, srcProviderFuncs []ProviderFunc[SRC]) (TGT, error)
 	Close()
 }
 
@@ -14,31 +14,28 @@ func NewDownMultiStream[S any, T any](
 	srcs []Stream[S],
 	downMultiStreamProvider DownMultiStreamProvider[S, T],
 ) Stream[T] {
-	var srcProviders []StreamProviderFunc[S]
-	var allLifeCycleEvents []StreamLifecycle
-
-	// First add the lifecycle events of the source streams in order, this is important to separate the lifecycle events
-	// So that when opening, if one of the source streams fails, it correctly closes the other streams
+	var srcProviders []ProviderFunc[S]
+	b := &unsafeProviderBuilder{}
 	for _, src := range srcs {
-		allLifeCycleEvents = append(allLifeCycleEvents, src.allLifecycleElement...)
-		srcProviders = append(srcProviders, src.provider)
+		addStreamUnsafe(b, src)
 	}
-
-	// Adding the lifecycle events of the downMultiStreamProvider
-	allLifeCycleEvents = append(allLifeCycleEvents,
-		NewStreamLifecycle(
-			func(ctx context.Context) error {
-				return downMultiStreamProvider.Open(ctx, srcProviders)
-			},
-			downMultiStreamProvider.Close,
-		),
-	)
-
-	return newStream[T](
-		func(ctx context.Context) (T, error) {
+	return newUnsafeStream[T](
+		b,
+		func(ctx context.Context, b *unsafeProviderBuilder) error {
+			for i := range srcs {
+				p, err := openSubStreamUnsafe[S](ctx, b, i)
+				if err != nil {
+					return err
+				}
+				srcProviders = append(srcProviders, p)
+			}
+			// Open the down stream provider
+			return downMultiStreamProvider.Open(ctx, srcProviders)
+		},
+		func(ctx context.Context, _ *unsafeProviderBuilder) (T, error) {
 			return downMultiStreamProvider.Emit(ctx, srcProviders)
 		},
-		allLifeCycleEvents,
+		downMultiStreamProvider.Close,
 	)
 }
 
@@ -57,11 +54,11 @@ type simpleDownMultiStreamProvider[S any, T any] struct {
 	downMultiStreamProviderFunc downMultiStreamProviderFunc[S, T]
 }
 
-func (sd simpleDownMultiStreamProvider[S, T]) Open(_ context.Context, _ []StreamProviderFunc[S]) error {
+func (sd simpleDownMultiStreamProvider[S, T]) Open(_ context.Context, _ []ProviderFunc[S]) error {
 	return nil
 }
 
-func (sd simpleDownMultiStreamProvider[S, T]) Emit(ctx context.Context, srcProviderFuncs []StreamProviderFunc[S]) (T, error) {
+func (sd simpleDownMultiStreamProvider[S, T]) Emit(ctx context.Context, srcProviderFuncs []ProviderFunc[S]) (T, error) {
 	return sd.downMultiStreamProviderFunc(ctx, srcProviderFuncs)
 }
 
