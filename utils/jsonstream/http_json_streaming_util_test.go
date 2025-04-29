@@ -53,8 +53,8 @@ func TestStreamingAcrossHttp(t *testing.T) {
 			return r.Body, nil
 		}).
 			// When the request stream is closed, cancel the context and return the post request
-			// We can easily do that using WithAdditionalStreamLifecycle to attach handlers for stream lifecycle events
-			WithAdditionalStreamLifecycle(stream.NewStreamLifecycle(
+			// We can easily do that using WithAdditionalLifecycle to attach handlers for stream lifecycle events
+			WithAdditionalLifecycle(stream.NewLifecycle(
 				func(ctx context.Context) error {
 					log.Println("Starting stream")
 					return nil

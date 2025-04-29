@@ -59,7 +59,7 @@ func Window[T any](s Stream[T], size int, opts ...WindowOption) Stream[[]T] {
 
 	return NewDownStreamSimple(
 		s,
-		func(ctx context.Context, srcProviderFunc StreamProviderFunc[T]) ([]T, error) {
+		func(ctx context.Context, srcProviderFunc ProviderFunc[T]) ([]T, error) {
 
 			// check if previous iteration pulled EOF from the source
 			if done {
@@ -104,5 +104,7 @@ func Window[T any](s Stream[T], size int, opts ...WindowOption) Stream[[]T] {
 
 			return window, nil
 		},
+		nil,
+		nil,
 	)
 }

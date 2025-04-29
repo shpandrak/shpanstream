@@ -11,15 +11,15 @@ import (
 )
 
 type Stream[T any] struct {
-	provider            StreamProviderFunc[T]
-	allLifecycleElement []StreamLifecycle
+	provider            ProviderFunc[T]
+	allLifecycleElement []Lifecycle
 }
 
-func NewStream[T any](provider StreamProvider[T]) Stream[T] {
-	return newStream(provider.Emit, []StreamLifecycle{provider})
+func NewStream[T any](provider Provider[T]) Stream[T] {
+	return newStream(provider.Emit, []Lifecycle{provider})
 }
 
-func newStream[T any](streamProviderFunc StreamProviderFunc[T], allLifecycleElement []StreamLifecycle) Stream[T] {
+func newStream[T any](streamProviderFunc ProviderFunc[T], allLifecycleElement []Lifecycle) Stream[T] {
 	return Stream[T]{provider: streamProviderFunc, allLifecycleElement: allLifecycleElement}
 }
 
@@ -36,7 +36,7 @@ func WithCloseFuncOption(closeFunc func()) CreateStreamOption {
 	return CreateStreamOption{closeFunc: closeFunc}
 }
 
-func NewSimpleStream[T any](streamProviderFunc StreamProviderFunc[T], options ...CreateStreamOption) Stream[T] {
+func NewSimpleStream[T any](streamProviderFunc ProviderFunc[T], options ...CreateStreamOption) Stream[T] {
 	var openFunc func(ctx context.Context) error
 	var closeFunc func()
 
@@ -49,16 +49,16 @@ func NewSimpleStream[T any](streamProviderFunc StreamProviderFunc[T], options ..
 		}
 	}
 
-	var lifeCycleElements []StreamLifecycle
+	var lifeCycleElements []Lifecycle
 	if openFunc != nil || closeFunc != nil {
-		lifeCycleElements = []StreamLifecycle{
-			NewStreamLifecycle(openFunc, closeFunc),
+		lifeCycleElements = []Lifecycle{
+			NewLifecycle(openFunc, closeFunc),
 		}
 	}
 	return Stream[T]{provider: streamProviderFunc, allLifecycleElement: lifeCycleElements}
 }
 
-type StreamProviderFunc[T any] func(ctx context.Context) (T, error)
+type ProviderFunc[T any] func(ctx context.Context) (T, error)
 
 // Consume consumes the entire stream and applies the provided function to each element (sometimes named ForEach)
 // It returns an error if the stream materialization fails in any stage of the pipeline
@@ -94,7 +94,7 @@ func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error) error {
 // It returns an error if the stream materialization fails in any stage of the pipeline
 func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error) error {
 
-	ctx, cancelFunc, err := doOpenStream[T](ctx, s)
+	cancelFunc, err := doOpenStream[T](ctx, s)
 	if err != nil {
 		return err
 	}
@@ -102,9 +102,7 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 	// If we reach here, all lifecycle elements have been opened successfully
 	// We can defer closing them until the end of the function
 	defer func() {
-		for _, l := range s.allLifecycleElement {
-			l.Close()
-		}
+		doCloseSubStream(s)
 		cancelFunc()
 	}()
 
@@ -280,14 +278,12 @@ func (s Stream[T]) IsEmpty(ctx context.Context) (bool, error) {
 	return s.FindFirst().IsEmpty(ctx)
 }
 
-func (s Stream[T]) WithAdditionalStreamLifecycle(lch StreamLifecycle) Stream[T] {
+func (s Stream[T]) WithAdditionalLifecycle(lch Lifecycle) Stream[T] {
 	return newStream(s.provider, append(s.allLifecycleElement, lch))
 }
 
-func doOpenStream[T any](ctx context.Context, s Stream[T]) (context.Context, context.CancelFunc, error) {
-
+func doOpenStream[T any](ctx context.Context, s Stream[T]) (context.CancelFunc, error) {
 	ctxWithCancel, cancelFunc := context.WithCancel(ctx)
-
 	// Running all lifecycle elements
 	for lcIdx, l := range s.allLifecycleElement {
 		err := l.Open(ctxWithCancel)
@@ -302,13 +298,13 @@ func doOpenStream[T any](ctx context.Context, s Stream[T]) (context.Context, con
 			// Cancel the context to stop any ongoing operations
 			cancelFunc()
 
-			return nil, nil, fmt.Errorf("failed to open stream lifecycle element %d: %w", lcIdx, err)
+			return nil, fmt.Errorf("failed to open stream lifecycle element %d: %w", lcIdx, err)
 		}
 	}
-	return ctxWithCancel, cancelFunc, nil
+	return cancelFunc, nil
 }
 
-func closeSubStream[T any](s Stream[T]) {
+func doCloseSubStream[T any](s Stream[T]) {
 	for _, l := range s.allLifecycleElement {
 		l.Close()
 	}

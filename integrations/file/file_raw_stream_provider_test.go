@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func ExampleStreamProvider() {
+func ExampleStreamFromFile() {
 
 	type characterInfo struct {
 		Name   string

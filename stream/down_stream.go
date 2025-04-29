@@ -2,11 +2,11 @@ package stream
 
 import "context"
 
-type downStreamProviderFunc[S any, T any] func(ctx context.Context, srcProviderFunc StreamProviderFunc[S]) (T, error)
+type downStreamProviderFunc[S any, T any] func(ctx context.Context, srcProviderFunc ProviderFunc[S]) (T, error)
 
 type DownStreamProvider[SRC any, TGT any] interface {
-	Open(ctx context.Context, srcProviderFunc StreamProviderFunc[SRC]) error
-	Emit(ctx context.Context, srcProviderFunc StreamProviderFunc[SRC]) (TGT, error)
+	Open(ctx context.Context, srcProviderFunc ProviderFunc[SRC]) error
+	Emit(ctx context.Context, srcProviderFunc ProviderFunc[SRC]) (TGT, error)
 	Close()
 }
 
@@ -14,45 +14,44 @@ func NewDownStream[S any, T any](
 	src Stream[S],
 	downStreamProvider DownStreamProvider[S, T],
 ) Stream[T] {
-	createStreamOptions := []CreateStreamOption{WithOpenFuncOption(func(ctx context.Context) error {
-		ctx, _, err := doOpenStream(ctx, src)
-		if err != nil {
-			return err
-		}
-		return downStreamProvider.Open(ctx, src.provider)
-	})}
-
-	createStreamOptions = append(createStreamOptions, WithCloseFuncOption(downStreamProvider.Close))
-	return NewSimpleStream[T](
-		func(ctx context.Context) (T, error) {
-			return downStreamProvider.Emit(ctx, src.provider)
-		},
-		createStreamOptions...,
+	return NewDownStreamSimple(
+		src,
+		downStreamProvider.Emit,
+		downStreamProvider.Open,
+		downStreamProvider.Close,
 	)
+
 }
 
 func NewDownStreamSimple[S any, T any](
 	src Stream[S],
-	downStreamProviderFunc downStreamProviderFunc[S, T],
+	emitFunc func(ctx context.Context, srcProviderFunc ProviderFunc[S]) (T, error),
+	optOpenFunc func(ctx context.Context, srcProviderFunc ProviderFunc[S]) error,
+	optCloseFunc func(),
 ) Stream[T] {
-	return NewDownStream[S, T](
-		src,
-		simpleDownStreamProvider[S, T]{
-			downStreamProviderFunc: downStreamProviderFunc,
-		})
-}
 
-type simpleDownStreamProvider[S any, T any] struct {
-	downStreamProviderFunc downStreamProviderFunc[S, T]
-}
+	b := &unsafeProviderBuilder{}
+	addStreamUnsafe(b, src)
+	var srcStreamProvider ProviderFunc[S]
+	return newUnsafeStream[T](
+		b,
+		func(ctx context.Context, b *unsafeProviderBuilder) error {
+			// Open the source
+			var err error
+			srcStreamProvider, err = openSubStreamUnsafe[S](ctx, b, 0)
+			if err != nil {
+				return err
+			}
 
-func (sd simpleDownStreamProvider[S, T]) Open(_ context.Context, _ StreamProviderFunc[S]) error {
-	return nil
-}
-
-func (sd simpleDownStreamProvider[S, T]) Emit(ctx context.Context, srcProviderFunc StreamProviderFunc[S]) (T, error) {
-	return sd.downStreamProviderFunc(ctx, srcProviderFunc)
-}
-
-func (sd simpleDownStreamProvider[S, T]) Close() {
+			// Open the open func if provided
+			if optOpenFunc != nil {
+				return optOpenFunc(ctx, srcStreamProvider)
+			}
+			return nil
+		},
+		func(ctx context.Context, _ *unsafeProviderBuilder) (T, error) {
+			return emitFunc(ctx, srcStreamProvider)
+		},
+		optCloseFunc,
+	)
 }
