@@ -323,7 +323,14 @@ func (s Stream[T]) Peek(f func(v T)) Stream[T] {
 
 // FromLazy converts the Lazy to a Stream (or either a single element, empty stream, or an error stream)
 func FromLazy[T any](l lazy.Lazy[T]) Stream[T] {
+	alreadyFetched := false
 	return NewSimpleStream(func(ctx context.Context) (T, error) {
+		if alreadyFetched {
+			return util.DefaultValue[T](), io.EOF
+		} else {
+			alreadyFetched = true
+		}
+
 		lazyValue, err := l.GetOptional(ctx)
 		if err != nil {
 			return util.DefaultValue[T](), err
