@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream/integrations/file"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/stream"
+	"github.com/shpandrak/shpanstream/utils/jsonstream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
+	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -21,27 +25,118 @@ File expected format:
 2020-01-01T00:00,0.1
 2020-01-01T00:01,0.2
 ...
-The example will read the file and print the average temperature for each year ascending.
+The example will read the file and create a new file called "temperature-visualization.html" in the "examples/globalwarming" directory.
 */
 func main() {
 
-	locationToUse := time.Local
-	samplesStream := stream.MapWithErr(
-		file.StreamFromFile("examples/globalwarming/huge_time_series_csv.csv", false),
-		parseCsvLine,
-	).Filter(func(src timeseries.TsRecord[float64]) bool {
-		// Filter current year, since it is not complete...
-		return src.Timestamp.In(locationToUse).Year() < time.Now().In(locationToUse).Year()
-	})
-
-	for curr := range timeseries.AlignReduceStream(
-		samplesStream,
-		timeseries.NewYearAlignmentPeriod(locationToUse),
-		timeseries.Avg[float64],
-	).
-		Iterator {
-		fmt.Println(curr)
+	f, err := os.Create("examples/globalwarming/temperature-visualization.html")
+	if err != nil {
+		log.Fatalf("failed to open output file: %v", err)
 	}
+	defer f.Close()
+
+	err = writeHtmlPrefix(f)
+	if err != nil {
+		log.Fatalf("failed to write header to output file: %v", err)
+	}
+
+	locationToUse := time.Local
+	err = jsonstream.StreamJsonToWriter(
+		context.Background(),
+		f,
+		stream.ConcatStreams(
+
+			// Adding a header to the output json to be used by the ECharts library
+			stream.Just[[]any]([]any{"time", "temperature"}),
+			stream.Map(
+
+				// Aligning the data to the year period
+				timeseries.AlignReduceStream(
+					stream.MapWithErr(
+						file.StreamFromFile("examples/globalwarming/huge_time_series_csv.csv", false),
+						parseCsvLine,
+					).
+						// Filter current year, since it is not complete and yearly average is not relevant
+						Filter(func(src timeseries.TsRecord[float64]) bool {
+							return src.Timestamp.In(locationToUse).Year() < time.Now().In(locationToUse).Year()
+						}),
+
+					// Create a datapoint for each year
+					timeseries.NewYearAlignmentPeriod(locationToUse),
+
+					// Calculate the average temperature for each year
+					timeseries.Avg[float64],
+				),
+
+				// Format the data to be used by ECharts
+				func(src timeseries.TsRecord[float64]) []any {
+					return []any{src.Timestamp, src.Value}
+				},
+			),
+		),
+	)
+
+	err = writeHtmlSuffix(err, f)
+	if err != nil {
+		log.Fatalf("failed to write footer to output file: %v", err)
+	}
+}
+
+func writeHtmlSuffix(err error, f *os.File) error {
+	_, err = f.WriteString(`
+        },
+        tooltip: { trigger: 'axis' },
+        legend: {},
+        xAxis: { type: 'time' },  // or 'time' if you're using real timestamps
+        yAxis: {},
+		dataZoom: [
+		  {
+			type: 'inside'  // zoom with scroll wheel or pinch
+		  },
+		  {
+			type: 'slider'  // zoom with visible slider
+		  }
+		],
+        series: [
+            { type: 'line', encode: { x: 'time', y: 'temperature' }, name: 'Temperature' },
+        ]
+    };
+
+    chart.setOption(option);
+</script>
+</body>
+</html>
+`)
+	return err
+}
+
+func writeHtmlPrefix(f *os.File) error {
+	_, err := f.WriteString(
+		`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ECharts Dataset Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+    <style>
+        html, body, #chart {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+<div id="chart"></div>
+<script>
+    const chart = echarts.init(document.getElementById('chart'));
+
+    const option = {
+        dataset: {
+            source: 
+				`)
+	return err
 }
 
 func parseCsvLine(line []byte) (timeseries.TsRecord[float64], error) {
