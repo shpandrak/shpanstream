@@ -1,6 +1,9 @@
 package shpanstream
 
-import "context"
+import (
+	"cmp"
+	"context"
+)
 
 // Entry defines a key/value pairs.
 type Entry[K comparable, V any] struct {
@@ -22,6 +25,12 @@ type Comparator[T any] func(one, other T) int
 func ComparatorForComparable[T Comparable[T]]() Comparator[T] {
 	return func(one, other T) int {
 		return one.Compare(other)
+	}
+}
+
+func ComparatorForOrdered[T cmp.Ordered]() Comparator[T] {
+	return func(one, other T) int {
+		return cmp.Compare(one, other)
 	}
 }
 
