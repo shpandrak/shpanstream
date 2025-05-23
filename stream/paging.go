@@ -18,6 +18,7 @@ func (s Stream[T]) Limit(limit int) Stream[T] {
 
 		v, err := s.provider(ctx)
 		if err != nil {
+			// this covers for both EOF and any other error
 			return util.DefaultValue[T](), err
 		}
 		alreadyConsumed++
@@ -46,9 +47,9 @@ func (s Stream[T]) Skip(skip int) Stream[T] {
 }
 
 func (s Stream[T]) Page(pageNum int, pageSize int) Stream[T] {
-	if pageNum <= 0 || pageSize <= 0 {
+	if pageNum < 0 || pageSize <= 0 {
 		return Empty[T]()
 	}
-	skipped := (pageNum - 1) * pageSize
+	skipped := pageNum * pageSize
 	return s.Skip(skipped).Limit(pageSize)
 }
