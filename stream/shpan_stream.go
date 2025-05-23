@@ -158,6 +158,8 @@ func (s Stream[T]) FindFirst() lazy.Lazy[T] {
 
 		// If the stream is empty, we return nil (empty lazy)
 		return nil, nil
+	}).OrElseThrow(func() error {
+		return errors.New("no \"first element\" in an empty stream")
 	})
 }
 
@@ -171,7 +173,10 @@ func (s Stream[T]) FindLast() lazy.Lazy[T] {
 			return nil, err
 		}
 		return result, nil
+	}).OrElseThrow(func() error {
+		return errors.New("no \"last element\" in an empty stream")
 	})
+
 }
 
 // FindFirstAndLast returns the first and last element of the stream, unless the stream is empty
@@ -196,7 +201,10 @@ func FindFirstAndLast[T any](s Stream[T]) lazy.Lazy[shpanstream.Tuple2[T, T]] {
 			A: *first,
 			B: *last,
 		}, nil
+	}).OrElseThrow(func() error {
+		return errors.New("no \"first and last element\" in an empty stream")
 	})
+
 }
 
 // Collect materializes the stream, and collects all elements of the stream into a slice
