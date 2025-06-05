@@ -129,9 +129,10 @@ func LeftJoinSortedStreams[L any, R any, KEY any](
 
 				// Compare the keys of the two elements
 				if comparator(lastLeftKey, lastRightKey) == 0 {
+					cpyRightValue := lastRightValue // Copy the right value to avoid issues with the pointer being reused
 					return shpanstream.Tuple2[L, *R]{
 						A: leftValue,
-						B: &lastRightValue,
+						B: &cpyRightValue,
 					}, nil
 				}
 
