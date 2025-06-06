@@ -163,11 +163,15 @@ func (o Lazy[T]) FilterWithErrAndCtx(predicate shpanstream.PredicateWithErrAndCt
 		if err != nil {
 			return nil, err
 		}
+		if v == nil {
+			// If the value is nil, no need to check the predicate
+			return nil, nil
+		}
 		matchesFilter, err := predicate(ctx, *v)
 		if err != nil {
 			return nil, err
 		}
-		if v == nil || !matchesFilter {
+		if !matchesFilter {
 			return nil, nil
 		}
 		return v, nil
