@@ -128,36 +128,19 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 	}
 }
 
-// errStopProcessingAndReturnResult is a custom error used when we want to signal that we want to stop processing the stream,
-// but this is a valid case, and we also want to return a single result
-type errStopProcessingAndReturnResult[T any] struct {
-	result T
-}
-
-func (e *errStopProcessingAndReturnResult[T]) Error() string {
-	return "error"
-}
-
 func (s Stream[T]) FindFirst() lazy.Lazy[T] {
-
 	return lazy.NewLazyOptional[T](func(ctx context.Context) (*T, error) {
-		err := s.ConsumeWithErr(ctx, func(v T) error {
-			return &errStopProcessingAndReturnResult[T]{
-				result: v,
-			}
-		})
-
-		// If there is an error, we check if it is a valid result or a "real" error
+		itemArr, err := s.Limit(1).Collect(ctx)
 		if err != nil {
-			var r *errStopProcessingAndReturnResult[T]
-			if errors.As(err, &r) {
-				return &r.result, nil
-			}
 			return nil, err
 		}
-
-		// If the stream is empty, we return nil (empty lazy)
+		if len(itemArr) > 0 {
+			// If we have at least one item, we return the first one
+			return &itemArr[0], nil
+		}
+		// If we reach here, it means the stream is empty, so we need to return nil
 		return nil, nil
+
 	}).OrElseThrow(func() error {
 		return errors.New("no \"first element\" in an empty stream")
 	})
