@@ -328,3 +328,34 @@ func FlatMap[SRC any, TGT any](src Lazy[SRC], mapper shpanstream.Mapper[SRC, Laz
 		return mapper(src).GetOptional(ctx)
 	})
 }
+
+func (o Lazy[T]) Consume(ctx context.Context, consumer func(T)) error {
+	return o.ConsumeWithErrAndCtx(ctx, func(_ context.Context, value T) error {
+		consumer(value)
+		return nil
+	})
+}
+
+func (o Lazy[T]) MustConsume(consumer func(T)) {
+	err := o.Consume(context.Background(), consumer)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (o Lazy[T]) ConsumeWithErr(ctx context.Context, f func(value T) error) error {
+	return o.ConsumeWithErrAndCtx(ctx, func(_ context.Context, value T) error {
+		return f(value)
+	})
+}
+
+func (o Lazy[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error) error {
+	v, err := o.fetcher(ctx)
+	if err != nil {
+		return err
+	}
+	if v != nil {
+		return f(ctx, *v)
+	}
+	return nil
+}
