@@ -8,6 +8,8 @@ import (
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/lazy"
 	"io"
+	"log/slog"
+	"runtime/debug"
 )
 
 type Stream[T any] struct {
@@ -79,8 +81,8 @@ func (s Stream[T]) MustConsume(f func(T)) {
 	}
 }
 
-// ConsumeWithErr consumes the entire stream and applies the provided function to each element (sometimes named ForEach)
-// Allows to return an error from the function to stop the pipeline
+// ConsumeWithErr consumes the entire stream and applies the provided function to each element (sometimes named ForEach).
+// Allow returning an error from the function to stop the pipeline
 // It returns an error if the stream materialization fails in any stage of the pipeline
 func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error) error {
 	return s.ConsumeWithErrAndCtx(ctx, func(_ context.Context, v T) error {
@@ -88,15 +90,28 @@ func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error) error {
 	})
 }
 
-// ConsumeWithErrAndCtx consumes the entire stream and applies the provided function to each element (sometimes named ForEach)
-// Allows to return an error from the function to stop the pipeline,
+// ConsumeWithErrAndCtx consumes the entire stream and applies the provided function to each element (sometimes named ForEach).
+// Allow returning an error from the function to stop the pipeline,
 // passing through the context allowing the function to gracefully cancel
 // It returns an error if the stream materialization fails in any stage of the pipeline
-func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error) error {
+func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error) (err error) {
+	// Adding a panic recovery to avoid leaking resources and allow returning an error via panic instead of returning it
+	defer func() {
+		if rvr := recover(); rvr != nil {
+			slog.Debug(fmt.Sprintf("Panic recovered: %v\n%s", rvr, debug.Stack()))
+			asErr, ok := rvr.(error)
+			if ok {
+				err = fmt.Errorf("stream recovered error: %w", asErr)
+			} else {
+				err = fmt.Errorf("stream recovered error value: %v", rvr)
+			}
 
-	cancelFunc, err := doOpenStream[T](ctx, s)
-	if err != nil {
-		return err
+		}
+	}()
+
+	cancelFunc, errVar := doOpenStream[T](ctx, s)
+	if errVar != nil {
+		return fmt.Errorf("failed to open stream: %w", errVar)
 	}
 
 	// If we reach here, all lifecycle elements have been opened successfully
@@ -114,16 +129,16 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 			// return
 			return ctx.Err()
 		}
-		v, err := s.provider(ctx)
-		if err != nil {
-			if err == io.EOF {
+		v, errVar := s.provider(ctx)
+		if errVar != nil {
+			if errVar == io.EOF {
 				return nil
 			}
-			return err
+			return errVar
 		}
-		err = f(ctx, v)
-		if err != nil {
-			return err
+		errVar = f(ctx, v)
+		if errVar != nil {
+			return errVar
 		}
 	}
 }

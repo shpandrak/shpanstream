@@ -119,14 +119,15 @@ stream.Map(
 	
 ```
 
-### Error propagation
+### Idiomatic Error propagation
 Streams provide a clean way to handle errors, allowing you to easily propagate errors through your data processing pipeline.
 Since streams are lazily evaluated, errors are only propagated when the stream is being materialized,
 keeping the error handling to where it is relevant
 functions that return Stream[T] doesn't have to return an error since when the stream is materialized it will be available
 this allows streams operations to be composed together without having to add boilerplate 'if err != nil' where it is not needed
 
-When there are errors, streams automatically close all the underlying resources (e.g database cursor, file...) and propagate the error to the final consumer
+When errors occur, streams automatically close all the underlying resources using the Provider Close handler (e.g database cursor, file...)
+and propagate the error to the final consumer
 
 Let's go back to the country flags example, and add error handling to the pipeline
 For simplicity, previous iteration ignored errors and used the `stream.Map` that is meant for simple mapping
@@ -180,6 +181,14 @@ func fetchCountryCodes() stream.Stream[string] {
     return stream.Just("US", "CA", "GB")
 }
 ```
+### Error propagation using "panic"
+
+While go promotes explicit error handling using return values, in code that should never fail in production, the "panic" function can be used.
+Shpanstream is not opinionated about how you should handle errors. 
+In case panic occurs throughout any stage of the pipeline, the error will be propagated to the final consumer in an idiomatic way.
+
+Especially for simple mappers and filters that should never fail, using the "panic" for those edge cases can remove a lot of boilerplate code
+in favor of a more readable and maintainable code.
 
 ### Context propagation
 When using external resources, it is important to be able to cancel the request if the stream is cancelled.
