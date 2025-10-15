@@ -5,8 +5,8 @@ go 1.23
 require (
 	// test dependency only
 	github.com/mattn/go-sqlite3 v1.14.32
-	github.com/shpandrak/shpanstream v0.3.9
-	github.com/stretchr/testify v1.10.0
+	github.com/shpandrak/shpanstream v0.3.11
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
