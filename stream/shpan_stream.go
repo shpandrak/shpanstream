@@ -98,7 +98,7 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 	// Adding a panic recovery to avoid leaking resources and allow returning an error via panic instead of returning it
 	defer func() {
 		if rvr := recover(); rvr != nil {
-			slog.Debug(fmt.Sprintf("Panic recovered: %v\n%s", rvr, debug.Stack()))
+			slog.Error(fmt.Sprintf("Panic recovered: %v\n%s", rvr, debug.Stack()))
 			asErr, ok := rvr.(error)
 			if ok {
 				err = fmt.Errorf("stream recovered error: %w", asErr)
