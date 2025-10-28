@@ -17,6 +17,13 @@ func Max[N Number](forTime time.Time, s stream.Stream[TsRecord[N]]) lazy.Lazy[Ts
 	)
 }
 
+func Min[N Number](forTime time.Time, s stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]] {
+	return lazy.Map(
+		stream.MinLazy(stream.Map(s, mapRecordValue)),
+		recordMapper[N](forTime),
+	)
+}
+
 func Avg[N Number](forTime time.Time, stream stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]] {
 	return lazy.Map(
 		lazy.NewLazy(func(ctx context.Context) (N, error) {
@@ -29,6 +36,22 @@ func Avg[N Number](forTime time.Time, stream stream.Stream[TsRecord[N]]) lazy.La
 				return util.DefaultValue[N](), err
 			}
 			return avg, nil
+		}),
+		recordMapper[N](forTime),
+	)
+}
+
+func Sum[N Number](forTime time.Time, stream stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]] {
+	return lazy.Map(
+		lazy.NewLazy(func(ctx context.Context) (N, error) {
+			var sum N
+			err := stream.Consume(ctx, func(currVal TsRecord[N]) {
+				sum += currVal.Value
+			})
+			if err != nil {
+				return util.DefaultValue[N](), err
+			}
+			return sum, nil
 		}),
 		recordMapper[N](forTime),
 	)
