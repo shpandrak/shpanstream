@@ -2,6 +2,7 @@ package timeseries
 
 import (
 	"context"
+	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/stream"
 	"time"
@@ -53,7 +54,7 @@ func AlignStreamUntyped(
 						firstItem.Value,
 					)
 					if err != nil {
-						return util.DefaultValue[TsRecord[[]any]](), err
+						return util.DefaultValue[TsRecord[[]any]](), fmt.Errorf("error calculating time weighted average while aliging streams: %w", err)
 					}
 					return TsRecord[[]any]{
 						Value:     avgItem,
