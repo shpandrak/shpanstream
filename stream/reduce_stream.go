@@ -66,6 +66,12 @@ func MaxLazy[O cmp.Ordered](o Stream[O]) lazy.Lazy[O] {
 		return max(acc, v)
 	})
 }
+func MinLazy[O cmp.Ordered](o Stream[O]) lazy.Lazy[O] {
+	return ReduceLazy[O](o, util.DefaultValue[O](), func(acc, v O) O {
+		return min(acc, v)
+	})
+}
+
 func MustMax[O cmp.Ordered](o Stream[O]) O {
 	v, err := Max(context.Background(), o)
 	if err != nil {

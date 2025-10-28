@@ -2,6 +2,7 @@
 
 this template allows automatic generation streaming responses as part of the oapi-codegen tool.
 
+## Setup
 to use it, add the following to the oapi-config.yaml file:
 
 ```yaml
@@ -10,13 +11,13 @@ additional-imports:
     package: github.com/shpandrak/shpanstream/stream
 output-options:
   user-templates:
-    strict/strict-interface.tmpl: https://raw.githubusercontent.com/shpandrak/shpanstream/refs/heads/amit/master/integrations/oapi-codegen/templates/strict-interface.tmpl
+    https://raw.githubusercontent.com/shpandrak/shpanstream/v0.3.15/integrations/oapi-codegen/templates/strict-interface.tmpl
 ```
+user a tag or a specific commit hash for fine grain version...
 
-
+## Usage
 The result is generating more response type that support streaming responses.
-
-example usage
+example usage:
 
 ```go
 
