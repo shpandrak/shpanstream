@@ -24,7 +24,7 @@ func AlignReduceStream[N Number](
 		) (TsRecord[N], error) {
 			return reducer(clusterTimestampClassifier, clusterStream).Get(ctx)
 		},
-		alignmentPeriodClassifierFunc[N](alignmentPeriod),
+		AlignmentPeriodClassifierFunc[N](alignmentPeriod),
 		s,
 	)
 }

@@ -65,14 +65,14 @@ func TestAlignStreamUntyped_NonAligned(t *testing.T) {
 		t,
 		time.Minute, // Align to every minute
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(45, 0)},  // 00:00:45
-			{Value: []any{200.0, 40.0, 2000.0}, Timestamp: time.Unix(105, 0)}, // 00:01:45
-			{Value: []any{300.0, 70.0, 3000.0}, Timestamp: time.Unix(165, 0)}, // 00:02:45
+			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(45, 0)},   // 00:00:45
+			{Value: []any{200.0, 40.0, 2000.0}, Timestamp: time.Unix(105, 0)},  // 00:01:45
+			{Value: []any{300.0, 70.0, 3000.0}, Timestamp: time.Unix(165, 0)},  // 00:02:45
 			{Value: []any{400.0, 100.0, 4000.0}, Timestamp: time.Unix(225, 0)}, // 00:03:45
 		},
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},  // 00:00:00 (smeared)
-			{Value: []any{125.0, 17.5, 1250.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00
+			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00 (smeared)
+			{Value: []any{125.0, 17.5, 1250.0}, Timestamp: time.Unix(60, 0)},  // 00:01:00
 			{Value: []any{225.0, 47.5, 2250.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00
 			{Value: []any{325.0, 77.5, 3250.0}, Timestamp: time.Unix(180, 0)}, // 00:03:00
 		},
@@ -103,7 +103,7 @@ func TestAlignStreamUntyped_TwoItems(t *testing.T) {
 		t,
 		time.Minute, // Align to every minute
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(45, 0)},  // 00:00:45
+			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(45, 0)},   // 00:00:45
 			{Value: []any{200.0, 80.0, 1500.0}, Timestamp: time.Unix(105, 0)}, // 00:01:45
 		},
 		[]TsRecord[[]any]{
@@ -150,8 +150,8 @@ func TestAlignStreamUntyped_MultiplePointsWithinInterval(t *testing.T) {
 			{Value: []any{300.0, 30.0, 3000.0}, Timestamp: time.Unix(130, 0)}, // 00:02:10
 		},
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},  // 00:00:00 smeared first item
-			{Value: []any{170.0, 17.0, 1700.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00
+			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00 smeared first item
+			{Value: []any{170.0, 17.0, 1700.0}, Timestamp: time.Unix(60, 0)},  // 00:01:00
 			{Value: []any{270.0, 27.0, 2700.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00
 		},
 	)
@@ -183,9 +183,9 @@ func TestAlignStreamUntyped_UnevenTemporal(t *testing.T) {
 			{Value: []any{400.0, 70.0, 7000.0}, Timestamp: time.Unix(300, 0)}, // 00:05:00 (medium gap)
 		},
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00 (smeared)
+			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},                                          // 00:00:00 (smeared)
 			{Value: []any{178.57142857142858, 25.714285714285715, 2571.4285714285716}, Timestamp: time.Unix(120, 0)}, // 00:02:00
-			{Value: []any{400.0, 70.0, 7000.0}, Timestamp: time.Unix(300, 0)}, // 00:05:00
+			{Value: []any{400.0, 70.0, 7000.0}, Timestamp: time.Unix(300, 0)},                                        // 00:05:00
 		},
 	)
 }
@@ -196,12 +196,12 @@ func TestAlignStreamUntyped_LargeGaps(t *testing.T) {
 		t,
 		time.Minute, // Still align to every minute
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 50.0, 10.0}, Timestamp: time.Unix(0, 0)},    // 00:00:00
+			{Value: []any{100.0, 50.0, 10.0}, Timestamp: time.Unix(0, 0)},     // 00:00:00
 			{Value: []any{200.0, 150.0, 20.0}, Timestamp: time.Unix(3600, 0)}, // 01:00:00 (1 hour later)
 			{Value: []any{300.0, 250.0, 30.0}, Timestamp: time.Unix(7200, 0)}, // 02:00:00 (1 hour later)
 		},
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 50.0, 10.0}, Timestamp: time.Unix(0, 0)},    // 00:00:00
+			{Value: []any{100.0, 50.0, 10.0}, Timestamp: time.Unix(0, 0)},     // 00:00:00
 			{Value: []any{200.0, 150.0, 20.0}, Timestamp: time.Unix(3600, 0)}, // 01:00:00 (1 hour later)
 			{Value: []any{300.0, 250.0, 30.0}, Timestamp: time.Unix(7200, 0)}, // 02:00:00 (1 hour later)
 		},
@@ -214,13 +214,13 @@ func TestAlignStreamUntyped_PointExactlyAtBoundary(t *testing.T) {
 		t,
 		time.Minute, // Align to every minute
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 25.0, 500.0}, Timestamp: time.Unix(0, 0)},  // 00:00:00 (exactly at boundary)
-			{Value: []any{200.0, 75.0, 1500.0}, Timestamp: time.Unix(45, 0)}, // 00:00:45 (not at boundary)
+			{Value: []any{100.0, 25.0, 500.0}, Timestamp: time.Unix(0, 0)},    // 00:00:00 (exactly at boundary)
+			{Value: []any{200.0, 75.0, 1500.0}, Timestamp: time.Unix(45, 0)},  // 00:00:45 (not at boundary)
 			{Value: []any{300.0, 125.0, 2500.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00 (exactly at boundary)
 			{Value: []any{400.0, 175.0, 3500.0}, Timestamp: time.Unix(75, 0)}, // 00:01:15 (not at boundary)
 		},
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 25.0, 500.0}, Timestamp: time.Unix(0, 0)},  // 00:00:00 (preserved exactly)
+			{Value: []any{100.0, 25.0, 500.0}, Timestamp: time.Unix(0, 0)},    // 00:00:00 (preserved exactly)
 			{Value: []any{300.0, 125.0, 2500.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00 (preserved exactly)
 		},
 	)
@@ -232,7 +232,7 @@ func TestAlignStreamUntyped_MultipleValues(t *testing.T) {
 		t,
 		time.Minute, // Align to every minute
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 50.0}, Timestamp: time.Unix(45, 0)},  // 00:00:45
+			{Value: []any{100.0, 50.0}, Timestamp: time.Unix(45, 0)},   // 00:00:45
 			{Value: []any{200.0, 150.0}, Timestamp: time.Unix(105, 0)}, // 00:01:45
 		},
 		[]TsRecord[[]any]{
@@ -256,13 +256,13 @@ func TestAlignStreamUntyped_NonIntegerAlignment(t *testing.T) {
 		t,
 		90*time.Second, // Align to every 1.5 minutes
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(30, 0)},  // 00:00:30
+			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(30, 0)},   // 00:00:30
 			{Value: []any{200.0, 50.0, 1100.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00
 			{Value: []any{300.0, 80.0, 1700.0}, Timestamp: time.Unix(210, 0)}, // 00:03:30
 		},
 		[]TsRecord[[]any]{
-			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(0, 0)},                       // 00:00:00 (smeared)
-			{Value: []any{166.66666666666666, 40.0, 900.0}, Timestamp: time.Unix(90, 0)},         // 00:01:30
+			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(0, 0)},                // 00:00:00 (smeared)
+			{Value: []any{166.66666666666666, 40.0, 900.0}, Timestamp: time.Unix(90, 0)},  // 00:01:30
 			{Value: []any{266.6666666666667, 70.0, 1500.0}, Timestamp: time.Unix(180, 0)}, // 00:03:00
 		},
 	)

@@ -11,7 +11,7 @@ type AlignmentPeriod interface {
 	GetEndTime(time time.Time) time.Time
 }
 
-func alignmentPeriodClassifierFunc[T any](ap AlignmentPeriod) func(a TsRecord[T]) time.Time {
+func AlignmentPeriodClassifierFunc[T any](ap AlignmentPeriod) func(a TsRecord[T]) time.Time {
 	return func(a TsRecord[T]) time.Time { return ap.GetStartTime(a.Timestamp) }
 }
 

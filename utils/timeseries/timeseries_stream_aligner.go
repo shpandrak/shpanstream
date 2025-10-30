@@ -62,7 +62,7 @@ func AlignStream[N Number](
 				}
 			}
 		},
-		alignmentPeriodClassifierFunc[N](alignmentPeriod),
+		AlignmentPeriodClassifierFunc[N](alignmentPeriod),
 		s,
 	)
 }
