@@ -1,37 +1,42 @@
-package timeseries
+package filter
 
 import (
 	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/stream"
+	"github.com/shpandrak/shpanstream/utils/timeseries"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"time"
 )
 
-// AlignStreamUntyped aligns a stream of sorted timeseries numeric records to a fixed duration.
-// this can be used to take a dense timeseries stream and produce a stream with fewer data points
-// aligned points use the time-weighted average to calculate the value of the aligned point
-func AlignStreamUntyped(
-	s stream.Stream[TsRecord[[]any]],
-	alignmentPeriod AlignmentPeriod,
-) stream.Stream[TsRecord[[]any]] {
+type AlignerFilter struct {
+	alignmentPeriod timeseries.AlignmentPeriod
+}
+
+func NewAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod) AlignerFilter {
+	return AlignerFilter{alignmentPeriod: alignmentPeriod}
+}
+
+func (af AlignerFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
 	// Using ClusterSortedStreamComparable to group the items by the duration slot
-	return stream.ClusterSortedStreamComparable[TsRecord[[]any], TsRecord[[]any], time.Time](
+	fieldsMeta := result.FieldsMeta()
+	s := stream.ClusterSortedStreamComparable[tsquery.Record, tsquery.Record, time.Time](
 		func(
 			ctx context.Context,
 			clusterTimestampClassifier time.Time,
-			clusterStream stream.Stream[TsRecord[[]any]],
-			lastItemOnPreviousCluster *TsRecord[[]any],
-		) (TsRecord[[]any], error) {
+			clusterStream stream.Stream[tsquery.Record],
+			lastItemOnPreviousCluster *tsquery.Record,
+		) (tsquery.Record, error) {
 
 			firstItem, err := clusterStream.FindFirst().Get(ctx)
 			if err != nil {
-				return util.DefaultValue[TsRecord[[]any]](), err
+				return util.DefaultValue[tsquery.Record](), err
 			}
 
 			// If this is the first cluster, smudge the first item to the start of the cluster
 			if lastItemOnPreviousCluster == nil {
-				return TsRecord[[]any]{
+				return tsquery.Record{
 					Value:     firstItem.Value,
 					Timestamp: clusterTimestampClassifier,
 				}, nil
@@ -40,13 +45,14 @@ func AlignStreamUntyped(
 
 				// Check if  the first item is magically aligned to the slot, return it
 				if firstItem.Timestamp == clusterTimestampClassifier {
-					return TsRecord[[]any]{
+					return tsquery.Record{
 						Value:     firstItem.Value,
 						Timestamp: clusterTimestampClassifier,
 					}, nil
 				} else {
 					// If not, we need to calculate the time weighted average
 					avgItem, err := timeWeightedAverageArr(
+						fieldsMeta,
 						clusterTimestampClassifier,
 						lastItemOnPreviousCluster.Timestamp,
 						lastItemOnPreviousCluster.Value,
@@ -54,22 +60,32 @@ func AlignStreamUntyped(
 						firstItem.Value,
 					)
 					if err != nil {
-						return util.DefaultValue[TsRecord[[]any]](), fmt.Errorf("error calculating time weighted average while aliging streams: %w", err)
+						return util.DefaultValue[tsquery.Record](), fmt.Errorf("error calculating time weighted average while aliging streams: %w", err)
 					}
-					return TsRecord[[]any]{
+					return tsquery.Record{
 						Value:     avgItem,
 						Timestamp: clusterTimestampClassifier,
 					}, nil
 				}
 			}
 		},
-		AlignmentPeriodClassifierFunc[[]any](alignmentPeriod),
-		s,
+		recordAlignmentPeriodClassifierFunc(af.alignmentPeriod),
+		result.Stream(),
 	)
+
+	return *tsquery.NewResult(
+		fieldsMeta,
+		s,
+	), nil
+
+}
+
+func recordAlignmentPeriodClassifierFunc(ap timeseries.AlignmentPeriod) func(a tsquery.Record) time.Time {
+	return func(a tsquery.Record) time.Time { return ap.GetStartTime(a.Timestamp) }
 }
 
 // timeWeightedAverageArr computes the time-weighted average of two values (v1Arr and v2Arr) erroring if the values are not numeric
-func timeWeightedAverageArr(targetTime, v1Time time.Time, v1Arr []any, v2Time time.Time, v2Arr []any) ([]any, error) {
+func timeWeightedAverageArr(fieldsMeta []tsquery.FieldMeta, targetTime, v1Time time.Time, v1Arr []any, v2Time time.Time, v2Arr []any) ([]any, error) {
 	if v1Time.Equal(v2Time) {
 		if v1Time == targetTime {
 			return v1Arr, nil
@@ -89,16 +105,20 @@ func timeWeightedAverageArr(targetTime, v1Time time.Time, v1Arr []any, v2Time ti
 
 	res := make([]any, len(v1Arr))
 	for i := range v1Arr {
-		v1, err := util.AnyToFloat64(v1Arr[i])
+		dt := fieldsMeta[i].DataType()
+		v1, err := dt.ToFloat64(v1Arr[i])
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error converting v1 array to float64 for weighted array: %w", err)
 		}
-		v2, err := util.AnyToFloat64(v2Arr[i])
+		v2, err := dt.ToFloat64(v2Arr[i])
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error converting v2 array to float64 for weighted array: %w", err)
 		}
 		// Perform the weighted average
-		res[i] = v1 + (v2-v1)*weight
+		res[i], err = dt.FromFloat64(v1 + (v2-v1)*weight)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert cast weighted average value back to datatype values: %w", err)
+		}
 	}
 
 	return res, nil

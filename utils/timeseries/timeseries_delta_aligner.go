@@ -75,7 +75,7 @@ func AlignDeltaStream[N Number](s stream.Stream[TsRecord[N]], ap AlignmentPeriod
 			}
 
 		},
-		alignmentPeriodClassifierFunc[N](ap),
+		AlignmentPeriodClassifierFunc[N](ap),
 		s,
 	)
 
