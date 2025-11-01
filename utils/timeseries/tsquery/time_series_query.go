@@ -1,19 +1,13 @@
 package tsquery
 
 import (
-	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
-	"time"
 )
 
 type Record timeseries.TsRecord[[]any]
-
-type DataSource interface {
-	Execute(ctx context.Context, from time.Time, to time.Time) (Result, error)
-}
 
 type FieldMeta struct {
 	urn        string

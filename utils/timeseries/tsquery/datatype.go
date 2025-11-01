@@ -1,6 +1,9 @@
 package tsquery
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 type DataType string
 
@@ -11,6 +14,22 @@ const (
 	DataTypeBoolean   DataType = "boolean"
 	DataTypeTimestamp DataType = "timestamp"
 )
+
+func DataTypeByGoType(kind reflect.Kind) (DataType, error) {
+	switch kind {
+	case reflect.Bool:
+		return DataTypeBoolean, nil
+	case reflect.Int64:
+		return DataTypeInteger, nil
+	case reflect.Float64:
+		return DataTypeDecimal, nil
+	case reflect.String:
+		return DataTypeString, nil
+
+	}
+	return "", fmt.Errorf("unknown data type %v", kind)
+
+}
 
 func (dt DataType) ValidateData(d any) error {
 	switch dt {
