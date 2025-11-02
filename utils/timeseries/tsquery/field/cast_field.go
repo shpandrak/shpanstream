@@ -3,15 +3,18 @@ package field
 import (
 	"context"
 	"fmt"
+	"github.com/shpandrak/shpanstream/internal/util"
+	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"strconv"
 )
 
+var _ Field = CastField{}
+
 type CastField struct {
 	source     Field
 	targetType tsquery.DataType
-	castFunc   func(any) (any, error)
-	fieldMeta  tsquery.FieldMeta
+	fieldUrn   string
 }
 
 // Conversion functions for each type pair
@@ -107,29 +110,42 @@ func NewCastField(
 	fieldUrn string,
 	source Field,
 	targetType tsquery.DataType,
-) (*CastField, error) {
-	sourceType := source.Meta().DataType()
+) CastField {
+	return CastField{
+		source:     source,
+		targetType: targetType,
+		fieldUrn:   fieldUrn,
+	}
+}
+
+func (cf CastField) Execute(ctx context.Context) (tsquery.FieldMeta, ValueSupplier, error) {
+	// Execute source to get metadata (lazy validation)
+	sourceMeta, sourceValueSupplier, err := cf.source.Execute(ctx)
+	if err != nil {
+		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing source field: %w", err)
+	}
+	sourceType := sourceMeta.DataType()
 
 	// Get the cast function
-	castFunc, err := getCastFunc(sourceType, targetType)
+	castFunc, err := getCastFunc(sourceType, cf.targetType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cast function: %w", err)
+		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to get cast function: %w", err)
 	}
 
 	// Create field metadata for the cast result
-	newFieldMeta, err := tsquery.NewFieldMetaWithCustomData(
-		fieldUrn,
-		targetType,
-		source.Meta().Required(),
-		source.Meta().Unit(),
-		source.Meta().CustomMeta(),
+	fieldMeta, err := tsquery.NewFieldMetaWithCustomData(
+		cf.fieldUrn,
+		cf.targetType,
+		sourceMeta.Required(),
+		sourceMeta.Unit(),
+		sourceMeta.CustomMeta(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create field meta for cast field: %w", err)
+		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to create field meta for cast field: %w", err)
 	}
 
 	// Wrap cast function to handle nil for optional fields
-	if !newFieldMeta.Required() {
+	if !fieldMeta.Required() {
 		originalFunc := castFunc
 		castFunc = func(v any) (any, error) {
 			if v == nil {
@@ -139,28 +155,19 @@ func NewCastField(
 		}
 	}
 
-	return &CastField{
-		source:     source,
-		targetType: targetType,
-		castFunc:   castFunc,
-		fieldMeta:  *newFieldMeta,
-	}, nil
-}
+	valueSupplier := func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error) {
+		value, err := sourceValueSupplier(ctx, currRow)
+		if err != nil {
+			return nil, fmt.Errorf("failed getting value from source field: %w", err)
+		}
 
-func (cf *CastField) Meta() tsquery.FieldMeta {
-	return cf.fieldMeta
-}
+		result, err := castFunc(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed casting value: %w", err)
+		}
 
-func (cf *CastField) GetValue(ctx context.Context) (any, error) {
-	value, err := cf.source.GetValue(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed getting value from source field: %w", err)
+		return result, nil
 	}
 
-	result, err := cf.castFunc(value)
-	if err != nil {
-		return nil, fmt.Errorf("failed casting value: %w", err)
-	}
-
-	return result, nil
+	return *fieldMeta, valueSupplier, nil
 }
