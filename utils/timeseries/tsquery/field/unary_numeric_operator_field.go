@@ -3,9 +3,13 @@ package field
 import (
 	"context"
 	"fmt"
+	"github.com/shpandrak/shpanstream/internal/util"
+	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"math"
 )
+
+var _ Field = UnaryNumericOperatorField{}
 
 type UnaryNumericOperatorType string
 
@@ -137,44 +141,56 @@ func (uno UnaryNumericOperatorType) getFuncImpl(forDataType tsquery.DataType) (f
 }
 
 type UnaryNumericOperatorField struct {
-	operand   Field
-	op        UnaryNumericOperatorType
-	funcImpl  func(v any) any
-	fieldMeta tsquery.FieldMeta
+	operand  Field
+	op       UnaryNumericOperatorType
+	fieldUrn string
 }
 
 func NewUnaryNumericOperatorField(
 	fieldUrn string,
 	operand Field,
 	op UnaryNumericOperatorType,
-) (*UnaryNumericOperatorField, error) {
-	dt := operand.Meta().DataType()
+) UnaryNumericOperatorField {
+	return UnaryNumericOperatorField{
+		operand:  operand,
+		op:       op,
+		fieldUrn: fieldUrn,
+	}
+}
+
+func (unof UnaryNumericOperatorField) Execute(ctx context.Context) (tsquery.FieldMeta, ValueSupplier, error) {
+	// Execute operand to get metadata (lazy validation)
+	operandMeta, operandValueSupplier, err := unof.operand.Execute(ctx)
+	if err != nil {
+		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing operand field: %w", err)
+	}
+	dt := operandMeta.DataType()
 
 	// Check that operand is a numeric type
 	if !dt.IsNumeric() {
-		return nil, fmt.Errorf("operand field %s has non-numeric data type: %s", operand.Meta().Urn(), dt)
+		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("operand field %s has non-numeric data type: %s", operandMeta.Urn(), dt)
 	}
 
 	// Get the function implementation
-	funcImpl, err := op.getFuncImpl(dt)
+	funcImpl, err := unof.op.getFuncImpl(dt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get function implementation: %w", err)
+		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to get function implementation: %w", err)
 	}
 
 	// Create field metadata - unary operations maintain the same data type
-	newFieldMeta, err := tsquery.NewFieldMetaWithCustomData(
-		fieldUrn,
+	fieldMeta, err := tsquery.NewFieldMetaWithCustomData(
+		unof.fieldUrn,
 		dt,
-		operand.Meta().Required(),
-		operand.Meta().Unit(),
-		operand.Meta().CustomMeta(),
+		operandMeta.Required(),
+		operandMeta.Unit(),
+		operandMeta.CustomMeta(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create field meta for unary operator field: %w", err)
+		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to create field meta for unary operator field: %w", err)
 	}
 
 	// Allow nil in the case of optional fields
-	if !newFieldMeta.Required() {
+	if !fieldMeta.Required() {
 		originalFunc := funcImpl
 		funcImpl = func(v any) any {
 			if v == nil {
@@ -184,22 +200,13 @@ func NewUnaryNumericOperatorField(
 		}
 	}
 
-	return &UnaryNumericOperatorField{
-		operand:   operand,
-		op:        op,
-		funcImpl:  funcImpl,
-		fieldMeta: *newFieldMeta,
-	}, nil
-}
-
-func (unof *UnaryNumericOperatorField) Meta() tsquery.FieldMeta {
-	return unof.fieldMeta
-}
-
-func (unof *UnaryNumericOperatorField) GetValue(ctx context.Context) (any, error) {
-	value, err := unof.operand.GetValue(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed getting value for operand: %w", err)
+	valueSupplier := func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error) {
+		value, err := operandValueSupplier(ctx, currRow)
+		if err != nil {
+			return nil, fmt.Errorf("failed getting value for operand: %w", err)
+		}
+		return funcImpl(value), nil
 	}
-	return unof.funcImpl(value), nil
+
+	return *fieldMeta, valueSupplier, nil
 }

@@ -3,11 +3,29 @@ package field
 import (
 	"context"
 	"fmt"
+	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/stretchr/testify/require"
 	"math"
 	"testing"
+	"time"
 )
+
+// Helper function to execute a field and get its value for unary tests
+func executeUnaryFieldValue(t *testing.T, f Field, ctx context.Context) (any, error) {
+	_, valueSupplier, err := f.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+	dummyRow := timeseries.TsRecord[[]any]{Timestamp: time.Now(), Value: []any{}}
+	return valueSupplier(ctx, dummyRow)
+}
+
+// Helper function to execute a field and get its metadata for unary tests
+func executeUnaryFieldMeta(t *testing.T, f Field, ctx context.Context) (tsquery.FieldMeta, error) {
+	meta, _, err := f.Execute(ctx)
+	return meta, err
+}
 
 func TestUnaryNumericOperatorField_IntegerOperations(t *testing.T) {
 	ctx := context.Background()
@@ -35,14 +53,14 @@ func TestUnaryNumericOperatorField_IntegerOperations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceField, err := NewConstantField(*meta, tt.value)
+			sourceField := NewConstantField(*meta, tt.value)
 			require.NoError(t, err)
 
-			unaryField, err := NewUnaryNumericOperatorField("result", sourceField, tt.operator)
+			unaryField := NewUnaryNumericOperatorField("result", sourceField, tt.operator)
 			require.NoError(t, err)
 			require.NotNil(t, unaryField)
 
-			result, err := unaryField.GetValue(ctx)
+			result, err := executeUnaryFieldValue(t, unaryField, ctx)
 			require.NoError(t, err)
 			require.Equal(t, tt.expected, result)
 		})
@@ -86,14 +104,14 @@ func TestUnaryNumericOperatorField_DecimalOperations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceField, err := NewConstantField(*meta, tt.value)
+			sourceField := NewConstantField(*meta, tt.value)
 			require.NoError(t, err)
 
-			unaryField, err := NewUnaryNumericOperatorField("result", sourceField, tt.operator)
+			unaryField := NewUnaryNumericOperatorField("result", sourceField, tt.operator)
 			require.NoError(t, err)
 			require.NotNil(t, unaryField)
 
-			result, err := unaryField.GetValue(ctx)
+			result, err := executeUnaryFieldValue(t, unaryField, ctx)
 			require.NoError(t, err)
 
 			resultFloat := result.(float64)
@@ -110,7 +128,7 @@ func TestUnaryNumericOperatorField_UnsupportedIntegerOperations(t *testing.T) {
 	meta, err := tsquery.NewFieldMeta("field1", tsquery.DataTypeInteger, false)
 	require.NoError(t, err)
 
-	sourceField, err := NewConstantField(*meta, int64(42))
+	sourceField := NewConstantField(*meta, int64(42))
 	require.NoError(t, err)
 
 	unsupportedOps := []UnaryNumericOperatorType{
@@ -127,38 +145,41 @@ func TestUnaryNumericOperatorField_UnsupportedIntegerOperations(t *testing.T) {
 
 	for _, op := range unsupportedOps {
 		t.Run(string(op), func(t *testing.T) {
-			unaryField, err := NewUnaryNumericOperatorField("result", sourceField, op)
+			ctx := context.Background()
+			unaryField := NewUnaryNumericOperatorField("result", sourceField, op)
+			_, _, err := unaryField.Execute(ctx)
 			require.Error(t, err)
-			require.Nil(t, unaryField)
 			require.Contains(t, err.Error(), "unsupported operator")
 		})
 	}
 }
 
 func TestUnaryNumericOperatorField_NonNumericType(t *testing.T) {
+	ctx := context.Background()
 	stringMeta, err := tsquery.NewFieldMeta("field1", tsquery.DataTypeString, false)
 	require.NoError(t, err)
 
-	sourceField, err := NewConstantField(*stringMeta, "hello")
-	require.NoError(t, err)
+	sourceField := NewConstantField(*stringMeta, "hello")
 
-	unaryField, err := NewUnaryNumericOperatorField("result", sourceField, UnaryNumericOperatorAbs)
+	unaryField := NewUnaryNumericOperatorField("result", sourceField, UnaryNumericOperatorAbs)
+	_, _, err = unaryField.Execute(ctx)
 	require.Error(t, err)
-	require.Nil(t, unaryField)
 	require.Contains(t, err.Error(), "non-numeric data type")
 }
 
 func TestUnaryNumericOperatorField_Meta(t *testing.T) {
+	ctx := context.Background()
 	meta, err := tsquery.NewFieldMeta("field1", tsquery.DataTypeInteger, false)
 	require.NoError(t, err)
 
-	sourceField, err := NewConstantField(*meta, int64(42))
+	sourceField := NewConstantField(*meta, int64(42))
 	require.NoError(t, err)
 
-	unaryField, err := NewUnaryNumericOperatorField("abs_result", sourceField, UnaryNumericOperatorAbs)
+	unaryField := NewUnaryNumericOperatorField("abs_result", sourceField, UnaryNumericOperatorAbs)
 	require.NoError(t, err)
 
-	fieldMeta := unaryField.Meta()
+	fieldMeta, err := executeUnaryFieldMeta(t, unaryField, ctx)
+	require.NoError(t, err)
 	require.Equal(t, "abs_result", fieldMeta.Urn())
 	require.Equal(t, tsquery.DataTypeInteger, fieldMeta.DataType())
 }
@@ -171,10 +192,10 @@ func TestUnaryNumericOperatorField_ErrorPropagation(t *testing.T) {
 
 	errorField := &errorField{meta: *meta, err: fmt.Errorf("operand error")}
 
-	unaryField, err := NewUnaryNumericOperatorField("result", errorField, UnaryNumericOperatorAbs)
+	unaryField := NewUnaryNumericOperatorField("result", errorField, UnaryNumericOperatorAbs)
 	require.NoError(t, err)
 
-	_, err = unaryField.GetValue(ctx)
+	_, err = executeUnaryFieldValue(t, unaryField, ctx)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed getting value for operand")
 }
@@ -185,13 +206,13 @@ func TestUnaryNumericOperatorField_NilHandling(t *testing.T) {
 	meta, err := tsquery.NewFieldMeta("field1", tsquery.DataTypeInteger, false)
 	require.NoError(t, err)
 
-	sourceField, err := NewConstantField(*meta, nil)
+	sourceField := NewConstantField(*meta, nil)
 	require.NoError(t, err)
 
-	unaryField, err := NewUnaryNumericOperatorField("result", sourceField, UnaryNumericOperatorAbs)
+	unaryField := NewUnaryNumericOperatorField("result", sourceField, UnaryNumericOperatorAbs)
 	require.NoError(t, err)
 
-	result, err := unaryField.GetValue(ctx)
+	result, err := executeUnaryFieldValue(t, unaryField, ctx)
 	require.NoError(t, err)
 	require.Nil(t, result)
 }
@@ -203,16 +224,16 @@ func TestUnaryNumericOperatorField_ChainedOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start with -16.0, apply abs -> 16.0, then sqrt -> 4.0
-	sourceField, err := NewConstantField(*meta, -16.0)
+	sourceField := NewConstantField(*meta, -16.0)
 	require.NoError(t, err)
 
-	absField, err := NewUnaryNumericOperatorField("abs_result", sourceField, UnaryNumericOperatorAbs)
+	absField := NewUnaryNumericOperatorField("abs_result", sourceField, UnaryNumericOperatorAbs)
 	require.NoError(t, err)
 
-	sqrtField, err := NewUnaryNumericOperatorField("sqrt_result", absField, UnaryNumericOperatorSqrt)
+	sqrtField := NewUnaryNumericOperatorField("sqrt_result", absField, UnaryNumericOperatorSqrt)
 	require.NoError(t, err)
 
-	result, err := sqrtField.GetValue(ctx)
+	result, err := executeUnaryFieldValue(t, sqrtField, ctx)
 	require.NoError(t, err)
 	require.Equal(t, 4.0, result)
 }
@@ -224,22 +245,22 @@ func TestUnaryNumericOperatorField_CombinedWithBinaryOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Calculate: abs(-5) + abs(-3) = 5 + 3 = 8
-	field1, err := NewConstantField(*meta, int64(-5))
+	field1 := NewConstantField(*meta, int64(-5))
 	require.NoError(t, err)
 
-	field2, err := NewConstantField(*meta, int64(-3))
+	field2 := NewConstantField(*meta, int64(-3))
 	require.NoError(t, err)
 
-	abs1, err := NewUnaryNumericOperatorField("abs1", field1, UnaryNumericOperatorAbs)
+	abs1 := NewUnaryNumericOperatorField("abs1", field1, UnaryNumericOperatorAbs)
 	require.NoError(t, err)
 
-	abs2, err := NewUnaryNumericOperatorField("abs2", field2, UnaryNumericOperatorAbs)
+	abs2 := NewUnaryNumericOperatorField("abs2", field2, UnaryNumericOperatorAbs)
 	require.NoError(t, err)
 
-	sumField, err := NewNumericExpressionField("sum", abs1, BinaryNumericOperatorAdd, abs2)
+	sumField := NewNumericExpressionField("sum", abs1, BinaryNumericOperatorAdd, abs2)
 	require.NoError(t, err)
 
-	result, err := sumField.GetValue(ctx)
+	result, err := executeUnaryFieldValue(t, sumField, ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(8), result)
 }
@@ -284,13 +305,13 @@ func TestUnaryNumericOperatorField_SpecialMathValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceField, err := NewConstantField(*meta, tt.value)
+			sourceField := NewConstantField(*meta, tt.value)
 			require.NoError(t, err)
 
-			unaryField, err := NewUnaryNumericOperatorField("result", sourceField, tt.operator)
+			unaryField := NewUnaryNumericOperatorField("result", sourceField, tt.operator)
 			require.NoError(t, err)
 
-			result, err := unaryField.GetValue(ctx)
+			result, err := executeUnaryFieldValue(t, unaryField, ctx)
 			require.NoError(t, err)
 
 			tt.check(t, result.(float64))

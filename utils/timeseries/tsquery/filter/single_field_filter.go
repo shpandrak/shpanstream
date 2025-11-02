@@ -2,7 +2,6 @@ package filter
 
 import (
 	"context"
-	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
@@ -10,29 +9,24 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
 )
 
-type AppendFieldFilter struct {
+type SingleFieldFilter struct {
 	field field.Field
 }
 
-func NewAppendFieldFilter(field field.Field) AppendFieldFilter {
+func NewSingleFieldFilter(field field.Field) AppendFieldFilter {
 	return AppendFieldFilter{field: field}
 }
 
-func (a AppendFieldFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
+func (sff SingleFieldFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
 	// Execute field to get metadata and value supplier
 	ctx := context.Background()
-	fieldMeta, valueSupplier, err := a.field.Execute(ctx)
+	fieldMeta, valueSupplier, err := sff.field.Execute(ctx)
 	if err != nil {
-		return util.DefaultValue[tsquery.Result](), err
-	}
-
-	// Verify there are no duplicates
-	if result.HasField(fieldMeta.Urn()) {
-		return util.DefaultValue[tsquery.Result](), fmt.Errorf("cannot append field, since it is duplicate %s", fieldMeta.Urn())
+		return tsquery.Result{}, err
 	}
 
 	return tsquery.NewResult(
-		append(result.FieldsMeta(), fieldMeta),
+		[]tsquery.FieldMeta{fieldMeta},
 		stream.MapWithErrAndCtx(result.Stream(), func(ctx context.Context, record timeseries.TsRecord[[]any]) (timeseries.TsRecord[[]any], error) {
 			value, err := valueSupplier(ctx, record)
 			if err != nil {
@@ -40,8 +34,7 @@ func (a AppendFieldFilter) Filter(result tsquery.Result) (tsquery.Result, error)
 			}
 			return timeseries.TsRecord[[]any]{
 				Timestamp: record.Timestamp,
-				Value:     append(record.Value, value),
+				Value:     []any{value},
 			}, nil
-
 		})), nil
 }
