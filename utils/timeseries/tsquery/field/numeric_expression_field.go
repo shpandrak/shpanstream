@@ -114,13 +114,13 @@ func NewNumericExpressionField(
 	}
 }
 
-func (nef NumericExpressionField) Execute(ctx context.Context) (tsquery.FieldMeta, ValueSupplier, error) {
+func (nef NumericExpressionField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
 	// Execute both fields to get metadata (lazy validation)
-	op1Meta, op1ValueSupplier, err := nef.op1.Execute(ctx)
+	op1Meta, op1ValueSupplier, err := nef.op1.Execute(fieldsMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing op1 field: %w", err)
 	}
-	op2Meta, op2ValueSupplier, err := nef.op2.Execute(ctx)
+	op2Meta, op2ValueSupplier, err := nef.op2.Execute(fieldsMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing op2 field: %w", err)
 	}

@@ -158,9 +158,9 @@ func NewUnaryNumericOperatorField(
 	}
 }
 
-func (unof UnaryNumericOperatorField) Execute(ctx context.Context) (tsquery.FieldMeta, ValueSupplier, error) {
+func (unof UnaryNumericOperatorField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
 	// Execute operand to get metadata (lazy validation)
-	operandMeta, operandValueSupplier, err := unof.operand.Execute(ctx)
+	operandMeta, operandValueSupplier, err := unof.operand.Execute(fieldsMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing operand field: %w", err)
 	}

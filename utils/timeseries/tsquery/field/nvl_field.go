@@ -29,13 +29,13 @@ func NewNvlField(
 	}
 }
 
-func (nf NvlField) Execute(ctx context.Context) (tsquery.FieldMeta, ValueSupplier, error) {
+func (nf NvlField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
 	// Execute both fields to get metadata (lazy validation)
-	sourceMeta, sourceValueSupplier, err := nf.source.Execute(ctx)
+	sourceMeta, sourceValueSupplier, err := nf.source.Execute(fieldsMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing source field: %w", err)
 	}
-	altMeta, altValueSupplier, err := nf.altField.Execute(ctx)
+	altMeta, altValueSupplier, err := nf.altField.Execute(fieldsMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing alternative field: %w", err)
 	}

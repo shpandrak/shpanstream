@@ -12,7 +12,7 @@ import (
 
 // Helper function to execute a field and get its value for testing
 func executeAndGetValue(t *testing.T, f Field, ctx context.Context) (any, error) {
-	_, valueSupplier, err := f.Execute(ctx)
+	_, valueSupplier, err := f.Execute([]tsquery.FieldMeta{})
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func executeAndGetValue(t *testing.T, f Field, ctx context.Context) (any, error)
 
 // Helper function to execute a field and get its metadata for testing
 func executeAndGetMeta(t *testing.T, f Field, ctx context.Context) (tsquery.FieldMeta, error) {
-	meta, _, err := f.Execute(ctx)
+	meta, _, err := f.Execute([]tsquery.FieldMeta{})
 	return meta, err
 }
 
@@ -229,7 +229,6 @@ func TestCastField_SameType(t *testing.T) {
 }
 
 func TestCastField_BooleanNotSupported(t *testing.T) {
-	ctx := context.Background()
 	boolMeta, err := tsquery.NewFieldMeta("source_bool", tsquery.DataTypeBoolean, false)
 	require.NoError(t, err)
 
@@ -237,7 +236,7 @@ func TestCastField_BooleanNotSupported(t *testing.T) {
 
 	// Cast from boolean should fail on Execute
 	castField := NewCastField("casted_int", sourceField, tsquery.DataTypeInteger)
-	_, _, err = castField.Execute(ctx)
+	_, _, err = castField.Execute([]tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "boolean")
 
@@ -248,13 +247,12 @@ func TestCastField_BooleanNotSupported(t *testing.T) {
 	sourceField2 := NewConstantField(*intMeta, int64(42))
 
 	castField2 := NewCastField("casted_bool", sourceField2, tsquery.DataTypeBoolean)
-	_, _, err = castField2.Execute(ctx)
+	_, _, err = castField2.Execute([]tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "boolean")
 }
 
 func TestCastField_TimestampNotSupported(t *testing.T) {
-	ctx := context.Background()
 	// We can't create a ConstantField with timestamp since ValidateData doesn't support it
 	// So we'll just test that creating a cast field with timestamp fails at the getCastFunc level
 	intMeta, err := tsquery.NewFieldMeta("source_int", tsquery.DataTypeInteger, false)
@@ -264,7 +262,7 @@ func TestCastField_TimestampNotSupported(t *testing.T) {
 
 	// Cast to timestamp should fail on Execute
 	castField := NewCastField("casted_timestamp", sourceField, tsquery.DataTypeTimestamp)
-	_, _, err = castField.Execute(ctx)
+	_, _, err = castField.Execute([]tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "timestamp")
 }
@@ -327,7 +325,7 @@ type testErrorField struct {
 	err  error
 }
 
-func (ef *testErrorField) Execute(ctx context.Context) (tsquery.FieldMeta, ValueSupplier, error) {
+func (ef *testErrorField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
 	valueSupplier := func(_ context.Context, _ timeseries.TsRecord[[]any]) (any, error) {
 		return nil, ef.err
 	}

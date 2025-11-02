@@ -12,7 +12,7 @@ import (
 
 // Helper function to execute a field and get its value for nvl tests
 func executeFieldValue(t *testing.T, f Field, ctx context.Context) (any, error) {
-	_, valueSupplier, err := f.Execute(ctx)
+	_, valueSupplier, err := f.Execute([]tsquery.FieldMeta{})
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func executeFieldValue(t *testing.T, f Field, ctx context.Context) (any, error) 
 
 // Helper function to execute a field and get its metadata for nvl tests
 func executeFieldMeta(t *testing.T, f Field, ctx context.Context) (tsquery.FieldMeta, error) {
-	meta, _, err := f.Execute(ctx)
+	meta, _, err := f.Execute([]tsquery.FieldMeta{})
 	return meta, err
 }
 
@@ -116,7 +116,6 @@ func TestNvlField_DifferentDataTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
 			sourceMeta, err := tsquery.NewFieldMeta("source", tt.sourceType, false)
 			require.NoError(t, err)
 
@@ -152,7 +151,7 @@ func TestNvlField_DifferentDataTypes(t *testing.T) {
 			altField := NewConstantField(*altMeta, altVal)
 
 			nvlField := NewNvlField("nvl_result", sourceField, altField)
-			_, _, err = nvlField.Execute(ctx)
+			_, _, err = nvlField.Execute([]tsquery.FieldMeta{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "incompatible datatypes")
 		})
@@ -160,7 +159,6 @@ func TestNvlField_DifferentDataTypes(t *testing.T) {
 }
 
 func TestNvlField_AlternativeNotRequired(t *testing.T) {
-	ctx := context.Background()
 	sourceMeta, err := tsquery.NewFieldMeta("source", tsquery.DataTypeInteger, false)
 	require.NoError(t, err)
 
@@ -172,7 +170,7 @@ func TestNvlField_AlternativeNotRequired(t *testing.T) {
 	altField := NewConstantField(*altMeta, int64(100))
 
 	nvlField := NewNvlField("nvl_result", sourceField, altField)
-	_, _, err = nvlField.Execute(ctx)
+	_, _, err = nvlField.Execute([]tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "alternative field")
 	require.Contains(t, err.Error(), "must be required")

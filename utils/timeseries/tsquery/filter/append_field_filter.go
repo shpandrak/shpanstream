@@ -20,8 +20,7 @@ func NewAppendFieldFilter(field field.Field) AppendFieldFilter {
 
 func (a AppendFieldFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
 	// Execute field to get metadata and value supplier
-	ctx := context.Background()
-	fieldMeta, valueSupplier, err := a.field.Execute(ctx)
+	fieldMeta, valueSupplier, err := a.field.Execute(result.FieldsMeta())
 	if err != nil {
 		return util.DefaultValue[tsquery.Result](), err
 	}
