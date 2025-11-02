@@ -53,6 +53,7 @@ func NewNvlField(
 		fieldUrn,
 		sourceType,
 		true, // Always required because we have a non-null fallback
+		source.Meta().Unit(),
 		newFieldCustomMeta,
 	)
 	if err != nil {

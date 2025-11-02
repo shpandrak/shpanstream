@@ -25,9 +25,9 @@ func DataTypeByGoType(kind reflect.Kind) (DataType, error) {
 		return DataTypeDecimal, nil
 	case reflect.String:
 		return DataTypeString, nil
-
+	default:
+		return "", fmt.Errorf("unknown data type %v", kind)
 	}
-	return "", fmt.Errorf("unknown data type %v", kind)
 
 }
 

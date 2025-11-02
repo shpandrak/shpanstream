@@ -146,10 +146,16 @@ func NewNumericExpressionField(
 	} else if op2.Meta().CustomMeta() != nil {
 		newFieldCustomMeta = maps.Clone(op2.Meta().CustomMeta())
 	}
+	var updatedUnit string
+	if op1.Meta().Unit() == op2.Meta().Unit() {
+		updatedUnit = op1.Meta().Unit()
+	}
+
 	newFieldMeta, err := tsquery.NewFieldMetaWithCustomData(
 		fieldUrn,
 		dt1,
 		op1.Meta().Required() && op2.Meta().Required(),
+		updatedUnit,
 		newFieldCustomMeta,
 	)
 	if err != nil {

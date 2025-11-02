@@ -12,34 +12,53 @@ type Record timeseries.TsRecord[[]any]
 type FieldMeta struct {
 	urn        string
 	dataType   DataType
+	unit       string
 	required   bool
 	customMeta map[string]any
 }
 
-func (f FieldMeta) Required() bool {
-	return f.required
+func (fm FieldMeta) GetCustomMetaStringValue(key string) string {
+	if fm.customMeta == nil {
+		return ""
+	}
+	if val, ok := fm.customMeta[key]; ok {
+		if strVal, ok := val.(string); ok {
+			return strVal
+		}
+	}
+	return ""
+
 }
 
-func (f FieldMeta) Urn() string {
-	return f.urn
+func (fm FieldMeta) Required() bool {
+	return fm.required
 }
 
-func (f FieldMeta) DataType() DataType {
-	return f.dataType
+func (fm FieldMeta) Urn() string {
+	return fm.urn
 }
 
-func (f FieldMeta) CustomMeta() map[string]any {
-	return f.customMeta
+func (fm FieldMeta) Unit() string {
+	return fm.unit
+}
+
+func (fm FieldMeta) DataType() DataType {
+	return fm.dataType
+}
+
+func (fm FieldMeta) CustomMeta() map[string]any {
+	return fm.customMeta
 }
 
 func NewFieldMeta(urn string, dataType DataType, required bool) (*FieldMeta, error) {
-	return NewFieldMetaWithCustomData(urn, dataType, required, nil)
+	return NewFieldMetaWithCustomData(urn, dataType, required, "", nil)
 }
 
 func NewFieldMetaWithCustomData(
 	urn string,
 	dataType DataType,
 	required bool,
+	unit string,
 	customMeta map[string]any,
 ) (*FieldMeta, error) {
 	if urn == "" {
@@ -53,18 +72,19 @@ func NewFieldMetaWithCustomData(
 		urn:        urn,
 		dataType:   dataType,
 		required:   required,
+		unit:       unit,
 		customMeta: customMeta,
 	}, nil
 
 }
 
 type Result struct {
-	s          stream.Stream[Record]
+	s          stream.Stream[timeseries.TsRecord[[]any]]
 	fieldsMeta []FieldMeta
 }
 
-func NewResult(fieldsMeta []FieldMeta, s stream.Stream[Record]) *Result {
-	return &Result{s: s, fieldsMeta: fieldsMeta}
+func NewResult(fieldsMeta []FieldMeta, s stream.Stream[timeseries.TsRecord[[]any]]) Result {
+	return Result{s: s, fieldsMeta: fieldsMeta}
 }
 
 func (r Result) FieldsMeta() []FieldMeta {
@@ -89,6 +109,6 @@ func (r Result) HasField(urn string) bool {
 	return false
 }
 
-func (r Result) Stream() stream.Stream[Record] {
+func (r Result) Stream() stream.Stream[timeseries.TsRecord[[]any]] {
 	return r.s
 }
