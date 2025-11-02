@@ -19,8 +19,7 @@ func NewSingleFieldFilter(field field.Field) AppendFieldFilter {
 
 func (sff SingleFieldFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
 	// Execute field to get metadata and value supplier
-	ctx := context.Background()
-	fieldMeta, valueSupplier, err := sff.field.Execute(ctx)
+	fieldMeta, valueSupplier, err := sff.field.Execute(result.FieldsMeta())
 	if err != nil {
 		return tsquery.Result{}, err
 	}

@@ -13,7 +13,7 @@ import (
 
 // Helper function to execute a field and get its value for unary tests
 func executeUnaryFieldValue(t *testing.T, f Field, ctx context.Context) (any, error) {
-	_, valueSupplier, err := f.Execute(ctx)
+	_, valueSupplier, err := f.Execute([]tsquery.FieldMeta{})
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func executeUnaryFieldValue(t *testing.T, f Field, ctx context.Context) (any, er
 
 // Helper function to execute a field and get its metadata for unary tests
 func executeUnaryFieldMeta(t *testing.T, f Field, ctx context.Context) (tsquery.FieldMeta, error) {
-	meta, _, err := f.Execute(ctx)
+	meta, _, err := f.Execute([]tsquery.FieldMeta{})
 	return meta, err
 }
 
@@ -145,9 +145,8 @@ func TestUnaryNumericOperatorField_UnsupportedIntegerOperations(t *testing.T) {
 
 	for _, op := range unsupportedOps {
 		t.Run(string(op), func(t *testing.T) {
-			ctx := context.Background()
 			unaryField := NewUnaryNumericOperatorField("result", sourceField, op)
-			_, _, err := unaryField.Execute(ctx)
+			_, _, err := unaryField.Execute([]tsquery.FieldMeta{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "unsupported operator")
 		})
@@ -155,14 +154,13 @@ func TestUnaryNumericOperatorField_UnsupportedIntegerOperations(t *testing.T) {
 }
 
 func TestUnaryNumericOperatorField_NonNumericType(t *testing.T) {
-	ctx := context.Background()
 	stringMeta, err := tsquery.NewFieldMeta("field1", tsquery.DataTypeString, false)
 	require.NoError(t, err)
 
 	sourceField := NewConstantField(*stringMeta, "hello")
 
 	unaryField := NewUnaryNumericOperatorField("result", sourceField, UnaryNumericOperatorAbs)
-	_, _, err = unaryField.Execute(ctx)
+	_, _, err = unaryField.Execute([]tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "non-numeric data type")
 }
