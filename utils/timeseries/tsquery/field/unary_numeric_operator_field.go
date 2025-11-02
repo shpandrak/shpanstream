@@ -166,6 +166,7 @@ func NewUnaryNumericOperatorField(
 		fieldUrn,
 		dt,
 		operand.Meta().Required(),
+		operand.Meta().Unit(),
 		operand.Meta().CustomMeta(),
 	)
 	if err != nil {

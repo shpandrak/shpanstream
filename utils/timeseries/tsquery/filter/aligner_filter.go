@@ -21,22 +21,22 @@ func NewAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod) AlignerFilter 
 func (af AlignerFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
 	// Using ClusterSortedStreamComparable to group the items by the duration slot
 	fieldsMeta := result.FieldsMeta()
-	s := stream.ClusterSortedStreamComparable[tsquery.Record, tsquery.Record, time.Time](
+	s := stream.ClusterSortedStreamComparable[timeseries.TsRecord[[]any], timeseries.TsRecord[[]any], time.Time](
 		func(
 			ctx context.Context,
 			clusterTimestampClassifier time.Time,
-			clusterStream stream.Stream[tsquery.Record],
-			lastItemOnPreviousCluster *tsquery.Record,
-		) (tsquery.Record, error) {
+			clusterStream stream.Stream[timeseries.TsRecord[[]any]],
+			lastItemOnPreviousCluster *timeseries.TsRecord[[]any],
+		) (timeseries.TsRecord[[]any], error) {
 
 			firstItem, err := clusterStream.FindFirst().Get(ctx)
 			if err != nil {
-				return util.DefaultValue[tsquery.Record](), err
+				return util.DefaultValue[timeseries.TsRecord[[]any]](), err
 			}
 
 			// If this is the first cluster, smudge the first item to the start of the cluster
 			if lastItemOnPreviousCluster == nil {
-				return tsquery.Record{
+				return timeseries.TsRecord[[]any]{
 					Value:     firstItem.Value,
 					Timestamp: clusterTimestampClassifier,
 				}, nil
@@ -45,7 +45,7 @@ func (af AlignerFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
 
 				// Check if  the first item is magically aligned to the slot, return it
 				if firstItem.Timestamp == clusterTimestampClassifier {
-					return tsquery.Record{
+					return timeseries.TsRecord[[]any]{
 						Value:     firstItem.Value,
 						Timestamp: clusterTimestampClassifier,
 					}, nil
@@ -60,9 +60,9 @@ func (af AlignerFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
 						firstItem.Value,
 					)
 					if err != nil {
-						return util.DefaultValue[tsquery.Record](), fmt.Errorf("error calculating time weighted average while aliging streams: %w", err)
+						return util.DefaultValue[timeseries.TsRecord[[]any]](), fmt.Errorf("error calculating time weighted average while aliging streams: %w", err)
 					}
-					return tsquery.Record{
+					return timeseries.TsRecord[[]any]{
 						Value:     avgItem,
 						Timestamp: clusterTimestampClassifier,
 					}, nil
@@ -73,15 +73,15 @@ func (af AlignerFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
 		result.Stream(),
 	)
 
-	return *tsquery.NewResult(
+	return tsquery.NewResult(
 		fieldsMeta,
 		s,
 	), nil
 
 }
 
-func recordAlignmentPeriodClassifierFunc(ap timeseries.AlignmentPeriod) func(a tsquery.Record) time.Time {
-	return func(a tsquery.Record) time.Time { return ap.GetStartTime(a.Timestamp) }
+func recordAlignmentPeriodClassifierFunc(ap timeseries.AlignmentPeriod) func(a timeseries.TsRecord[[]any]) time.Time {
+	return func(a timeseries.TsRecord[[]any]) time.Time { return ap.GetStartTime(a.Timestamp) }
 }
 
 // timeWeightedAverageArr computes the time-weighted average of two values (v1Arr and v2Arr) erroring if the values are not numeric

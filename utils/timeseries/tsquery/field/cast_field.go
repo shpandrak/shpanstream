@@ -8,10 +8,10 @@ import (
 )
 
 type CastField struct {
-	source       Field
-	targetType   tsquery.DataType
-	castFunc     func(any) (any, error)
-	fieldMeta    tsquery.FieldMeta
+	source     Field
+	targetType tsquery.DataType
+	castFunc   func(any) (any, error)
+	fieldMeta  tsquery.FieldMeta
 }
 
 // Conversion functions for each type pair
@@ -121,6 +121,7 @@ func NewCastField(
 		fieldUrn,
 		targetType,
 		source.Meta().Required(),
+		source.Meta().Unit(),
 		source.Meta().CustomMeta(),
 	)
 	if err != nil {

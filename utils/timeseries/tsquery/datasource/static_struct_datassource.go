@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream/stream"
+	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"reflect"
 	"time"
@@ -71,7 +72,7 @@ func NewStaticStructDatasource[T any](structStream stream.Stream[T]) (*StaticStr
 	}
 
 	// Create the record stream using stream.Map
-	recordStream := stream.Map(structStream, func(s T) tsquery.Record {
+	recordStream := stream.Map(structStream, func(s T) timeseries.TsRecord[[]any] {
 		val := reflect.ValueOf(s)
 
 		// Extract timestamp
@@ -83,16 +84,14 @@ func NewStaticStructDatasource[T any](structStream stream.Stream[T]) (*StaticStr
 			data[i] = val.Field(fieldIdx).Interface()
 		}
 
-		return tsquery.Record{
+		return timeseries.TsRecord[[]any]{
 			Timestamp: timestamp,
 			Value:     data,
 		}
 	})
 
-	result := tsquery.NewResult(fieldsMeta, recordStream)
-
 	return &StaticStructDatasource{
-		result: *result,
+		result: tsquery.NewResult(fieldsMeta, recordStream),
 	}, nil
 }
 
@@ -101,9 +100,9 @@ func (s StaticStructDatasource) Execute(
 	from time.Time,
 	to time.Time,
 ) (tsquery.Result, error) {
-	return *tsquery.NewResult(
+	return tsquery.NewResult(
 		s.result.FieldsMeta(),
-		s.result.Stream().Filter(func(src tsquery.Record) bool {
+		s.result.Stream().Filter(func(src timeseries.TsRecord[[]any]) bool {
 			return !src.Timestamp.Before(from) && src.Timestamp.Before(to)
 		}),
 	), nil

@@ -20,13 +20,13 @@ func TestAlignerFilter_Aligned(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute, // Align to every minute
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00
 			{Value: []any{150.0, 20.0, 1500.0}, Timestamp: time.Unix(60, 0)},  // 00:01:00
 			{Value: []any{200.0, 30.0, 2000.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00
 			{Value: []any{250.0, 40.0, 2500.0}, Timestamp: time.Unix(180, 0)}, // 00:03:00
 		},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00
 			{Value: []any{150.0, 20.0, 1500.0}, Timestamp: time.Unix(60, 0)},  // 00:01:00
 			{Value: []any{200.0, 30.0, 2000.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00
@@ -41,7 +41,7 @@ func TestAlignerFilter_AlignedExpanded(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		2*time.Minute, // Align to every 2 minutes
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00
 			{Value: []any{150.0, 20.0, 1500.0}, Timestamp: time.Unix(60, 0)},  // 00:01:00
 			{Value: []any{200.0, 30.0, 2000.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00
@@ -49,7 +49,7 @@ func TestAlignerFilter_AlignedExpanded(t *testing.T) {
 			{Value: []any{300.0, 50.0, 3000.0}, Timestamp: time.Unix(240, 0)}, // 00:04:00
 			{Value: []any{350.0, 60.0, 3500.0}, Timestamp: time.Unix(300, 0)}, // 00:05:00
 		},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00 (exact match)
 			{Value: []any{200.0, 30.0, 2000.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00 (exact match)
 			{Value: []any{300.0, 50.0, 3000.0}, Timestamp: time.Unix(240, 0)}, // 00:04:00 (exact match)
@@ -68,13 +68,13 @@ func TestAlignerFilter_NonAligned(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute, // Align to every minute
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(45, 0)},   // 00:00:45
 			{Value: []any{200.0, 40.0, 2000.0}, Timestamp: time.Unix(105, 0)},  // 00:01:45
 			{Value: []any{300.0, 70.0, 3000.0}, Timestamp: time.Unix(165, 0)},  // 00:02:45
 			{Value: []any{400.0, 100.0, 4000.0}, Timestamp: time.Unix(225, 0)}, // 00:03:45
 		},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00 (smeared)
 			{Value: []any{125.0, 17.5, 1250.0}, Timestamp: time.Unix(60, 0)},  // 00:01:00
 			{Value: []any{225.0, 47.5, 2250.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00
@@ -88,10 +88,10 @@ func TestAlignerFilter_SingleItem(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute,
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 50.0, 2000.0}, Timestamp: time.Unix(45, 0)}, // 00:00:45
 		},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 50.0, 2000.0}, Timestamp: time.Unix(0, 0)}, // 00:00:00 (smeared)
 		},
 	)
@@ -106,11 +106,11 @@ func TestAlignerFilter_TwoItems(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute, // Align to every minute
-		[]tsquery.Record{
-			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(45, 0)},  // 00:00:45
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(45, 0)},   // 00:00:45
 			{Value: []any{200.0, 80.0, 1500.0}, Timestamp: time.Unix(105, 0)}, // 00:01:45
 		},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(0, 0)},  // 00:00:00 (smeared)
 			{Value: []any{125.0, 35.0, 750.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00
 		},
@@ -122,10 +122,10 @@ func TestAlignerFilter_ExactMatchSinglePoint(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute,
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{150.0, 75.0, 3000.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00
 		},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{150.0, 75.0, 3000.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00
 		},
 	)
@@ -144,7 +144,7 @@ func TestAlignerFilter_MultiplePointsWithinInterval(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute, // Align to every minute
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(10, 0)},  // 00:00:10
 			{Value: []any{120.0, 12.0, 1200.0}, Timestamp: time.Unix(30, 0)},  // 00:00:30
 			{Value: []any{140.0, 14.0, 1400.0}, Timestamp: time.Unix(50, 0)},  // 00:00:50
@@ -153,9 +153,9 @@ func TestAlignerFilter_MultiplePointsWithinInterval(t *testing.T) {
 			{Value: []any{240.0, 24.0, 2400.0}, Timestamp: time.Unix(110, 0)}, // 00:01:50
 			{Value: []any{300.0, 30.0, 3000.0}, Timestamp: time.Unix(130, 0)}, // 00:02:10
 		},
-		[]tsquery.Record{
-			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},  // 00:00:00 smeared first item
-			{Value: []any{170.0, 17.0, 1700.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00 smeared first item
+			{Value: []any{170.0, 17.0, 1700.0}, Timestamp: time.Unix(60, 0)},  // 00:01:00
 			{Value: []any{270.0, 27.0, 2700.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00
 		},
 	)
@@ -166,8 +166,8 @@ func TestAlignerFilter_EmptyStaysEmpty(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute,
-		[]tsquery.Record{}, // Empty input
-		[]tsquery.Record{}, // Empty expected output
+		[]timeseries.TsRecord[[]any]{}, // Empty input
+		[]timeseries.TsRecord[[]any]{}, // Empty expected output
 	)
 }
 
@@ -180,16 +180,16 @@ func TestAlignerFilter_UnevenTemporal(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute, // Align to every minute
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(10, 0)},  // 00:00:10
 			{Value: []any{200.0, 30.0, 3000.0}, Timestamp: time.Unix(150, 0)}, // 00:02:30 (big gap)
 			{Value: []any{300.0, 50.0, 5000.0}, Timestamp: time.Unix(170, 0)}, // 00:02:50 (small gap)
 			{Value: []any{400.0, 70.0, 7000.0}, Timestamp: time.Unix(300, 0)}, // 00:05:00 (medium gap)
 		},
-		[]tsquery.Record{
-			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},                               // 00:00:00 (smeared)
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{100.0, 10.0, 1000.0}, Timestamp: time.Unix(0, 0)},                                          // 00:00:00 (smeared)
 			{Value: []any{178.57142857142858, 25.714285714285715, 2571.4285714285716}, Timestamp: time.Unix(120, 0)}, // 00:02:00
-			{Value: []any{400.0, 70.0, 7000.0}, Timestamp: time.Unix(300, 0)},                             // 00:05:00
+			{Value: []any{400.0, 70.0, 7000.0}, Timestamp: time.Unix(300, 0)},                                        // 00:05:00
 		},
 	)
 }
@@ -199,13 +199,13 @@ func TestAlignerFilter_LargeGaps(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute, // Still align to every minute
-		[]tsquery.Record{
-			{Value: []any{100.0, 50.0, 10.0}, Timestamp: time.Unix(0, 0)},    // 00:00:00
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{100.0, 50.0, 10.0}, Timestamp: time.Unix(0, 0)},     // 00:00:00
 			{Value: []any{200.0, 150.0, 20.0}, Timestamp: time.Unix(3600, 0)}, // 01:00:00 (1 hour later)
 			{Value: []any{300.0, 250.0, 30.0}, Timestamp: time.Unix(7200, 0)}, // 02:00:00 (1 hour later)
 		},
-		[]tsquery.Record{
-			{Value: []any{100.0, 50.0, 10.0}, Timestamp: time.Unix(0, 0)},    // 00:00:00
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{100.0, 50.0, 10.0}, Timestamp: time.Unix(0, 0)},     // 00:00:00
 			{Value: []any{200.0, 150.0, 20.0}, Timestamp: time.Unix(3600, 0)}, // 01:00:00 (1 hour later)
 			{Value: []any{300.0, 250.0, 30.0}, Timestamp: time.Unix(7200, 0)}, // 02:00:00 (1 hour later)
 		},
@@ -217,14 +217,14 @@ func TestAlignerFilter_PointExactlyAtBoundary(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute, // Align to every minute
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 25.0, 500.0}, Timestamp: time.Unix(0, 0)},    // 00:00:00 (exactly at boundary)
 			{Value: []any{200.0, 75.0, 1500.0}, Timestamp: time.Unix(45, 0)},  // 00:00:45 (not at boundary)
 			{Value: []any{300.0, 125.0, 2500.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00 (exactly at boundary)
 			{Value: []any{400.0, 175.0, 3500.0}, Timestamp: time.Unix(75, 0)}, // 00:01:15 (not at boundary)
 		},
-		[]tsquery.Record{
-			{Value: []any{100.0, 25.0, 500.0}, Timestamp: time.Unix(0, 0)},   // 00:00:00 (preserved exactly)
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{100.0, 25.0, 500.0}, Timestamp: time.Unix(0, 0)},    // 00:00:00 (preserved exactly)
 			{Value: []any{300.0, 125.0, 2500.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00 (preserved exactly)
 		},
 	)
@@ -235,11 +235,11 @@ func TestAlignerFilter_MultipleValues(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		time.Minute, // Align to every minute
-		[]tsquery.Record{
-			{Value: []any{100.0, 50.0}, Timestamp: time.Unix(45, 0)},  // 00:00:45
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{100.0, 50.0}, Timestamp: time.Unix(45, 0)},   // 00:00:45
 			{Value: []any{200.0, 150.0}, Timestamp: time.Unix(105, 0)}, // 00:01:45
 		},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{100.0, 50.0}, Timestamp: time.Unix(0, 0)},  // 00:00:00 (smeared)
 			{Value: []any{125.0, 75.0}, Timestamp: time.Unix(60, 0)}, // 00:01:00 (interpolated)
 		},
@@ -259,14 +259,14 @@ func TestAlignerFilter_NonIntegerAlignment(t *testing.T) {
 	testAlignerFilterAsExpected(
 		t,
 		90*time.Second, // Align to every 1.5 minutes
-		[]tsquery.Record{
-			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(30, 0)},  // 00:00:30
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(30, 0)},   // 00:00:30
 			{Value: []any{200.0, 50.0, 1100.0}, Timestamp: time.Unix(120, 0)}, // 00:02:00
 			{Value: []any{300.0, 80.0, 1700.0}, Timestamp: time.Unix(210, 0)}, // 00:03:30
 		},
-		[]tsquery.Record{
-			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(0, 0)},                         // 00:00:00 (smeared)
-			{Value: []any{166.66666666666666, 40.0, 900.0}, Timestamp: time.Unix(90, 0)},           // 00:01:30
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{100.0, 20.0, 500.0}, Timestamp: time.Unix(0, 0)},                // 00:00:00 (smeared)
+			{Value: []any{166.66666666666666, 40.0, 900.0}, Timestamp: time.Unix(90, 0)},  // 00:01:30
 			{Value: []any{266.6666666666667, 70.0, 1500.0}, Timestamp: time.Unix(180, 0)}, // 00:03:00
 		},
 	)
@@ -283,13 +283,13 @@ func TestAlignerFilter_IntegerDataType(t *testing.T) {
 		t,
 		time.Minute, // Align to every minute
 		[]tsquery.DataType{tsquery.DataTypeInteger, tsquery.DataTypeInteger, tsquery.DataTypeInteger},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{int64(100), int64(10), int64(1000)}, Timestamp: time.Unix(10, 0)},  // 00:00:10
 			{Value: []any{int64(200), int64(30), int64(3000)}, Timestamp: time.Unix(150, 0)}, // 00:02:30 (big gap)
 			{Value: []any{int64(300), int64(50), int64(5000)}, Timestamp: time.Unix(170, 0)}, // 00:02:50 (small gap)
 			{Value: []any{int64(400), int64(70), int64(7000)}, Timestamp: time.Unix(300, 0)}, // 00:05:00 (medium gap)
 		},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{int64(100), int64(10), int64(1000)}, Timestamp: time.Unix(0, 0)},   // 00:00:00 (smeared)
 			{Value: []any{int64(178), int64(25), int64(2571)}, Timestamp: time.Unix(120, 0)}, // 00:02:00 (truncated from weighted average)
 			{Value: []any{int64(400), int64(70), int64(7000)}, Timestamp: time.Unix(300, 0)}, // 00:05:00
@@ -304,11 +304,11 @@ func TestAlignerFilter_MixedDataTypes(t *testing.T) {
 		t,
 		time.Minute,
 		[]tsquery.DataType{tsquery.DataTypeInteger, tsquery.DataTypeDecimal, tsquery.DataTypeInteger},
-		[]tsquery.Record{
-			{Value: []any{int64(100), 20.5, int64(500)}, Timestamp: time.Unix(45, 0)},  // 00:00:45
+		[]timeseries.TsRecord[[]any]{
+			{Value: []any{int64(100), 20.5, int64(500)}, Timestamp: time.Unix(45, 0)},   // 00:00:45
 			{Value: []any{int64(200), 80.5, int64(1500)}, Timestamp: time.Unix(105, 0)}, // 00:01:45
 		},
-		[]tsquery.Record{
+		[]timeseries.TsRecord[[]any]{
 			{Value: []any{int64(100), 20.5, int64(500)}, Timestamp: time.Unix(0, 0)},  // 00:00:00 (smeared)
 			{Value: []any{int64(125), 35.5, int64(750)}, Timestamp: time.Unix(60, 0)}, // 00:01:00 (interpolated)
 		},
@@ -319,27 +319,25 @@ func TestAlignerFilter_ErrorOnNonNumericDataType(t *testing.T) {
 	// Test that we get an error when trying to align non-numeric data types
 	// We need at least 2 records in different alignment periods where the second doesn't
 	// fall exactly on the boundary, to trigger interpolation
-	fieldsMeta := []tsquery.FieldMeta{}
+	var fieldsMeta []tsquery.FieldMeta
 
 	// Create field metadata with a string field
 	fm, err := tsquery.NewFieldMeta("field_0", tsquery.DataTypeString, false)
 	require.NoError(t, err)
 	fieldsMeta = append(fieldsMeta, *fm)
 
-	records := []tsquery.Record{
+	records := []timeseries.TsRecord[[]any]{
 		{Value: []any{"value1"}, Timestamp: time.Unix(10, 0)},  // 00:00:10
 		{Value: []any{"value2"}, Timestamp: time.Unix(105, 0)}, // 00:01:45 (not on boundary, will trigger interpolation)
 	}
 
 	// Create input Result
 	inputStream := stream.Just(records...)
-	inputResult := tsquery.NewResult(fieldsMeta, inputStream)
-
 	// Create the aligner filter
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(*inputResult)
+	outputResult, err := alignerFilter.Filter(tsquery.NewResult(fieldsMeta, inputStream))
 	require.NoError(t, err) // Filter itself doesn't error, the error occurs during stream consumption
 
 	// Try to collect the results - this should trigger the error when interpolation is attempted
@@ -353,27 +351,24 @@ func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
 	// Test that we get an error when trying to align boolean data types
 	// We need at least 2 records in different alignment periods where the second doesn't
 	// fall exactly on the boundary, to trigger interpolation
-	fieldsMeta := []tsquery.FieldMeta{}
+	var fieldsMeta []tsquery.FieldMeta
 
 	// Create field metadata with a boolean field
 	fm, err := tsquery.NewFieldMeta("field_0", tsquery.DataTypeBoolean, false)
 	require.NoError(t, err)
 	fieldsMeta = append(fieldsMeta, *fm)
 
-	records := []tsquery.Record{
+	records := []timeseries.TsRecord[[]any]{
 		{Value: []any{true}, Timestamp: time.Unix(10, 0)},   // 00:00:10
 		{Value: []any{false}, Timestamp: time.Unix(105, 0)}, // 00:01:45 (not on boundary, will trigger interpolation)
 	}
 
 	// Create input Result
-	inputStream := stream.Just(records...)
-	inputResult := tsquery.NewResult(fieldsMeta, inputStream)
-
 	// Create the aligner filter
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(*inputResult)
+	outputResult, err := alignerFilter.Filter(tsquery.NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err) // Filter itself doesn't error, the error occurs during stream consumption
 
 	// Try to collect the results - this should trigger the error when interpolation is attempted
@@ -389,8 +384,8 @@ func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
 func testAlignerFilterAsExpected(
 	t *testing.T,
 	fixedDuration time.Duration,
-	records []tsquery.Record,
-	expected []tsquery.Record,
+	records []timeseries.TsRecord[[]any],
+	expected []timeseries.TsRecord[[]any],
 ) {
 	t.Helper() // Marks this function as a test helper
 
@@ -410,13 +405,11 @@ func testAlignerFilterAsExpected(
 
 	// Create input Result
 	inputStream := stream.Just(records...)
-	inputResult := tsquery.NewResult(fieldsMeta, inputStream)
-
 	// Create the aligner filter
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(*inputResult)
+	outputResult, err := alignerFilter.Filter(tsquery.NewResult(fieldsMeta, inputStream))
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
@@ -425,15 +418,15 @@ func testAlignerFilterAsExpected(
 	// Assert the results
 	// Compare timestamps first for easier debugging if lengths differ
 	require.EqualValues(t,
-		mapSlice(expected, func(r tsquery.Record) time.Time { return r.Timestamp }),
-		mapSlice(result, func(r tsquery.Record) time.Time { return r.Timestamp }),
+		mapSlice(expected, func(r timeseries.TsRecord[[]any]) time.Time { return r.Timestamp }),
+		mapSlice(result, func(r timeseries.TsRecord[[]any]) time.Time { return r.Timestamp }),
 		"Timestamps mismatch",
 	)
 
 	// Compare values
 	require.EqualValues(t,
-		mapSlice(expected, func(r tsquery.Record) []any { return r.Value }),
-		mapSlice(result, func(r tsquery.Record) []any { return r.Value }),
+		mapSlice(expected, func(r timeseries.TsRecord[[]any]) []any { return r.Value }),
+		mapSlice(result, func(r timeseries.TsRecord[[]any]) []any { return r.Value }),
 		"Values mismatch",
 	)
 
@@ -446,8 +439,8 @@ func testAlignerFilterWithFieldMeta(
 	t *testing.T,
 	fixedDuration time.Duration,
 	dataTypes []tsquery.DataType,
-	records []tsquery.Record,
-	expected []tsquery.Record,
+	records []timeseries.TsRecord[[]any],
+	expected []timeseries.TsRecord[[]any],
 ) {
 	t.Helper() // Marks this function as a test helper
 
@@ -465,13 +458,11 @@ func testAlignerFilterWithFieldMeta(
 
 	// Create input Result
 	inputStream := stream.Just(records...)
-	inputResult := tsquery.NewResult(fieldsMeta, inputStream)
-
 	// Create the aligner filter
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(*inputResult)
+	outputResult, err := alignerFilter.Filter(tsquery.NewResult(fieldsMeta, inputStream))
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
@@ -480,15 +471,15 @@ func testAlignerFilterWithFieldMeta(
 	// Assert the results
 	// Compare timestamps first for easier debugging if lengths differ
 	require.EqualValues(t,
-		mapSlice(expected, func(r tsquery.Record) time.Time { return r.Timestamp }),
-		mapSlice(result, func(r tsquery.Record) time.Time { return r.Timestamp }),
+		mapSlice(expected, func(r timeseries.TsRecord[[]any]) time.Time { return r.Timestamp }),
+		mapSlice(result, func(r timeseries.TsRecord[[]any]) time.Time { return r.Timestamp }),
 		"Timestamps mismatch",
 	)
 
 	// Compare values
 	require.EqualValues(t,
-		mapSlice(expected, func(r tsquery.Record) []any { return r.Value }),
-		mapSlice(result, func(r tsquery.Record) []any { return r.Value }),
+		mapSlice(expected, func(r timeseries.TsRecord[[]any]) []any { return r.Value }),
+		mapSlice(result, func(r timeseries.TsRecord[[]any]) []any { return r.Value }),
 		"Values mismatch",
 	)
 
