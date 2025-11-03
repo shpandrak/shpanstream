@@ -2,6 +2,7 @@ package tsquery
 
 import (
 	"fmt"
+	"github.com/shpandrak/shpanstream/internal/util"
 	"reflect"
 )
 
@@ -92,5 +93,22 @@ func (dt DataType) FromFloat64(val float64) (any, error) {
 		return val, nil
 	default:
 		return 0, fmt.Errorf("unsupported data type for conversion from decimal: %s", dt)
+	}
+}
+
+func (dt DataType) ForceCastAndValidate(value any) (any, error) {
+	switch dt {
+	case DataTypeInteger:
+		return util.AnyToInt64(value)
+	case DataTypeDecimal:
+		return util.AnyToFloat64(value)
+	case DataTypeString:
+		return fmt.Sprintf("%s", value), nil
+	case DataTypeBoolean:
+		return util.AnyToBoolean(value)
+	case DataTypeTimestamp:
+		return util.AnyToTime(value)
+	default:
+		return nil, fmt.Errorf("unsupported data type for force cast: %s", dt)
 	}
 }
