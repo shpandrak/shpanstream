@@ -9,12 +9,13 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
 )
 
+// SingleFieldFilter replaces the result stream with a single field extracted using the provided field.
 type SingleFieldFilter struct {
 	field field.Field
 }
 
-func NewSingleFieldFilter(field field.Field) AppendFieldFilter {
-	return AppendFieldFilter{field: field}
+func NewSingleFieldFilter(field field.Field) SingleFieldFilter {
+	return SingleFieldFilter{field: field}
 }
 
 func (sff SingleFieldFilter) Filter(result tsquery.Result) (tsquery.Result, error) {

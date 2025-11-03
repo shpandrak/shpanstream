@@ -11,6 +11,10 @@ func Just[T any](slice ...T) Stream[T] {
 	return NewStream(&justStream[T]{slcOrig: slice})
 }
 
+func FromSlice[T any](slice []T) Stream[T] {
+	return NewStream(&justStream[T]{slcOrig: slice})
+}
+
 type justStream[T any] struct {
 	slcOrig []T
 	slc     []T
