@@ -10,6 +10,7 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
 )
 
+// AppendFieldFilter appends a new field to the existing result using the provided field.
 type AppendFieldFilter struct {
 	field field.Field
 }
