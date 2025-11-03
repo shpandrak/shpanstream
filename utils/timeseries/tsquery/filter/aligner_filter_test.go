@@ -423,10 +423,11 @@ func testAlignerFilterAsExpected(
 		"Timestamps mismatch",
 	)
 
-	// Compare values
-	require.EqualValues(t,
+	// Compare values with tolerance for floating-point precision
+	assertValuesEqualWithTolerance(t,
 		mapSlice(expected, func(r timeseries.TsRecord[[]any]) []any { return r.Value }),
 		mapSlice(result, func(r timeseries.TsRecord[[]any]) []any { return r.Value }),
+		1e-10, // Tolerance for floating-point comparison
 		"Values mismatch",
 	)
 
@@ -476,10 +477,11 @@ func testAlignerFilterWithFieldMeta(
 		"Timestamps mismatch",
 	)
 
-	// Compare values
-	require.EqualValues(t,
+	// Compare values with tolerance for floating-point precision
+	assertValuesEqualWithTolerance(t,
 		mapSlice(expected, func(r timeseries.TsRecord[[]any]) []any { return r.Value }),
 		mapSlice(result, func(r timeseries.TsRecord[[]any]) []any { return r.Value }),
+		1e-10, // Tolerance for floating-point comparison
 		"Values mismatch",
 	)
 
@@ -494,4 +496,31 @@ func mapSlice[A any, B any](input []A, m func(a A) B) []B {
 		ret[i] = m(currElem)
 	}
 	return ret
+}
+
+// assertValuesEqualWithTolerance compares two slices of value arrays with tolerance for floating-point precision
+func assertValuesEqualWithTolerance(t *testing.T, expected, actual [][]any, delta float64, msgAndArgs ...interface{}) {
+	t.Helper()
+
+	require.Len(t, actual, len(expected), msgAndArgs...)
+
+	for i := range expected {
+		require.Len(t, actual[i], len(expected[i]), "Record %d: incorrect number of values", i)
+
+		for j := range expected[i] {
+			expVal := expected[i][j]
+			actVal := actual[i][j]
+
+			// If both are float64, use delta comparison
+			expFloat, expIsFloat := expVal.(float64)
+			actFloat, actIsFloat := actVal.(float64)
+
+			if expIsFloat && actIsFloat {
+				require.InDelta(t, expFloat, actFloat, delta, "Record %d, field %d: float value mismatch", i, j)
+			} else {
+				// For non-float types, use exact comparison
+				require.Equal(t, expVal, actVal, "Record %d, field %d: value mismatch", i, j)
+			}
+		}
+	}
 }
