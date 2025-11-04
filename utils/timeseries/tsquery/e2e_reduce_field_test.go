@@ -91,7 +91,7 @@ func TestReduceField_SumAllFields_Decimal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: sum all fields
-	reduceField := field.NewReduceAllFields("total", field.ReductionTypeSum)
+	reduceField := field.NewReduceAllFields("total", field.ReductionTypeSum, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	reducedResult, err := singleFieldFilter.Filter(result)
@@ -135,7 +135,7 @@ func TestReduceField_SumSpecificFields_Integer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: sum only Count1 and Count2
-	reduceField := field.NewReduceFields("sum_counts", []string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, field.ReductionTypeSum)
+	reduceField := field.NewReduceFields("sum_counts", []string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, field.ReductionTypeSum, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	reducedResult, err := singleFieldFilter.Filter(result)
@@ -177,7 +177,7 @@ func TestReduceField_AvgAllFields_Decimal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: average all fields
-	reduceField := field.NewReduceAllFields("average", field.ReductionTypeAvg)
+	reduceField := field.NewReduceAllFields("average", field.ReductionTypeAvg, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	reducedResult, err := singleFieldFilter.Filter(result)
@@ -213,7 +213,7 @@ func TestReduceField_MinMax_Integer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test MIN
-	minField := field.NewReduceFields("min_value", []string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, field.ReductionTypeMin)
+	minField := field.NewReduceFields("min_value", []string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, field.ReductionTypeMin, nil)
 	minFilter := filter.NewSingleFieldFilter(minField)
 	minResult, err := minFilter.Filter(result)
 	require.NoError(t, err)
@@ -222,7 +222,7 @@ func TestReduceField_MinMax_Integer(t *testing.T) {
 	require.Equal(t, int64(50), minRecords[0].Value[0]) // min(100, 50) = 50
 
 	// Test MAX
-	maxField := field.NewReduceFields("max_value", []string{"IntegerMetrics:Count2", "IntegerMetrics:Count3"}, field.ReductionTypeMax)
+	maxField := field.NewReduceFields("max_value", []string{"IntegerMetrics:Count2", "IntegerMetrics:Count3"}, field.ReductionTypeMax, nil)
 	maxFilter := filter.NewSingleFieldFilter(maxField)
 
 	// Need to recreate result since stream was consumed
@@ -258,7 +258,7 @@ func TestReduceField_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: count all fields
-	reduceField := field.NewReduceAllFields("field_count", field.ReductionTypeCount)
+	reduceField := field.NewReduceAllFields("field_count", field.ReductionTypeCount, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	reducedResult, err := singleFieldFilter.Filter(result)
@@ -296,7 +296,7 @@ func TestReduceField_ErrorOnMixedDataTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to reduce fields with different data types (decimal and integer)
-	reduceField := field.NewReduceAllFields("invalid", field.ReductionTypeSum)
+	reduceField := field.NewReduceAllFields("invalid", field.ReductionTypeSum, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	_, err = singleFieldFilter.Filter(result)
@@ -319,7 +319,7 @@ func TestReduceField_ErrorOnNonExistentField(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to reduce a field that doesn't exist
-	reduceField := field.NewReduceFields("invalid", []string{"IntegerMetrics:NonExistent"}, field.ReductionTypeSum)
+	reduceField := field.NewReduceFields("invalid", []string{"IntegerMetrics:NonExistent"}, field.ReductionTypeSum, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	_, err = singleFieldFilter.Filter(result)
@@ -357,7 +357,7 @@ func TestReduceField_ErrorOnOptionalField(t *testing.T) {
 	result = tsquery.NewResult(newMeta, result.Stream())
 
 	// Try to reduce all fields (includes optional field)
-	reduceField := field.NewReduceAllFields("invalid", field.ReductionTypeSum)
+	reduceField := field.NewReduceAllFields("invalid", field.ReductionTypeSum, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	_, err = singleFieldFilter.Filter(result)
@@ -382,7 +382,7 @@ func TestReduceField_PreservesUnitWhenAllSame(t *testing.T) {
 	require.NoError(t, err)
 
 	// All IntegerMetrics fields have unit "items"
-	reduceField := field.NewReduceAllFields("total_items", field.ReductionTypeSum)
+	reduceField := field.NewReduceAllFields("total_items", field.ReductionTypeSum, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	reducedResult, err := singleFieldFilter.Filter(result)
@@ -408,7 +408,7 @@ func TestReduceField_NoUnitWhenDifferent(t *testing.T) {
 	require.NoError(t, err)
 
 	// DecimalMetrics fields have different units (celsius, percent, hPa)
-	reduceField := field.NewReduceAllFields("combined", field.ReductionTypeSum)
+	reduceField := field.NewReduceAllFields("combined", field.ReductionTypeSum, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	reducedResult, err := singleFieldFilter.Filter(result)
@@ -439,7 +439,7 @@ func TestReduceField_MultipleRecordsProcessedCorrectly(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: sum all fields
-	reduceField := field.NewReduceAllFields("total", field.ReductionTypeSum)
+	reduceField := field.NewReduceAllFields("total", field.ReductionTypeSum, nil)
 	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
 
 	reducedResult, err := singleFieldFilter.Filter(result)
@@ -450,10 +450,10 @@ func TestReduceField_MultipleRecordsProcessedCorrectly(t *testing.T) {
 	require.Len(t, records, 4)
 
 	// Verify each record's sum
-	require.Equal(t, int64(6), records[0].Value[0])   // 1 + 2 + 3
-	require.Equal(t, int64(15), records[1].Value[0])  // 4 + 5 + 6
-	require.Equal(t, int64(24), records[2].Value[0])  // 7 + 8 + 9
-	require.Equal(t, int64(33), records[3].Value[0])  // 10 + 11 + 12
+	require.Equal(t, int64(6), records[0].Value[0])  // 1 + 2 + 3
+	require.Equal(t, int64(15), records[1].Value[0]) // 4 + 5 + 6
+	require.Equal(t, int64(24), records[2].Value[0]) // 7 + 8 + 9
+	require.Equal(t, int64(33), records[3].Value[0]) // 10 + 11 + 12
 
 	// Verify timestamps preserved
 	require.Equal(t, baseTime, records[0].Timestamp)
