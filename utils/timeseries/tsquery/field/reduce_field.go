@@ -24,17 +24,19 @@ type ReduceField struct {
 	fieldUrnsToReduce map[string]bool // nil means reduce all fields
 	reductionType     ReductionType
 	resultUrn         string
+	resultCustomMeta  map[string]any
 }
 
-func NewReduceAllFields(resultUrn string, reductionType ReductionType) ReduceField {
+func NewReduceAllFields(resultUrn string, reductionType ReductionType, resultCustomMeta map[string]any) ReduceField {
 	return ReduceField{
+		resultCustomMeta:  resultCustomMeta,
 		fieldUrnsToReduce: nil,
 		reductionType:     reductionType,
 		resultUrn:         resultUrn,
 	}
 }
 
-func NewReduceFields(resultUrn string, fieldUrns []string, reductionType ReductionType) ReduceField {
+func NewReduceFields(resultUrn string, fieldUrns []string, reductionType ReductionType, resultCustomMeta map[string]any) ReduceField {
 	fieldUrnsSet := make(map[string]bool, len(fieldUrns))
 	for _, urn := range fieldUrns {
 		fieldUrnsSet[urn] = true
@@ -43,6 +45,7 @@ func NewReduceFields(resultUrn string, fieldUrns []string, reductionType Reducti
 		fieldUrnsToReduce: fieldUrnsSet,
 		reductionType:     reductionType,
 		resultUrn:         resultUrn,
+		resultCustomMeta:  resultCustomMeta,
 	}
 }
 
@@ -105,12 +108,6 @@ func (r ReduceField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta,
 	// Track unit consistency and collect custom metadata
 	firstUnit := fieldsToReduce[0].Unit()
 	allSameUnit := true
-	mergedCustomMeta := make(map[string]any)
-
-	// Copy custom metadata from first field
-	for k, v := range fieldsToReduce[0].CustomMeta() {
-		mergedCustomMeta[k] = v
-	}
 
 	for i := 1; i < len(fieldsToReduce); i++ {
 		if fieldsToReduce[i].DataType() != dataType {
@@ -122,10 +119,6 @@ func (r ReduceField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta,
 		}
 		if fieldsToReduce[i].Unit() != firstUnit {
 			allSameUnit = false
-		}
-		// Merge custom metadata (last wins)
-		for k, v := range fieldsToReduce[i].CustomMeta() {
-			mergedCustomMeta[k] = v
 		}
 	}
 
@@ -148,7 +141,7 @@ func (r ReduceField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta,
 		resultUnit = firstUnit
 	}
 
-	resultMeta, err := tsquery.NewFieldMetaWithCustomData(r.resultUrn, resultDataType, true, resultUnit, mergedCustomMeta)
+	resultMeta, err := tsquery.NewFieldMetaWithCustomData(r.resultUrn, resultDataType, true, resultUnit, r.resultCustomMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to create result field metadata: %w", err)
 	}
