@@ -152,7 +152,7 @@ func TestSingleFieldFilter_ErrorOnNonExistentField(t *testing.T) {
 	singleFieldFilter := NewSingleFieldFilter(field.NewRefField("field_x"))
 	_, err := singleFieldFilter.Filter(tsquery.NewResult(fieldsMeta, stream.Just(records...)))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "field reference not found")
+	require.Contains(t, err.Error(), " not found time series")
 }
 
 func TestSingleFieldFilter_ManyRecords(t *testing.T) {
@@ -213,8 +213,8 @@ func TestSingleFieldFilter_WithCustomField(t *testing.T) {
 
 	collectedRecords := result.Stream().MustCollect()
 	require.Len(t, collectedRecords, 2)
-	require.Equal(t, []any{2.0}, collectedRecords[0].Value)  // 1.0 * 2
-	require.Equal(t, []any{6.0}, collectedRecords[1].Value)  // 3.0 * 2
+	require.Equal(t, []any{2.0}, collectedRecords[0].Value) // 1.0 * 2
+	require.Equal(t, []any{6.0}, collectedRecords[1].Value) // 3.0 * 2
 }
 
 func TestSingleFieldFilter_ErrorInValueSupplier(t *testing.T) {

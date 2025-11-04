@@ -59,7 +59,7 @@ func TestRefField_NotFound(t *testing.T) {
 	// Execute should fail
 	_, _, err = refField.Execute(fieldsMeta)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "field reference not found")
+	require.Contains(t, err.Error(), " not found time series")
 	require.Contains(t, err.Error(), "pressure")
 }
 
@@ -125,7 +125,7 @@ func TestRefField_EmptyFieldsMeta(t *testing.T) {
 	refField := NewRefField("any_field")
 	_, _, err := refField.Execute(fieldsMeta)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "field reference not found")
+	require.Contains(t, err.Error(), " not found time series")
 }
 
 func TestRefField_OptionalField(t *testing.T) {
