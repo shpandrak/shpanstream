@@ -22,9 +22,7 @@ func (fm FieldMeta) GetCustomMetaStringValue(key string) string {
 		return ""
 	}
 	if val, ok := fm.customMeta[key]; ok {
-		if strVal, ok := val.(string); ok {
-			return strVal
-		}
+		return fmt.Sprintf("%s", val)
 	}
 	return ""
 
