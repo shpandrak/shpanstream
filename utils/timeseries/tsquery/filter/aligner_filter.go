@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+var _ Filter = AlignerFilter{}
+
 type AlignerFilter struct {
 	alignmentPeriod timeseries.AlignmentPeriod
 }
