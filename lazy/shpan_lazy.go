@@ -39,10 +39,22 @@ func Just[T any](v T) Lazy[T] {
 	}, defaultEmptyValueErr)
 }
 
+func JustWithErr[T any](v T, err error) Lazy[T] {
+	return newLazy(func(ctx context.Context) (*T, error) {
+		return &v, err
+	}, defaultEmptyValueErr)
+}
+
 // JustOptional creates a new Lazy with optional value
 func JustOptional[T any](v *T) Lazy[T] {
 	return newLazy[T](func(ctx context.Context) (*T, error) {
 		return v, nil
+	}, defaultEmptyValueErr)
+}
+
+func JustOptionalWithErr[T any](v *T, err error) Lazy[T] {
+	return newLazy[T](func(ctx context.Context) (*T, error) {
+		return v, err
 	}, defaultEmptyValueErr)
 }
 

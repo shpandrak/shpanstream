@@ -18,7 +18,7 @@ func NewRefField(urn string) RefField {
 }
 
 func (rf RefField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
-	fm, idx, err := fieldAndIdxByUrn(fieldsMeta, rf.urn)
+	fm, idx, err := tsquery.FieldAndIdxByUrn(fieldsMeta, rf.urn)
 	if err != nil {
 		return util.DefaultValue[tsquery.FieldMeta](), nil, err
 	}

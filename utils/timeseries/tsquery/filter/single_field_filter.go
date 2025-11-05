@@ -9,6 +9,8 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
 )
 
+var _ Filter = SingleFieldFilter{}
+
 // SingleFieldFilter replaces the result stream with a single field extracted using the provided field.
 type SingleFieldFilter struct {
 	field field.Field

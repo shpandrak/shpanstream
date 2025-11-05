@@ -814,3 +814,431 @@ func TestConditionFilter_ErrorOnBooleanWithLessThan(t *testing.T) {
 	require.Contains(t, err.Error(), "is not supported for non-numeric type")
 	require.Contains(t, err.Error(), "Only equals and not_equals are supported")
 }
+
+// --- Logical Expression Tests (AND/OR) ---
+
+func TestLogicalExpressionFilter_And_BothTrue(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	testData := []SensorReading{
+		{Timestamp: baseTime, Temperature: 25.0, Humidity: 65.0},                    // temp>20 AND humidity>60 = true
+		{Timestamp: baseTime.Add(1 * time.Hour), Temperature: 15.0, Humidity: 65.0}, // temp>20=false, humidity>60=true = false
+		{Timestamp: baseTime.Add(2 * time.Hour), Temperature: 30.0, Humidity: 55.0}, // temp>20=true, humidity>60=false = false
+		{Timestamp: baseTime.Add(3 * time.Hour), Temperature: 22.0, Humidity: 70.0}, // temp>20 AND humidity>60 = true
+		{Timestamp: baseTime.Add(4 * time.Hour), Temperature: 18.0, Humidity: 58.0}, // both false
+	}
+
+	result, err := createResultFromStructs(
+		stream.Just(testData...),
+		[]string{"SensorReading:Temperature", "SensorReading:Humidity"},
+		[]tsquery.DataType{tsquery.DataTypeDecimal, tsquery.DataTypeDecimal},
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Create condition: Temperature > 20.0 AND Humidity > 60.0
+	tempField := field.NewRefField("SensorReading:Temperature")
+	humidityField := field.NewRefField("SensorReading:Humidity")
+
+	tempThreshold := createConstantField(t, "temp_threshold", tsquery.DataTypeDecimal, 20.0)
+	humidityThreshold := createConstantField(t, "humidity_threshold", tsquery.DataTypeDecimal, 60.0)
+
+	tempCondition := field.NewConditionField(
+		"temp_above_20",
+		field.ConditionOperatorGreaterThan,
+		tempField,
+		tempThreshold,
+	)
+
+	humidityCondition := field.NewConditionField(
+		"humidity_above_60",
+		field.ConditionOperatorGreaterThan,
+		humidityField,
+		humidityThreshold,
+	)
+
+	andCondition := field.NewLogicalExpressionField(
+		"temp_and_humidity",
+		field.LogicalOperatorAnd,
+		tempCondition,
+		humidityCondition,
+	)
+
+	// Apply condition filter
+	conditionFilter := filter.NewConditionFilter(andCondition)
+	filteredResult, err := conditionFilter.Filter(result)
+	require.NoError(t, err)
+
+	// Verify filtered records - should only have records where BOTH conditions are true
+	records := filteredResult.Stream().MustCollect()
+	require.Len(t, records, 2)
+
+	require.Equal(t, 25.0, records[0].Value[0])
+	require.Equal(t, 65.0, records[0].Value[1])
+	require.Equal(t, baseTime, records[0].Timestamp)
+
+	require.Equal(t, 22.0, records[1].Value[0])
+	require.Equal(t, 70.0, records[1].Value[1])
+	require.Equal(t, baseTime.Add(3*time.Hour), records[1].Timestamp)
+}
+
+func TestLogicalExpressionFilter_Or_AtLeastOneTrue(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	testData := []SensorReading{
+		{Timestamp: baseTime, Temperature: 25.0, Humidity: 65.0},                    // temp>20 OR humidity>60 = true
+		{Timestamp: baseTime.Add(1 * time.Hour), Temperature: 15.0, Humidity: 65.0}, // temp>20=false, humidity>60=true = true
+		{Timestamp: baseTime.Add(2 * time.Hour), Temperature: 30.0, Humidity: 55.0}, // temp>20=true, humidity>60=false = true
+		{Timestamp: baseTime.Add(3 * time.Hour), Temperature: 18.0, Humidity: 58.0}, // both false = false
+	}
+
+	result, err := createResultFromStructs(
+		stream.Just(testData...),
+		[]string{"SensorReading:Temperature", "SensorReading:Humidity"},
+		[]tsquery.DataType{tsquery.DataTypeDecimal, tsquery.DataTypeDecimal},
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Create condition: Temperature > 20.0 OR Humidity > 60.0
+	tempField := field.NewRefField("SensorReading:Temperature")
+	humidityField := field.NewRefField("SensorReading:Humidity")
+
+	tempThreshold := createConstantField(t, "temp_threshold", tsquery.DataTypeDecimal, 20.0)
+	humidityThreshold := createConstantField(t, "humidity_threshold", tsquery.DataTypeDecimal, 60.0)
+
+	tempCondition := field.NewConditionField(
+		"temp_above_20",
+		field.ConditionOperatorGreaterThan,
+		tempField,
+		tempThreshold,
+	)
+
+	humidityCondition := field.NewConditionField(
+		"humidity_above_60",
+		field.ConditionOperatorGreaterThan,
+		humidityField,
+		humidityThreshold,
+	)
+
+	orCondition := field.NewLogicalExpressionField(
+		"temp_or_humidity",
+		field.LogicalOperatorOr,
+		tempCondition,
+		humidityCondition,
+	)
+
+	// Apply condition filter
+	conditionFilter := filter.NewConditionFilter(orCondition)
+	filteredResult, err := conditionFilter.Filter(result)
+	require.NoError(t, err)
+
+	// Verify filtered records - should have records where AT LEAST ONE condition is true
+	records := filteredResult.Stream().MustCollect()
+	require.Len(t, records, 3)
+
+	require.Equal(t, 25.0, records[0].Value[0])
+	require.Equal(t, 65.0, records[0].Value[1])
+
+	require.Equal(t, 15.0, records[1].Value[0])
+	require.Equal(t, 65.0, records[1].Value[1])
+
+	require.Equal(t, 30.0, records[2].Value[0])
+	require.Equal(t, 55.0, records[2].Value[1])
+}
+
+func TestLogicalExpressionFilter_And_WithIntegerFields(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	testData := []CounterMetrics{
+		{Timestamp: baseTime, Requests: 1000, Errors: 5},                    // requests>500 AND errors<10 = true
+		{Timestamp: baseTime.Add(1 * time.Hour), Requests: 300, Errors: 3},  // requests>500=false = false
+		{Timestamp: baseTime.Add(2 * time.Hour), Requests: 800, Errors: 15}, // errors<10=false = false
+		{Timestamp: baseTime.Add(3 * time.Hour), Requests: 600, Errors: 8},  // both true = true
+	}
+
+	result, err := createResultFromStructs(
+		stream.Just(testData...),
+		[]string{"CounterMetrics:Requests", "CounterMetrics:Errors"},
+		[]tsquery.DataType{tsquery.DataTypeInteger, tsquery.DataTypeInteger},
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Create condition: Requests > 500 AND Errors < 10
+	requestsField := field.NewRefField("CounterMetrics:Requests")
+	errorsField := field.NewRefField("CounterMetrics:Errors")
+
+	requestsThreshold := createConstantField(t, "requests_threshold", tsquery.DataTypeInteger, int64(500))
+	errorsThreshold := createConstantField(t, "errors_threshold", tsquery.DataTypeInteger, int64(10))
+
+	requestsCondition := field.NewConditionField(
+		"high_requests",
+		field.ConditionOperatorGreaterThan,
+		requestsField,
+		requestsThreshold,
+	)
+
+	errorsCondition := field.NewConditionField(
+		"low_errors",
+		field.ConditionOperatorLessThan,
+		errorsField,
+		errorsThreshold,
+	)
+
+	andCondition := field.NewLogicalExpressionField(
+		"high_requests_low_errors",
+		field.LogicalOperatorAnd,
+		requestsCondition,
+		errorsCondition,
+	)
+
+	// Apply condition filter
+	conditionFilter := filter.NewConditionFilter(andCondition)
+	filteredResult, err := conditionFilter.Filter(result)
+	require.NoError(t, err)
+
+	// Verify filtered records
+	records := filteredResult.Stream().MustCollect()
+	require.Len(t, records, 2)
+
+	require.Equal(t, int64(1000), records[0].Value[0])
+	require.Equal(t, int64(5), records[0].Value[1])
+
+	require.Equal(t, int64(600), records[1].Value[0])
+	require.Equal(t, int64(8), records[1].Value[1])
+}
+
+func TestLogicalExpressionFilter_NestedLogicalExpressions(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	testData := []CounterMetrics{
+		{Timestamp: baseTime, Requests: 1000, Errors: 5},                    // (requests>500 AND errors<10) OR errors==0 = true OR false = true
+		{Timestamp: baseTime.Add(1 * time.Hour), Requests: 300, Errors: 0},  // (false AND true) OR true = false OR true = true
+		{Timestamp: baseTime.Add(2 * time.Hour), Requests: 800, Errors: 15}, // (true AND false) OR false = false OR false = false
+		{Timestamp: baseTime.Add(3 * time.Hour), Requests: 200, Errors: 20}, // (false AND false) OR false = false OR false = false
+	}
+
+	result, err := createResultFromStructs(
+		stream.Just(testData...),
+		[]string{"CounterMetrics:Requests", "CounterMetrics:Errors"},
+		[]tsquery.DataType{tsquery.DataTypeInteger, tsquery.DataTypeInteger},
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Create condition: (Requests > 500 AND Errors < 10) OR Errors == 0
+	requestsField := field.NewRefField("CounterMetrics:Requests")
+	errorsField := field.NewRefField("CounterMetrics:Errors")
+
+	requestsThreshold := createConstantField(t, "requests_threshold", tsquery.DataTypeInteger, int64(500))
+	errorsThreshold := createConstantField(t, "errors_threshold", tsquery.DataTypeInteger, int64(10))
+	zeroErrors := createConstantField(t, "zero", tsquery.DataTypeInteger, int64(0))
+
+	requestsCondition := field.NewConditionField(
+		"high_requests",
+		field.ConditionOperatorGreaterThan,
+		requestsField,
+		requestsThreshold,
+	)
+
+	lowErrorsCondition := field.NewConditionField(
+		"low_errors",
+		field.ConditionOperatorLessThan,
+		errorsField,
+		errorsThreshold,
+	)
+
+	zeroErrorsCondition := field.NewConditionField(
+		"zero_errors",
+		field.ConditionOperatorEquals,
+		errorsField,
+		zeroErrors,
+	)
+
+	// First AND condition
+	andCondition := field.NewLogicalExpressionField(
+		"high_requests_and_low_errors",
+		field.LogicalOperatorAnd,
+		requestsCondition,
+		lowErrorsCondition,
+	)
+
+	// Then OR with zero errors
+	orCondition := field.NewLogicalExpressionField(
+		"complex_condition",
+		field.LogicalOperatorOr,
+		andCondition,
+		zeroErrorsCondition,
+	)
+
+	// Apply condition filter
+	conditionFilter := filter.NewConditionFilter(orCondition)
+	filteredResult, err := conditionFilter.Filter(result)
+	require.NoError(t, err)
+
+	// Verify filtered records
+	records := filteredResult.Stream().MustCollect()
+	require.Len(t, records, 2)
+
+	require.Equal(t, int64(1000), records[0].Value[0])
+	require.Equal(t, int64(5), records[0].Value[1])
+
+	require.Equal(t, int64(300), records[1].Value[0])
+	require.Equal(t, int64(0), records[1].Value[1])
+}
+
+func TestLogicalExpressionFilter_Or_AllFalse(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	testData := []SensorReading{
+		{Timestamp: baseTime, Temperature: 15.0, Humidity: 55.0},
+		{Timestamp: baseTime.Add(1 * time.Hour), Temperature: 18.0, Humidity: 58.0},
+	}
+
+	result, err := createResultFromStructs(
+		stream.Just(testData...),
+		[]string{"SensorReading:Temperature", "SensorReading:Humidity"},
+		[]tsquery.DataType{tsquery.DataTypeDecimal, tsquery.DataTypeDecimal},
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Create condition: Temperature > 20.0 OR Humidity > 60.0
+	tempField := field.NewRefField("SensorReading:Temperature")
+	humidityField := field.NewRefField("SensorReading:Humidity")
+
+	tempThreshold := createConstantField(t, "temp_threshold", tsquery.DataTypeDecimal, 20.0)
+	humidityThreshold := createConstantField(t, "humidity_threshold", tsquery.DataTypeDecimal, 60.0)
+
+	tempCondition := field.NewConditionField(
+		"temp_above_20",
+		field.ConditionOperatorGreaterThan,
+		tempField,
+		tempThreshold,
+	)
+
+	humidityCondition := field.NewConditionField(
+		"humidity_above_60",
+		field.ConditionOperatorGreaterThan,
+		humidityField,
+		humidityThreshold,
+	)
+
+	orCondition := field.NewLogicalExpressionField(
+		"temp_or_humidity",
+		field.LogicalOperatorOr,
+		tempCondition,
+		humidityCondition,
+	)
+
+	// Apply condition filter
+	conditionFilter := filter.NewConditionFilter(orCondition)
+	filteredResult, err := conditionFilter.Filter(result)
+	require.NoError(t, err)
+
+	// Verify empty result - no records match
+	records := filteredResult.Stream().MustCollect()
+	require.Len(t, records, 0)
+}
+
+func TestLogicalExpressionFilter_And_AllTrue(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	testData := []SensorReading{
+		{Timestamp: baseTime, Temperature: 25.0, Humidity: 65.0},
+		{Timestamp: baseTime.Add(1 * time.Hour), Temperature: 30.0, Humidity: 70.0},
+		{Timestamp: baseTime.Add(2 * time.Hour), Temperature: 22.0, Humidity: 68.0},
+	}
+
+	result, err := createResultFromStructs(
+		stream.Just(testData...),
+		[]string{"SensorReading:Temperature", "SensorReading:Humidity"},
+		[]tsquery.DataType{tsquery.DataTypeDecimal, tsquery.DataTypeDecimal},
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Create condition: Temperature > 20.0 AND Humidity > 60.0
+	tempField := field.NewRefField("SensorReading:Temperature")
+	humidityField := field.NewRefField("SensorReading:Humidity")
+
+	// Apply condition filter
+	filteredResult, err := filter.NewConditionFilter(field.NewLogicalExpressionField(
+		"temp_and_humidity",
+		field.LogicalOperatorAnd,
+		field.NewConditionField(
+			"temp_above_20",
+			field.ConditionOperatorGreaterThan,
+			tempField,
+			createConstantField(t, "temp_threshold", tsquery.DataTypeDecimal, 20.0),
+		),
+		field.NewConditionField(
+			"humidity_above_60",
+			field.ConditionOperatorGreaterThan,
+			humidityField,
+			createConstantField(t, "humidity_threshold", tsquery.DataTypeDecimal, 60.0),
+		),
+	)).Filter(result)
+	require.NoError(t, err)
+
+	// Verify all records match
+	records := filteredResult.Stream().MustCollect()
+	require.Len(t, records, 3)
+
+	require.Equal(t, 25.0, records[0].Value[0])
+	require.Equal(t, 30.0, records[1].Value[0])
+	require.Equal(t, 22.0, records[2].Value[0])
+}
+
+func TestLogicalExpressionFilter_WithStringAndBooleanComparisons(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	testData := []ApplicationStatus{
+		{Timestamp: baseTime, Status: "running", Active: true},                     // status=="running" AND active==true = true
+		{Timestamp: baseTime.Add(1 * time.Hour), Status: "stopped", Active: false}, // false AND false = false
+		{Timestamp: baseTime.Add(2 * time.Hour), Status: "running", Active: false}, // true AND false = false
+		{Timestamp: baseTime.Add(3 * time.Hour), Status: "error", Active: true},    // false AND true = false
+	}
+
+	result, err := createResultFromStructs(
+		stream.Just(testData...),
+		[]string{"ApplicationStatus:Status", "ApplicationStatus:Active"},
+		[]tsquery.DataType{tsquery.DataTypeString, tsquery.DataTypeBoolean},
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Create condition: Status == "running" AND Active == true
+	statusField := field.NewRefField("ApplicationStatus:Status")
+	activeField := field.NewRefField("ApplicationStatus:Active")
+
+	runningValue := createConstantField(t, "running", tsquery.DataTypeString, "running")
+	trueValue := createConstantField(t, "true", tsquery.DataTypeBoolean, true)
+
+	statusCondition := field.NewConditionField(
+		"is_running",
+		field.ConditionOperatorEquals,
+		statusField,
+		runningValue,
+	)
+
+	activeCondition := field.NewConditionField(
+		"is_active",
+		field.ConditionOperatorEquals,
+		activeField,
+		trueValue,
+	)
+
+	andCondition := field.NewLogicalExpressionField(
+		"running_and_active",
+		field.LogicalOperatorAnd,
+		statusCondition,
+		activeCondition,
+	)
+
+	// Apply condition filter
+	conditionFilter := filter.NewConditionFilter(andCondition)
+	filteredResult, err := conditionFilter.Filter(result)
+	require.NoError(t, err)
+
+	// Verify only first record matches
+	records := filteredResult.Stream().MustCollect()
+	require.Len(t, records, 1)
+
+	require.Equal(t, "running", records[0].Value[0])
+	require.Equal(t, true, records[0].Value[1])
+}
