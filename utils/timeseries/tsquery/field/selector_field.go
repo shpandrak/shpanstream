@@ -18,8 +18,18 @@ type SelectorField struct {
 	falseField           Field
 }
 
-func NewSelectorField(targetFieldUrn string, selectorBooleanField Field, trueField Field, falseField Field) SelectorField {
-	return SelectorField{targetFieldUrn: targetFieldUrn, selectorBooleanField: selectorBooleanField, trueField: trueField, falseField: falseField}
+func NewSelectorField(
+	targetFieldUrn string,
+	selectorBooleanField Field,
+	trueField Field,
+	falseField Field,
+) SelectorField {
+	return SelectorField{
+		targetFieldUrn:       targetFieldUrn,
+		selectorBooleanField: selectorBooleanField,
+		trueField:            trueField,
+		falseField:           falseField,
+	}
 }
 
 func (cf SelectorField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
