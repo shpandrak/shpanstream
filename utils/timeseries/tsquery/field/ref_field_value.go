@@ -7,20 +7,20 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 )
 
-var _ Field = RefField{}
+var _ Value = RefFieldValue{}
 
-type RefField struct {
+type RefFieldValue struct {
 	urn string
 }
 
-func NewRefField(urn string) RefField {
-	return RefField{urn: urn}
+func NewRefFieldValue(urn string) RefFieldValue {
+	return RefFieldValue{urn: urn}
 }
 
-func (rf RefField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
+func (rf RefFieldValue) Execute(fieldsMeta []tsquery.FieldMeta) (ValueMeta, ValueSupplier, error) {
 	fm, idx, err := tsquery.FieldAndIdxByUrn(fieldsMeta, rf.urn)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, err
+		return util.DefaultValue[ValueMeta](), nil, err
 	}
 
 	// Create a value supplier that extracts the value from the current row at the correct index
@@ -28,5 +28,9 @@ func (rf RefField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, V
 		return currRow.Value[idx], nil
 	}
 
-	return fm, valueSupplier, nil
+	return ValueMeta{
+		DataType: fm.DataType(),
+		Unit:     fm.Unit(),
+		Required: fm.Required(),
+	}, valueSupplier, nil
 }

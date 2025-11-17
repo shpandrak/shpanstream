@@ -211,15 +211,34 @@ components:
       type: object
       required:
         - type
-        - field
+        - fieldValue
+        - fieldMeta
       properties:
         type:
           type: string
           enum:
             - appendField
-        field:
-          $ref: '#/components/schemas/ApiQueryField'
+        fieldValue:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        fieldMeta:
+          $ref: '#/components/schemas/ApiAddFieldMeta'
 
+    ApiAddFieldMeta:
+      type: object
+      required:
+        - uri
+      properties:
+        uri:
+          type: string
+          minLength: 1
+        overrideUnit:
+          type: string
+          minLength: 1
+          x-go-type-skip-optional-pointer: true
+        customMetadata:
+          x-go-type-skip-optional-pointer: true
+          type: object
+          additionalProperties: true
     ApiDropFieldFilter:
       type: object
       required:
@@ -241,7 +260,8 @@ components:
       required:
         - type
         - fieldUrnToReplace
-        - field
+        - fieldValue
+        - fieldMeta
       properties:
         type:
           type: string
@@ -250,8 +270,10 @@ components:
         fieldUrnToReplace:
           type: string
           minLength: 1
-        field:
-          $ref: '#/components/schemas/ApiQueryField'
+        fieldValue:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        fieldMeta:
+          $ref: '#/components/schemas/ApiAddFieldMeta'
 
     ApiConditionFilter:
       type: object
@@ -264,20 +286,23 @@ components:
           enum:
             - condition
         booleanField:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
 
     ApiSingleFieldFilter:
       type: object
       required:
         - type
-        - field
+        - fieldValue
+        - fieldMeta
       properties:
         type:
           type: string
           enum:
             - singleField
-        field:
-          $ref: '#/components/schemas/ApiQueryField'
+        fieldValue:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        fieldMeta:
+          $ref: '#/components/schemas/ApiAddFieldMeta'
 
     ApiOverrideFieldMetadataFilter:
       type: object
@@ -305,52 +330,58 @@ components:
           additionalProperties: true
           x-go-type-skip-optional-pointer: true
 
-    ApiQueryField:
+    ApiQueryFieldValue:
       type: object
       discriminator:
         propertyName: type
         mapping:
-          constant: '#/components/schemas/ApiConstantQueryField'
-          condition: '#/components/schemas/ApiConditionQueryField'
-          logicalExpression: '#/components/schemas/ApiLogicalExpressionQueryField'
-          ref: '#/components/schemas/ApiRefQueryField'
-          selector: '#/components/schemas/ApiSelectorQueryField'
-          nvl: '#/components/schemas/ApiNvlQueryField'
-          cast: '#/components/schemas/ApiCastQueryField'
-          numericExpression: '#/components/schemas/ApiNumericExpressionQueryField'
-          unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorQueryField'
-          reduce: '#/components/schemas/ApiReduceQueryField'
+          constant: '#/components/schemas/ApiConstantQueryFieldValue'
+          condition: '#/components/schemas/ApiConditionQueryFieldValue'
+          logicalExpression: '#/components/schemas/ApiLogicalExpressionQueryFieldValue'
+          ref: '#/components/schemas/ApiRefQueryFieldValue'
+          selector: '#/components/schemas/ApiSelectorQueryFieldValue'
+          nvl: '#/components/schemas/ApiNvlQueryFieldValue'
+          cast: '#/components/schemas/ApiCastQueryFieldValue'
+          numericExpression: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
+          unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
+          reduce: '#/components/schemas/ApiReduceQueryFieldValue'
       oneOf:
-        - $ref: '#/components/schemas/ApiConstantQueryField'
-        - $ref: '#/components/schemas/ApiConditionQueryField'
-        - $ref: '#/components/schemas/ApiLogicalExpressionQueryField'
-        - $ref: '#/components/schemas/ApiRefQueryField'
-        - $ref: '#/components/schemas/ApiSelectorQueryField'
-        - $ref: '#/components/schemas/ApiNvlQueryField'
-        - $ref: '#/components/schemas/ApiCastQueryField'
-        - $ref: '#/components/schemas/ApiNumericExpressionQueryField'
-        - $ref: '#/components/schemas/ApiUnaryNumericOperatorQueryField'
-        - $ref: '#/components/schemas/ApiReduceQueryField'
+        - $ref: '#/components/schemas/ApiConstantQueryFieldValue'
+        - $ref: '#/components/schemas/ApiConditionQueryFieldValue'
+        - $ref: '#/components/schemas/ApiLogicalExpressionQueryFieldValue'
+        - $ref: '#/components/schemas/ApiRefQueryFieldValue'
+        - $ref: '#/components/schemas/ApiSelectorQueryFieldValue'
+        - $ref: '#/components/schemas/ApiNvlQueryFieldValue'
+        - $ref: '#/components/schemas/ApiCastQueryFieldValue'
+        - $ref: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
+        - $ref: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
+        - $ref: '#/components/schemas/ApiReduceQueryFieldValue'
 
-    ApiConstantQueryField:
+    ApiConstantQueryFieldValue:
       type: object
       required:
         - type
-        - fieldMeta
+        - dataType
+        - required
         - fieldValue
       properties:
         type:
           type: string
           enum:
             - constant
-        fieldMeta:
-          $ref: '#/components/schemas/ApiQueryFieldMeta'
+        dataType:
+          $ref: '#/components/schemas/ApiMetricDataType'
+        required:
+          type: boolean
+        unit:
+          type: string
+          x-go-type-skip-optional-pointer: true
         fieldValue:
           x-go-type: any
           anyOf:
-              - type: string
-              - type: number
-              - type: boolean
+            - type: string
+            - type: number
+            - type: boolean
 
     ApiConditionOperatorType:
       type: string
@@ -364,11 +395,10 @@ components:
         - greater_equal
         - less_equal
 
-    ApiConditionQueryField:
+    ApiConditionQueryFieldValue:
       type: object
       required:
         - type
-        - urn
         - operatorType
         - operand1
         - operand2
@@ -377,15 +407,12 @@ components:
           type: string
           enum:
             - condition
-        urn:
-          type: string
-          minLength: 1
         operatorType:
           $ref: '#/components/schemas/ApiConditionOperatorType'
         operand1:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
         operand2:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
 
     ApiLogicalOperatorType:
       type: string
@@ -395,11 +422,10 @@ components:
         - and
         - or
 
-    ApiLogicalExpressionQueryField:
+    ApiLogicalExpressionQueryFieldValue:
       type: object
       required:
         - type
-        - urn
         - logicalOperatorType
         - operand1
         - operand2
@@ -408,17 +434,14 @@ components:
           type: string
           enum:
             - logicalExpression
-        urn:
-          type: string
-          minLength: 1
         logicalOperatorType:
           $ref: '#/components/schemas/ApiLogicalOperatorType'
         operand1:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
         operand2:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
 
-    ApiRefQueryField:
+    ApiRefQueryFieldValue:
       type: object
       required:
         - type
@@ -432,11 +455,10 @@ components:
           type: string
           minLength: 1
 
-    ApiSelectorQueryField:
+    ApiSelectorQueryFieldValue:
       type: object
       required:
         - type
-        - targetFieldUrn
         - selectorBooleanField
         - trueField
         - falseField
@@ -445,21 +467,17 @@ components:
           type: string
           enum:
             - selector
-        targetFieldUrn:
-          type: string
-          minLength: 1
         selectorBooleanField:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
         trueField:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
         falseField:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
 
-    ApiNvlQueryField:
+    ApiNvlQueryFieldValue:
       type: object
       required:
         - type
-        - fieldUrn
         - source
         - altField
       properties:
@@ -467,19 +485,15 @@ components:
           type: string
           enum:
             - nvl
-        fieldUrn:
-          type: string
-          minLength: 1
         source:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
         altField:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
 
-    ApiCastQueryField:
+    ApiCastQueryFieldValue:
       type: object
       required:
         - type
-        - fieldUrn
         - source
         - targetType
       properties:
@@ -487,11 +501,8 @@ components:
           type: string
           enum:
             - cast
-        fieldUrn:
-          type: string
-          minLength: 1
         source:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
         targetType:
           $ref: '#/components/schemas/ApiMetricDataType'
 
@@ -506,11 +517,10 @@ components:
         - "/"
         - "%"
 
-    ApiNumericExpressionQueryField:
+    ApiNumericExpressionQueryFieldValue:
       type: object
       required:
         - type
-        - fieldUrn
         - op1
         - op
         - op2
@@ -519,15 +529,12 @@ components:
           type: string
           enum:
             - numericExpression
-        fieldUrn:
-          type: string
-          minLength: 1
         op1:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
         op:
           $ref: '#/components/schemas/ApiBinaryNumericOperatorType'
         op2:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
 
     ApiUnaryNumericOperatorType:
       type: string
@@ -547,11 +554,10 @@ components:
         - cos
         - tan
 
-    ApiUnaryNumericOperatorQueryField:
+    ApiUnaryNumericOperatorQueryFieldValue:
       type: object
       required:
         - type
-        - fieldUrn
         - operand
         - op
       properties:
@@ -559,11 +565,8 @@ components:
           type: string
           enum:
             - unaryNumericOperator
-        fieldUrn:
-          type: string
-          minLength: 1
         operand:
-          $ref: '#/components/schemas/ApiQueryField'
+          $ref: '#/components/schemas/ApiQueryFieldValue'
         op:
           $ref: '#/components/schemas/ApiUnaryNumericOperatorType'
 
@@ -578,20 +581,16 @@ components:
         - max
         - count
 
-    ApiReduceQueryField:
+    ApiReduceQueryFieldValue:
       type: object
       required:
         - type
-        - resultUrn
         - reductionType
       properties:
         type:
           type: string
           enum:
             - reduce
-        resultUrn:
-          type: string
-          minLength: 1
         fieldUrnsToReduce:
           type: array
           description: List of field urns to reduce, if empty, all fields will be reduced
@@ -601,10 +600,6 @@ components:
           x-go-type-skip-optional-pointer: true
         reductionType:
           $ref: '#/components/schemas/ApiReductionType'
-        resultCustomMeta:
-          type: object
-          additionalProperties: true
-          x-go-type-skip-optional-pointer: true
 
     ApiCalendarPeriodType:
       type: string

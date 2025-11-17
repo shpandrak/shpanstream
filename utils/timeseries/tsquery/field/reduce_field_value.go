@@ -8,7 +8,7 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 )
 
-var _ Field = ReduceField{}
+var _ Value = ReduceFieldValue{}
 
 type ReductionType string
 
@@ -20,36 +20,30 @@ const (
 	ReductionTypeCount ReductionType = "count"
 )
 
-type ReduceField struct {
+type ReduceFieldValue struct {
 	fieldUrnsToReduce map[string]bool // nil means reduce all fields
 	reductionType     ReductionType
-	resultUrn         string
-	resultCustomMeta  map[string]any
 }
 
-func NewReduceAllFields(resultUrn string, reductionType ReductionType, resultCustomMeta map[string]any) ReduceField {
-	return ReduceField{
-		resultCustomMeta:  resultCustomMeta,
+func NewReduceAllFieldValues(reductionType ReductionType) ReduceFieldValue {
+	return ReduceFieldValue{
 		fieldUrnsToReduce: nil,
 		reductionType:     reductionType,
-		resultUrn:         resultUrn,
 	}
 }
 
-func NewReduceFields(resultUrn string, fieldUrns []string, reductionType ReductionType, resultCustomMeta map[string]any) ReduceField {
+func NewReduceFieldValues(fieldUrns []string, reductionType ReductionType) ReduceFieldValue {
 	fieldUrnsSet := make(map[string]bool, len(fieldUrns))
 	for _, urn := range fieldUrns {
 		fieldUrnsSet[urn] = true
 	}
-	return ReduceField{
+	return ReduceFieldValue{
 		fieldUrnsToReduce: fieldUrnsSet,
 		reductionType:     reductionType,
-		resultUrn:         resultUrn,
-		resultCustomMeta:  resultCustomMeta,
 	}
 }
 
-func (r ReduceField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
+func (r ReduceFieldValue) Execute(fieldsMeta []tsquery.FieldMeta) (ValueMeta, ValueSupplier, error) {
 	// Determine which fields to reduce
 	var fieldsToReduce []tsquery.FieldMeta
 	var fieldIndices []int
@@ -87,22 +81,22 @@ func (r ReduceField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta,
 					missingFields = append(missingFields, urn)
 				}
 			}
-			return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("cannot reduce fields, some fields not found: %v", missingFields)
+			return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("cannot reduce fields, some fields not found: %v", missingFields)
 		}
 	}
 
 	// Verify we have at least one field to reduce
 	if len(fieldsToReduce) == 0 {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("no fields to reduce")
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("no fields to reduce")
 	}
 
 	// Verify all fields are numeric, of the same type, and required
 	dataType := fieldsToReduce[0].DataType()
 	if dataType != tsquery.DataTypeInteger && dataType != tsquery.DataTypeDecimal {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("cannot reduce field %s: must be numeric (integer or decimal), got %s", fieldsToReduce[0].Urn(), dataType)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("cannot reduce field %s: must be numeric (integer or decimal), got %s", fieldsToReduce[0].Urn(), dataType)
 	}
 	if !fieldsToReduce[0].Required() {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("cannot reduce field %s: must be required", fieldsToReduce[0].Urn())
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("cannot reduce field %s: must be required", fieldsToReduce[0].Urn())
 	}
 
 	// Track unit consistency and collect custom metadata
@@ -111,11 +105,11 @@ func (r ReduceField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta,
 
 	for i := 1; i < len(fieldsToReduce); i++ {
 		if fieldsToReduce[i].DataType() != dataType {
-			return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("cannot reduce fields: all fields must have the same data type, got %s for %s and %s for %s",
+			return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("cannot reduce fields: all fields must have the same data type, got %s for %s and %s for %s",
 				dataType, fieldsToReduce[0].Urn(), fieldsToReduce[i].DataType(), fieldsToReduce[i].Urn())
 		}
 		if !fieldsToReduce[i].Required() {
-			return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("cannot reduce field %s: must be required", fieldsToReduce[i].Urn())
+			return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("cannot reduce field %s: must be required", fieldsToReduce[i].Urn())
 		}
 		if fieldsToReduce[i].Unit() != firstUnit {
 			allSameUnit = false
@@ -128,7 +122,7 @@ func (r ReduceField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta,
 		// Average always returns decimal
 		resultDataType = tsquery.DataTypeDecimal
 	} else if r.reductionType == ReductionTypeCount {
-		// Count always returns integer
+		// Count always returns an integer
 		resultDataType = tsquery.DataTypeInteger
 	} else {
 		// Sum, Min, Max preserve the input data type
@@ -141,9 +135,10 @@ func (r ReduceField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta,
 		resultUnit = firstUnit
 	}
 
-	resultMeta, err := tsquery.NewFieldMetaWithCustomData(r.resultUrn, resultDataType, true, resultUnit, r.resultCustomMeta)
-	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to create result field metadata: %w", err)
+	fvm := ValueMeta{
+		DataType: resultDataType,
+		Unit:     resultUnit,
+		Required: true,
 	}
 
 	// Pre-compute the reduction function based on type and data type
@@ -159,7 +154,7 @@ func (r ReduceField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta,
 		return reducerFunc(values), nil
 	}
 
-	return *resultMeta, valueSupplier, nil
+	return fvm, valueSupplier, nil
 }
 
 // createReducerFunc creates an optimized reducer function based on reduction type and data type
@@ -190,7 +185,7 @@ func createReducerFunc(reductionType ReductionType, dataType tsquery.DataType) f
 		return maxDecimal
 
 	case ReductionTypeCount:
-		// Count is independent of data type
+		// Count is independent of a data type
 		return countValues
 
 	default:

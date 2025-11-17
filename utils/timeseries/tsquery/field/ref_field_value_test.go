@@ -23,13 +23,13 @@ func TestRefField_SuccessfulReference(t *testing.T) {
 	fieldsMeta := []tsquery.FieldMeta{*field1Meta, *field2Meta, *field3Meta}
 
 	// Create a RefField that references the second field (humidity)
-	refField := NewRefField("humidity")
+	refField := NewRefFieldValue("humidity")
 
 	// Execute the field
 	meta, valueSupplier, err := refField.Execute(fieldsMeta)
 	require.NoError(t, err)
-	require.Equal(t, "humidity", meta.Urn())
-	require.Equal(t, tsquery.DataTypeInteger, meta.DataType())
+	require.Equal(t, tsquery.DataTypeInteger, meta.DataType)
+	require.True(t, meta.Required)
 
 	// Test the value supplier with a sample row
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func TestRefField_NotFound(t *testing.T) {
 	fieldsMeta := []tsquery.FieldMeta{*field1Meta, *field2Meta}
 
 	// Create a RefField that references a non-existent field
-	refField := NewRefField("pressure")
+	refField := NewRefFieldValue("pressure")
 
 	// Execute should fail
 	_, _, err = refField.Execute(fieldsMeta)
@@ -73,10 +73,10 @@ func TestRefField_FirstField(t *testing.T) {
 
 	fieldsMeta := []tsquery.FieldMeta{*field1Meta, *field2Meta}
 
-	refField := NewRefField("first")
+	refField := NewRefFieldValue("first")
 	meta, valueSupplier, err := refField.Execute(fieldsMeta)
 	require.NoError(t, err)
-	require.Equal(t, "first", meta.Urn())
+	require.Equal(t, tsquery.DataTypeString, meta.DataType)
 
 	ctx := context.Background()
 	row := timeseries.TsRecord[[]any]{
@@ -102,10 +102,10 @@ func TestRefField_LastField(t *testing.T) {
 
 	fieldsMeta := []tsquery.FieldMeta{*field1Meta, *field2Meta, *field3Meta}
 
-	refField := NewRefField("last")
+	refField := NewRefFieldValue("last")
 	meta, valueSupplier, err := refField.Execute(fieldsMeta)
 	require.NoError(t, err)
-	require.Equal(t, "last", meta.Urn())
+	require.Equal(t, tsquery.DataTypeDecimal, meta.DataType)
 
 	ctx := context.Background()
 	row := timeseries.TsRecord[[]any]{
@@ -122,7 +122,7 @@ func TestRefField_EmptyFieldsMeta(t *testing.T) {
 	// Test with empty fieldsMeta
 	fieldsMeta := []tsquery.FieldMeta{}
 
-	refField := NewRefField("any_field")
+	refField := NewRefFieldValue("any_field")
 	_, _, err := refField.Execute(fieldsMeta)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), " not found time series")
@@ -135,11 +135,11 @@ func TestRefField_OptionalField(t *testing.T) {
 
 	fieldsMeta := []tsquery.FieldMeta{*optionalMeta}
 
-	refField := NewRefField("optional_field")
+	refField := NewRefFieldValue("optional_field")
 	meta, valueSupplier, err := refField.Execute(fieldsMeta)
 	require.NoError(t, err)
-	require.Equal(t, "optional_field", meta.Urn())
-	require.False(t, meta.Required())
+	require.Equal(t, tsquery.DataTypeInteger, meta.DataType)
+	require.False(t, meta.Required)
 
 	// Test with nil value
 	ctx := context.Background()
@@ -163,10 +163,10 @@ func TestRefField_MultipleFieldsWithSamePrefix(t *testing.T) {
 
 	fieldsMeta := []tsquery.FieldMeta{*field1Meta, *field2Meta}
 
-	refField := NewRefField("temp")
+	refField := NewRefFieldValue("temp")
 	meta, valueSupplier, err := refField.Execute(fieldsMeta)
 	require.NoError(t, err)
-	require.Equal(t, "temp", meta.Urn())
+	require.Equal(t, tsquery.DataTypeDecimal, meta.DataType)
 
 	ctx := context.Background()
 	row := timeseries.TsRecord[[]any]{

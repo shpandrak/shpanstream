@@ -6,10 +6,9 @@ import (
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
-	"maps"
 )
 
-var _ Field = NumericExpressionField{}
+var _ Value = NumericExpressionFieldValue{}
 
 type BinaryNumericOperatorType string
 
@@ -93,55 +92,50 @@ const (
 	BinaryNumericOperatorMod BinaryNumericOperatorType = "%"
 )
 
-type NumericExpressionField struct {
-	op1      Field
-	op2      Field
-	op       BinaryNumericOperatorType
-	fieldUrn string
+type NumericExpressionFieldValue struct {
+	op1 Value
+	op2 Value
+	op  BinaryNumericOperatorType
 }
 
-func NewNumericExpressionField(
-	fieldUrn string,
-	op1 Field,
+func NewNumericExpressionFieldValue(
+	op1 Value,
 	op BinaryNumericOperatorType,
-	op2 Field,
-) NumericExpressionField {
-	return NumericExpressionField{
-		op1:      op1,
-		op2:      op2,
-		op:       op,
-		fieldUrn: fieldUrn,
+	op2 Value,
+) NumericExpressionFieldValue {
+	return NumericExpressionFieldValue{
+		op1: op1,
+		op2: op2,
+		op:  op,
 	}
 }
 
-func (nef NumericExpressionField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
+func (nef NumericExpressionFieldValue) Execute(fieldsMeta []tsquery.FieldMeta) (ValueMeta, ValueSupplier, error) {
 	// Execute both fields to get metadata (lazy validation)
 	op1Meta, op1ValueSupplier, err := nef.op1.Execute(fieldsMeta)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing op1 field: %w", err)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("failed executing op1 field: %w", err)
 	}
 	op2Meta, op2ValueSupplier, err := nef.op2.Execute(fieldsMeta)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing op2 field: %w", err)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("failed executing op2 field: %w", err)
 	}
 
-	dt1 := op1Meta.DataType()
-	dt2 := op2Meta.DataType()
+	dt1 := op1Meta.DataType
+	dt2 := op2Meta.DataType
 
 	// Check that both operands are numeric types
 	if !dt1.IsNumeric() {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("op1 field %s has non-numeric data type: %s", op1Meta.Urn(), dt1)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("op1 field has non-numeric data type: %s", dt1)
 	}
 	if !dt2.IsNumeric() {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("op2 field %s has non-numeric data type: %s", op2Meta.Urn(), dt2)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("op2 field has non-numeric data type: %s", dt2)
 	}
 
 	// Check that both operands have the same data type
 	if dt1 != dt2 {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf(
-			"incompatible datatypes for fields %s and %s: %s %s %s",
-			op1Meta.Urn(),
-			op2Meta.Urn(),
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf(
+			"incompatible datatypes for fields : %s %s %s",
 			dt1,
 			nef.op,
 			dt2,
@@ -150,42 +144,28 @@ func (nef NumericExpressionField) Execute(fieldsMeta []tsquery.FieldMeta) (tsque
 
 	// Check modulo operator constraint
 	if nef.op == BinaryNumericOperatorMod && dt1 != tsquery.DataTypeInteger {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("mod operator is only supported for integer fields. got fields %s and %s", op1Meta.Urn(), op2Meta.Urn())
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("mod operator is only supported for integer fields. got %s", dt1)
 	}
 
 	// Get the function implementation
 	funcImpl, err := nef.op.getFuncImpl(dt1)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to get function implementation: %w", err)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("failed to get function implementation: %w", err)
 	}
 
-	var newFieldCustomMeta map[string]any
-	if op1Meta.CustomMeta() != nil {
-		newFieldCustomMeta = maps.Clone(op1Meta.CustomMeta())
-		if op2Meta.CustomMeta() != nil {
-			maps.Copy(newFieldCustomMeta, op2Meta.CustomMeta())
-		}
-	} else if op2Meta.CustomMeta() != nil {
-		newFieldCustomMeta = maps.Clone(op2Meta.CustomMeta())
-	}
 	var updatedUnit string
-	if op1Meta.Unit() == op2Meta.Unit() {
-		updatedUnit = op1Meta.Unit()
+	if op1Meta.Unit == op2Meta.Unit {
+		updatedUnit = op1Meta.Unit
 	}
 
-	fieldMeta, err := tsquery.NewFieldMetaWithCustomData(
-		nef.fieldUrn,
-		dt1,
-		op1Meta.Required() && op2Meta.Required(),
-		updatedUnit,
-		newFieldCustomMeta,
-	)
-	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to create field meta for expression field: %w", err)
+	fvm := ValueMeta{
+		DataType: dt1,
+		Unit:     updatedUnit,
+		Required: op1Meta.Required && op2Meta.Required,
 	}
 
 	// Allow nil in the case of optional fields
-	if !fieldMeta.Required() {
+	if !fvm.Required {
 		originalFunc := funcImpl
 		funcImpl = func(v1, v2 any) any {
 			if v1 == nil || v2 == nil {
@@ -207,5 +187,5 @@ func (nef NumericExpressionField) Execute(fieldsMeta []tsquery.FieldMeta) (tsque
 		return funcImpl(v1, v2), nil
 	}
 
-	return *fieldMeta, valueSupplier, nil
+	return fvm, valueSupplier, nil
 }

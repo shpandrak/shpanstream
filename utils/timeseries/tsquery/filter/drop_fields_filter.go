@@ -61,7 +61,7 @@ func (a DropFieldsFilter) Filter(result tsquery.Result) (tsquery.Result, error) 
 	return tsquery.NewResult(
 		newFieldsMeta,
 		stream.Map(result.Stream(), func(record timeseries.TsRecord[[]any]) timeseries.TsRecord[[]any] {
-			// Build new value slice with pre-allocated capacity
+			// Build a new value slice with pre-allocated capacity
 			newValue := make([]any, len(fieldIdxToKeep))
 			for i, idx := range fieldIdxToKeep {
 				newValue[i] = record.Value[idx]

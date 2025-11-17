@@ -11,7 +11,7 @@ import (
 )
 
 // Helper function to execute a field and get its value for testing
-func executeAndGetValue(t *testing.T, f Field, ctx context.Context) (any, error) {
+func executeAndGetValue(t *testing.T, f Value, ctx context.Context) (any, error) {
 	_, valueSupplier, err := f.Execute([]tsquery.FieldMeta{})
 	if err != nil {
 		return nil, err
@@ -21,7 +21,7 @@ func executeAndGetValue(t *testing.T, f Field, ctx context.Context) (any, error)
 }
 
 // Helper function to execute a field and get its metadata for testing
-func executeAndGetMeta(t *testing.T, f Field, ctx context.Context) (tsquery.FieldMeta, error) {
+func executeAndGetMeta(t *testing.T, f Value, ctx context.Context) (ValueMeta, error) {
 	meta, _, err := f.Execute([]tsquery.FieldMeta{})
 	return meta, err
 }
@@ -29,12 +29,10 @@ func executeAndGetMeta(t *testing.T, f Field, ctx context.Context) (tsquery.Fiel
 func TestCastField_IntegerToDecimal(t *testing.T) {
 	ctx := context.Background()
 
-	intMeta, err := tsquery.NewFieldMeta("source_int", tsquery.DataTypeInteger, false)
-	require.NoError(t, err)
+	intMeta := ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	sourceField := NewConstantFieldValue(intMeta, int64(42))
 
-	sourceField := NewConstantField(*intMeta, int64(42))
-
-	castField := NewCastField("casted_decimal", sourceField, tsquery.DataTypeDecimal)
+	castField := NewCastFieldValue(sourceField, tsquery.DataTypeDecimal)
 	require.NotNil(t, castField)
 
 	result, err := executeAndGetValue(t, castField, ctx)
@@ -44,15 +42,13 @@ func TestCastField_IntegerToDecimal(t *testing.T) {
 	// Check metadata
 	meta, err := executeAndGetMeta(t, castField, ctx)
 	require.NoError(t, err)
-	require.Equal(t, "casted_decimal", meta.Urn())
-	require.Equal(t, tsquery.DataTypeDecimal, meta.DataType())
+	require.Equal(t, tsquery.DataTypeDecimal, meta.DataType)
 }
 
 func TestCastField_DecimalToInteger(t *testing.T) {
 	ctx := context.Background()
 
-	decMeta, err := tsquery.NewFieldMeta("source_dec", tsquery.DataTypeDecimal, false)
-	require.NoError(t, err)
+	decMeta := ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
 
 	tests := []struct {
 		name     string
@@ -67,9 +63,9 @@ func TestCastField_DecimalToInteger(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceField := NewConstantField(*decMeta, tt.input)
+			sourceField := NewConstantFieldValue(decMeta, tt.input)
 
-			castField := NewCastField("casted_int", sourceField, tsquery.DataTypeInteger)
+			castField := NewCastFieldValue(sourceField, tsquery.DataTypeInteger)
 
 			result, err := executeAndGetValue(t, castField, ctx)
 			require.NoError(t, err)
@@ -81,8 +77,7 @@ func TestCastField_DecimalToInteger(t *testing.T) {
 func TestCastField_IntegerToString(t *testing.T) {
 	ctx := context.Background()
 
-	intMeta, err := tsquery.NewFieldMeta("source_int", tsquery.DataTypeInteger, false)
-	require.NoError(t, err)
+	intMeta := ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 
 	tests := []struct {
 		name     string
@@ -97,9 +92,9 @@ func TestCastField_IntegerToString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceField := NewConstantField(*intMeta, tt.input)
+			sourceField := NewConstantFieldValue(intMeta, tt.input)
 
-			castField := NewCastField("casted_string", sourceField, tsquery.DataTypeString)
+			castField := NewCastFieldValue(sourceField, tsquery.DataTypeString)
 
 			result, err := executeAndGetValue(t, castField, ctx)
 			require.NoError(t, err)
@@ -111,8 +106,7 @@ func TestCastField_IntegerToString(t *testing.T) {
 func TestCastField_DecimalToString(t *testing.T) {
 	ctx := context.Background()
 
-	decMeta, err := tsquery.NewFieldMeta("source_dec", tsquery.DataTypeDecimal, false)
-	require.NoError(t, err)
+	decMeta := ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
 
 	tests := []struct {
 		name     string
@@ -127,9 +121,9 @@ func TestCastField_DecimalToString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceField := NewConstantField(*decMeta, tt.input)
+			sourceField := NewConstantFieldValue(decMeta, tt.input)
 
-			castField := NewCastField("casted_string", sourceField, tsquery.DataTypeString)
+			castField := NewCastFieldValue(sourceField, tsquery.DataTypeString)
 
 			result, err := executeAndGetValue(t, castField, ctx)
 			require.NoError(t, err)
@@ -141,8 +135,7 @@ func TestCastField_DecimalToString(t *testing.T) {
 func TestCastField_StringToInteger(t *testing.T) {
 	ctx := context.Background()
 
-	stringMeta, err := tsquery.NewFieldMeta("source_string", tsquery.DataTypeString, false)
-	require.NoError(t, err)
+	stringMeta := ValueMeta{DataType: tsquery.DataTypeString, Required: false}
 
 	tests := []struct {
 		name      string
@@ -160,9 +153,9 @@ func TestCastField_StringToInteger(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceField := NewConstantField(*stringMeta, tt.input)
+			sourceField := NewConstantFieldValue(stringMeta, tt.input)
 
-			castField := NewCastField("casted_int", sourceField, tsquery.DataTypeInteger)
+			castField := NewCastFieldValue(sourceField, tsquery.DataTypeInteger)
 
 			result, err := executeAndGetValue(t, castField, ctx)
 			if tt.shouldErr {
@@ -178,8 +171,7 @@ func TestCastField_StringToInteger(t *testing.T) {
 func TestCastField_StringToDecimal(t *testing.T) {
 	ctx := context.Background()
 
-	stringMeta, err := tsquery.NewFieldMeta("source_string", tsquery.DataTypeString, false)
-	require.NoError(t, err)
+	stringMeta := ValueMeta{DataType: tsquery.DataTypeString, Required: false}
 
 	tests := []struct {
 		name      string
@@ -197,9 +189,9 @@ func TestCastField_StringToDecimal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceField := NewConstantField(*stringMeta, tt.input)
+			sourceField := NewConstantFieldValue(stringMeta, tt.input)
 
-			castField := NewCastField("casted_decimal", sourceField, tsquery.DataTypeDecimal)
+			castField := NewCastFieldValue(sourceField, tsquery.DataTypeDecimal)
 
 			result, err := executeAndGetValue(t, castField, ctx)
 			if tt.shouldErr {
@@ -215,13 +207,11 @@ func TestCastField_StringToDecimal(t *testing.T) {
 func TestCastField_SameType(t *testing.T) {
 	ctx := context.Background()
 
-	intMeta, err := tsquery.NewFieldMeta("source_int", tsquery.DataTypeInteger, false)
-	require.NoError(t, err)
-
-	sourceField := NewConstantField(*intMeta, int64(42))
+	intMeta := ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	sourceField := NewConstantFieldValue(intMeta, int64(42))
 
 	// Cast to same type should work (identity function)
-	castField := NewCastField("casted_int", sourceField, tsquery.DataTypeInteger)
+	castField := NewCastFieldValue(sourceField, tsquery.DataTypeInteger)
 
 	result, err := executeAndGetValue(t, castField, ctx)
 	require.NoError(t, err)
@@ -229,24 +219,20 @@ func TestCastField_SameType(t *testing.T) {
 }
 
 func TestCastField_BooleanNotSupported(t *testing.T) {
-	boolMeta, err := tsquery.NewFieldMeta("source_bool", tsquery.DataTypeBoolean, false)
-	require.NoError(t, err)
-
-	sourceField := NewConstantField(*boolMeta, true)
+	boolMeta := ValueMeta{DataType: tsquery.DataTypeBoolean, Required: false}
+	sourceField := NewConstantFieldValue(boolMeta, true)
 
 	// Cast from boolean should fail on Execute
-	castField := NewCastField("casted_int", sourceField, tsquery.DataTypeInteger)
-	_, _, err = castField.Execute([]tsquery.FieldMeta{})
+	castField := NewCastFieldValue(sourceField, tsquery.DataTypeInteger)
+	_, _, err := castField.Execute([]tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "boolean")
 
 	// Cast to boolean should also fail
-	intMeta, err := tsquery.NewFieldMeta("source_int", tsquery.DataTypeInteger, false)
-	require.NoError(t, err)
+	intMeta := ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	sourceField2 := NewConstantFieldValue(intMeta, int64(42))
 
-	sourceField2 := NewConstantField(*intMeta, int64(42))
-
-	castField2 := NewCastField("casted_bool", sourceField2, tsquery.DataTypeBoolean)
+	castField2 := NewCastFieldValue(sourceField2, tsquery.DataTypeBoolean)
 	_, _, err = castField2.Execute([]tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "boolean")
@@ -255,14 +241,12 @@ func TestCastField_BooleanNotSupported(t *testing.T) {
 func TestCastField_TimestampNotSupported(t *testing.T) {
 	// We can't create a ConstantField with timestamp since ValidateData doesn't support it
 	// So we'll just test that creating a cast field with timestamp fails at the getCastFunc level
-	intMeta, err := tsquery.NewFieldMeta("source_int", tsquery.DataTypeInteger, false)
-	require.NoError(t, err)
-
-	sourceField := NewConstantField(*intMeta, int64(42))
+	intMeta := ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	sourceField := NewConstantFieldValue(intMeta, int64(42))
 
 	// Cast to timestamp should fail on Execute
-	castField := NewCastField("casted_timestamp", sourceField, tsquery.DataTypeTimestamp)
-	_, _, err = castField.Execute([]tsquery.FieldMeta{})
+	castField := NewCastFieldValue(sourceField, tsquery.DataTypeTimestamp)
+	_, _, err := castField.Execute([]tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "timestamp")
 }
@@ -270,15 +254,14 @@ func TestCastField_TimestampNotSupported(t *testing.T) {
 func TestCastField_ErrorPropagation(t *testing.T) {
 	ctx := context.Background()
 
-	intMeta, err := tsquery.NewFieldMeta("source_int", tsquery.DataTypeInteger, false)
-	require.NoError(t, err)
+	intMeta := ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 
 	// Create an error field
-	errorField := &testErrorField{meta: *intMeta, err: fmt.Errorf("source error")}
+	errorField := &testErrorField{meta: intMeta, err: fmt.Errorf("source error")}
 
-	castField := NewCastField("casted_decimal", errorField, tsquery.DataTypeDecimal)
+	castField := NewCastFieldValue(errorField, tsquery.DataTypeDecimal)
 
-	_, err = executeAndGetValue(t, castField, ctx)
+	_, err := executeAndGetValue(t, castField, ctx)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed getting value from source field")
 }
@@ -287,12 +270,10 @@ func TestCastField_NilHandling(t *testing.T) {
 	ctx := context.Background()
 
 	// Create optional field
-	intMeta, err := tsquery.NewFieldMeta("source_int", tsquery.DataTypeInteger, false)
-	require.NoError(t, err)
+	intMeta := ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	sourceField := NewConstantFieldValue(intMeta, nil)
 
-	sourceField := NewConstantField(*intMeta, nil)
-
-	castField := NewCastField("casted_decimal", sourceField, tsquery.DataTypeDecimal)
+	castField := NewCastFieldValue(sourceField, tsquery.DataTypeDecimal)
 
 	result, err := executeAndGetValue(t, castField, ctx)
 	require.NoError(t, err)
@@ -303,16 +284,14 @@ func TestCastField_ChainedCasts(t *testing.T) {
 	ctx := context.Background()
 
 	// Start with string -> int -> decimal
-	stringMeta, err := tsquery.NewFieldMeta("source_string", tsquery.DataTypeString, false)
-	require.NoError(t, err)
-
-	sourceField := NewConstantField(*stringMeta, "42")
+	stringMeta := ValueMeta{DataType: tsquery.DataTypeString, Required: false}
+	sourceField := NewConstantFieldValue(stringMeta, "42")
 
 	// First cast: string -> int
-	castToInt := NewCastField("cast_to_int", sourceField, tsquery.DataTypeInteger)
+	castToInt := NewCastFieldValue(sourceField, tsquery.DataTypeInteger)
 
 	// Second cast: int -> decimal
-	castToDecimal := NewCastField("cast_to_decimal", castToInt, tsquery.DataTypeDecimal)
+	castToDecimal := NewCastFieldValue(castToInt, tsquery.DataTypeDecimal)
 
 	result, err := executeAndGetValue(t, castToDecimal, ctx)
 	require.NoError(t, err)
@@ -321,11 +300,11 @@ func TestCastField_ChainedCasts(t *testing.T) {
 
 // testErrorField is a helper field that always returns an error
 type testErrorField struct {
-	meta tsquery.FieldMeta
+	meta ValueMeta
 	err  error
 }
 
-func (ef *testErrorField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
+func (ef *testErrorField) Execute(fieldsMeta []tsquery.FieldMeta) (ValueMeta, ValueSupplier, error) {
 	valueSupplier := func(_ context.Context, _ timeseries.TsRecord[[]any]) (any, error) {
 		return nil, ef.err
 	}

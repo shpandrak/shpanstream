@@ -82,6 +82,6 @@ func (ofm OverrideFieldMetadataFilter) Filter(result tsquery.Result) (tsquery.Re
 	copy(newFieldsMeta, fieldsMeta)
 	newFieldsMeta[fieldIndex] = *updatedFieldMeta
 
-	// Return new result with updated metadata but same stream
+	// Return a new result with updated metadata but the same stream
 	return tsquery.NewResult(newFieldsMeta, result.Stream()), nil
 }

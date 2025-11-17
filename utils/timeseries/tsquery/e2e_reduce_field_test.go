@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-// Helper function to create a result from struct stream with required fields
+// Helper function to create a result from a struct stream with required fields
 func createResultFromStructs[T any](structStream stream.Stream[T], fieldNames []string, fieldTypes []tsquery.DataType, fieldUnits []string) (tsquery.Result, error) {
-	// First create with datasource to get the structure
+	// First, create with datasource to get the structure
 	ds, err := datasource.NewStaticStructDatasource(structStream)
 	if err != nil {
 		return tsquery.Result{}, err
@@ -91,8 +91,8 @@ func TestReduceField_SumAllFields_Decimal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: sum all fields
-	reduceField := field.NewReduceAllFields("total", field.ReductionTypeSum, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceAllFieldValues(field.ReductionTypeSum)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "total"})
 
 	reducedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -135,8 +135,8 @@ func TestReduceField_SumSpecificFields_Integer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: sum only Count1 and Count2
-	reduceField := field.NewReduceFields("sum_counts", []string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, field.ReductionTypeSum, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceFieldValues([]string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, field.ReductionTypeSum)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "sum_counts"})
 
 	reducedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -177,8 +177,8 @@ func TestReduceField_AvgAllFields_Decimal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: average all fields
-	reduceField := field.NewReduceAllFields("average", field.ReductionTypeAvg, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceAllFieldValues(field.ReductionTypeAvg)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "average"})
 
 	reducedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -213,8 +213,8 @@ func TestReduceField_MinMax_Integer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test MIN
-	minField := field.NewReduceFields("min_value", []string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, field.ReductionTypeMin, nil)
-	minFilter := filter.NewSingleFieldFilter(minField)
+	minField := field.NewReduceFieldValues([]string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, field.ReductionTypeMin)
+	minFilter := filter.NewSingleFieldFilter(minField, filter.AddFieldMeta{Urn: "result"})
 	minResult, err := minFilter.Filter(result)
 	require.NoError(t, err)
 
@@ -222,8 +222,8 @@ func TestReduceField_MinMax_Integer(t *testing.T) {
 	require.Equal(t, int64(50), minRecords[0].Value[0]) // min(100, 50) = 50
 
 	// Test MAX
-	maxField := field.NewReduceFields("max_value", []string{"IntegerMetrics:Count2", "IntegerMetrics:Count3"}, field.ReductionTypeMax, nil)
-	maxFilter := filter.NewSingleFieldFilter(maxField)
+	maxField := field.NewReduceFieldValues([]string{"IntegerMetrics:Count2", "IntegerMetrics:Count3"}, field.ReductionTypeMax)
+	maxFilter := filter.NewSingleFieldFilter(maxField, filter.AddFieldMeta{Urn: "result"})
 
 	// Need to recreate result since stream was consumed
 	result2, err := createResultFromStructs(
@@ -258,8 +258,8 @@ func TestReduceField_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: count all fields
-	reduceField := field.NewReduceAllFields("field_count", field.ReductionTypeCount, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceAllFieldValues(field.ReductionTypeCount)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "field_count"})
 
 	reducedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -296,8 +296,8 @@ func TestReduceField_ErrorOnMixedDataTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to reduce fields with different data types (decimal and integer)
-	reduceField := field.NewReduceAllFields("invalid", field.ReductionTypeSum, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceAllFieldValues(field.ReductionTypeSum)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "result"})
 
 	_, err = singleFieldFilter.Filter(result)
 	require.Error(t, err)
@@ -319,8 +319,8 @@ func TestReduceField_ErrorOnNonExistentField(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to reduce a field that doesn't exist
-	reduceField := field.NewReduceFields("invalid", []string{"IntegerMetrics:NonExistent"}, field.ReductionTypeSum, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceFieldValues([]string{"IntegerMetrics:NonExistent"}, field.ReductionTypeSum)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "result"})
 
 	_, err = singleFieldFilter.Filter(result)
 	require.Error(t, err)
@@ -357,8 +357,8 @@ func TestReduceField_ErrorOnOptionalField(t *testing.T) {
 	result = tsquery.NewResult(newMeta, result.Stream())
 
 	// Try to reduce all fields (includes optional field)
-	reduceField := field.NewReduceAllFields("invalid", field.ReductionTypeSum, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceAllFieldValues(field.ReductionTypeSum)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "result"})
 
 	_, err = singleFieldFilter.Filter(result)
 	require.Error(t, err)
@@ -382,8 +382,8 @@ func TestReduceField_PreservesUnitWhenAllSame(t *testing.T) {
 	require.NoError(t, err)
 
 	// All IntegerMetrics fields have unit "items"
-	reduceField := field.NewReduceAllFields("total_items", field.ReductionTypeSum, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceAllFieldValues(field.ReductionTypeSum)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "result"})
 
 	reducedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -408,8 +408,8 @@ func TestReduceField_NoUnitWhenDifferent(t *testing.T) {
 	require.NoError(t, err)
 
 	// DecimalMetrics fields have different units (celsius, percent, hPa)
-	reduceField := field.NewReduceAllFields("combined", field.ReductionTypeSum, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceAllFieldValues(field.ReductionTypeSum)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "result"})
 
 	reducedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -439,8 +439,8 @@ func TestReduceField_MultipleRecordsProcessedCorrectly(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply reduce field: sum all fields
-	reduceField := field.NewReduceAllFields("total", field.ReductionTypeSum, nil)
-	singleFieldFilter := filter.NewSingleFieldFilter(reduceField)
+	reduceField := field.NewReduceAllFieldValues(field.ReductionTypeSum)
+	singleFieldFilter := filter.NewSingleFieldFilter(reduceField, filter.AddFieldMeta{Urn: "result"})
 
 	reducedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)

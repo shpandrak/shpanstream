@@ -45,14 +45,14 @@ func (af AlignerFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
 			} else {
 				// If this is not the first cluster
 
-				// Check if  the first item is magically aligned to the slot, return it
+				// Check if the first item is magically aligned to the slot, return it
 				if firstItem.Timestamp == clusterTimestampClassifier {
 					return timeseries.TsRecord[[]any]{
 						Value:     firstItem.Value,
 						Timestamp: clusterTimestampClassifier,
 					}, nil
 				} else {
-					// If not, we need to calculate the time weighted average
+					// If not, we need to calculate the time-weighted average
 					avgItem, err := timeWeightedAverageArr(
 						fieldsMeta,
 						clusterTimestampClassifier,
@@ -95,7 +95,7 @@ func timeWeightedAverageArr(fieldsMeta []tsquery.FieldMeta, targetTime, v1Time t
 		return nil, fmt.Errorf("v1Time and v2Time are the same: %s. targetTime:%s", v1Time, targetTime)
 	}
 
-	// Ensure targetTime is between v1Time and v2Time
+	// Ensure the targetTime is between v1Time and v2Time
 	if targetTime.Before(v1Time) || targetTime.After(v2Time) {
 		return nil, fmt.Errorf("targetTime %s is out of bounds (%s to %s)", targetTime, v1Time, v2Time)
 	}

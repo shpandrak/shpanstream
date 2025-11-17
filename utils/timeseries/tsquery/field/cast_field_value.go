@@ -9,12 +9,11 @@ import (
 	"strconv"
 )
 
-var _ Field = CastField{}
+var _ Value = CastFieldValue{}
 
-type CastField struct {
-	source     Field
+type CastFieldValue struct {
+	source     Value
 	targetType tsquery.DataType
-	fieldUrn   string
 }
 
 // Conversion functions for each type pair
@@ -106,46 +105,39 @@ func getCastFunc(sourceType, targetType tsquery.DataType) (func(any) (any, error
 	return nil, fmt.Errorf("unsupported cast from %s to %s", sourceType, targetType)
 }
 
-func NewCastField(
-	fieldUrn string,
-	source Field,
+func NewCastFieldValue(
+	source Value,
 	targetType tsquery.DataType,
-) CastField {
-	return CastField{
+) CastFieldValue {
+	return CastFieldValue{
 		source:     source,
 		targetType: targetType,
-		fieldUrn:   fieldUrn,
 	}
 }
 
-func (cf CastField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
+func (cf CastFieldValue) Execute(fieldsMeta []tsquery.FieldMeta) (ValueMeta, ValueSupplier, error) {
 	// Execute source to get metadata (lazy validation)
 	sourceMeta, sourceValueSupplier, err := cf.source.Execute(fieldsMeta)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing source field: %w", err)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("failed executing source field: %w", err)
 	}
-	sourceType := sourceMeta.DataType()
+	sourceType := sourceMeta.DataType
 
 	// Get the cast function
 	castFunc, err := getCastFunc(sourceType, cf.targetType)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to get cast function: %w", err)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("failed to get cast function: %w", err)
 	}
 
-	// Create field metadata for the cast result
-	fieldMeta, err := tsquery.NewFieldMetaWithCustomData(
-		cf.fieldUrn,
-		cf.targetType,
-		sourceMeta.Required(),
-		sourceMeta.Unit(),
-		sourceMeta.CustomMeta(),
-	)
-	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to create field meta for cast field: %w", err)
+	// Create field value metadata for the cast result
+	fieldValueMeta := ValueMeta{
+		DataType: cf.targetType,
+		Unit:     sourceMeta.Unit,
+		Required: sourceMeta.Required,
 	}
 
 	// Wrap cast function to handle nil for optional fields
-	if !fieldMeta.Required() {
+	if !fieldValueMeta.Required {
 		originalFunc := castFunc
 		castFunc = func(v any) (any, error) {
 			if v == nil {
@@ -169,5 +161,5 @@ func (cf CastField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, 
 		return result, nil
 	}
 
-	return *fieldMeta, valueSupplier, nil
+	return fieldValueMeta, valueSupplier, nil
 }

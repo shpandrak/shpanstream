@@ -2,11 +2,42 @@ package filter
 
 import (
 	"context"
+	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
 	"time"
 )
+
+type AddFieldMeta struct {
+	Urn          string
+	CustomMeta   map[string]any
+	OverrideUnit string
+}
+
+func PrepareField(meta AddFieldMeta, value field.Value, fieldsMeta []tsquery.FieldMeta) (*tsquery.FieldMeta, field.ValueSupplier, error) {
+	valueMeta, valueSupplier, err := value.Execute(fieldsMeta)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed executing field %s: %w", meta.Urn, err)
+	}
+	unit := valueMeta.Unit
+	if meta.OverrideUnit != "" {
+		unit = meta.OverrideUnit
+	}
+	fm, err := tsquery.NewFieldMetaWithCustomData(
+		meta.Urn,
+		valueMeta.DataType,
+		valueMeta.Required,
+		unit,
+		meta.CustomMeta,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed creating field meta for %s: %w", meta.Urn, err)
+	}
+	return fm, valueSupplier, nil
+
+}
 
 type Filter interface {
 	Filter(result tsquery.Result) (tsquery.Result, error)
