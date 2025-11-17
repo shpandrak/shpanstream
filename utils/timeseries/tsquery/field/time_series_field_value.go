@@ -8,6 +8,12 @@ import (
 
 type ValueSupplier func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error)
 
-type Field interface {
-	Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error)
+type ValueMeta struct {
+	DataType tsquery.DataType
+	Unit     string
+	Required bool
+}
+
+type Value interface {
+	Execute(fieldsMeta []tsquery.FieldMeta) (ValueMeta, ValueSupplier, error)
 }

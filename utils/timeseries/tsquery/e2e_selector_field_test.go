@@ -31,10 +31,10 @@ type PricingData struct {
 }
 
 type SystemMode struct {
-	Timestamp        time.Time
+	Timestamp         time.Time
 	IsHighPerformance bool
-	HighPerfMode     string
-	LowPerfMode      string
+	HighPerfMode      string
+	LowPerfMode       string
 }
 
 // --- Basic Selector Tests with Decimals ---
@@ -56,12 +56,13 @@ func TestSelectorField_DecimalValues_SelectTrue(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create selector field: if IsProduction then ProdLatency else DevLatency
-	selectorField := field.NewRefField("ServerMetrics:IsProduction")
-	trueField := field.NewRefField("ServerMetrics:ProdLatency")
-	falseField := field.NewRefField("ServerMetrics:DevLatency")
+	selectorField := field.NewRefFieldValue("ServerMetrics:IsProduction")
+	trueField := field.NewRefFieldValue("ServerMetrics:ProdLatency")
+	falseField := field.NewRefFieldValue("ServerMetrics:DevLatency")
 
-	selector := field.NewSelectorField("selected_latency", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "selected_latency"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	selectedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -98,12 +99,13 @@ func TestSelectorField_DecimalValues_SelectFalse(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create selector field
-	selectorField := field.NewRefField("ServerMetrics:IsProduction")
-	trueField := field.NewRefField("ServerMetrics:ProdLatency")
-	falseField := field.NewRefField("ServerMetrics:DevLatency")
+	selectorField := field.NewRefFieldValue("ServerMetrics:IsProduction")
+	trueField := field.NewRefFieldValue("ServerMetrics:ProdLatency")
+	falseField := field.NewRefFieldValue("ServerMetrics:DevLatency")
 
-	selector := field.NewSelectorField("selected_latency", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "selected_latency"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	selectedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -133,12 +135,13 @@ func TestSelectorField_DecimalValues_MixedSelection(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create selector field
-	selectorField := field.NewRefField("ServerMetrics:IsProduction")
-	trueField := field.NewRefField("ServerMetrics:ProdLatency")
-	falseField := field.NewRefField("ServerMetrics:DevLatency")
+	selectorField := field.NewRefFieldValue("ServerMetrics:IsProduction")
+	trueField := field.NewRefFieldValue("ServerMetrics:ProdLatency")
+	falseField := field.NewRefFieldValue("ServerMetrics:DevLatency")
 
-	selector := field.NewSelectorField("selected_latency", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "selected_latency"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	selectedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -161,10 +164,10 @@ func TestSelectorField_DecimalValues_MixedSelection(t *testing.T) {
 // --- Integer Selector Tests ---
 
 type RequestRateMetrics struct {
-	Timestamp      time.Time
-	IsProduction   bool
-	ProdRate       int64
-	DevRate        int64
+	Timestamp    time.Time
+	IsProduction bool
+	ProdRate     int64
+	DevRate      int64
 }
 
 func TestSelectorField_IntegerValues(t *testing.T) {
@@ -184,12 +187,13 @@ func TestSelectorField_IntegerValues(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create selector field: if IsProduction then ProdRate else DevRate
-	selectorField := field.NewRefField("RequestRateMetrics:IsProduction")
-	trueField := field.NewRefField("RequestRateMetrics:ProdRate")
-	falseField := field.NewRefField("RequestRateMetrics:DevRate")
+	selectorField := field.NewRefFieldValue("RequestRateMetrics:IsProduction")
+	trueField := field.NewRefFieldValue("RequestRateMetrics:ProdRate")
+	falseField := field.NewRefFieldValue("RequestRateMetrics:DevRate")
 
-	selector := field.NewSelectorField("selected_request_rate", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "selected_request_rate"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	selectedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -228,13 +232,14 @@ func TestSelectorField_StringValues(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Create selector field: if IsHighPerformance then HighPerfMode else LowPerfMode
-	selectorField := field.NewRefField("SystemMode:IsHighPerformance")
-	trueField := field.NewRefField("SystemMode:HighPerfMode")
-	falseField := field.NewRefField("SystemMode:LowPerfMode")
+	// Create a selector field: if IsHighPerformance then HighPerfMode else LowPerfMode
+	selectorField := field.NewRefFieldValue("SystemMode:IsHighPerformance")
+	trueField := field.NewRefFieldValue("SystemMode:HighPerfMode")
+	falseField := field.NewRefFieldValue("SystemMode:LowPerfMode")
 
-	selector := field.NewSelectorField("active_mode", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "active_mode"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	selectedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
@@ -285,32 +290,30 @@ func TestSelectorField_WithConditionAsSelector(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a condition field as the selector
-	premiumField := field.NewRefField("PricingData:IsPremiumCustomer")
+	premiumField := field.NewRefFieldValue("PricingData:IsPremiumCustomer")
 	trueConstant := createConstantField(t, "true_const", tsquery.DataTypeBoolean, true)
-	conditionSelector := field.NewConditionField(
-		"is_premium",
-		field.ConditionOperatorEquals,
+	conditionSelector := field.NewConditionFieldValue(field.ConditionOperatorEquals,
 		premiumField,
 		trueConstant,
 	)
 
-	// Create selector field: if is_premium then PremiumPrice else StandardPrice
-	trueField := field.NewRefField("PricingData:PremiumPrice")
-	falseField := field.NewRefField("PricingData:StandardPrice")
+	// Create a selector field: if is_premium then PremiumPrice else StandardPrice
+	trueField := field.NewRefFieldValue("PricingData:PremiumPrice")
+	falseField := field.NewRefFieldValue("PricingData:StandardPrice")
 
-	priceSelector := field.NewSelectorField("final_price", conditionSelector, trueField, falseField)
+	priceSelector := field.NewSelectorFieldValue(conditionSelector, trueField, falseField) // URN: final_price
 
 	// Create another selector for discount
-	discountTrueField := field.NewRefField("PricingData:PremiumDiscount")
-	discountFalseField := field.NewRefField("PricingData:StandardDiscount")
-	discountSelector := field.NewSelectorField("applied_discount", conditionSelector, discountTrueField, discountFalseField)
+	discountTrueField := field.NewRefFieldValue("PricingData:PremiumDiscount")
+	discountFalseField := field.NewRefFieldValue("PricingData:StandardDiscount")
+	discountSelector := field.NewSelectorFieldValue(conditionSelector, discountTrueField, discountFalseField) // URN: applied_discount
 
 	// Apply both selectors
-	priceFilter := filter.NewSingleFieldFilter(priceSelector)
+	priceFilter := filter.NewSingleFieldFilter(priceSelector, filter.AddFieldMeta{Urn: "final_price"})
 	priceResult, err := priceFilter.Filter(result)
 	require.NoError(t, err)
 
-	// Need to recreate result for second filter
+	// Need to recreate a result for the second filter
 	result2, err := createResultFromStructs(
 		stream.Just(testData...),
 		[]string{
@@ -331,7 +334,7 @@ func TestSelectorField_WithConditionAsSelector(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	discountFilter := filter.NewSingleFieldFilter(discountSelector)
+	discountFilter := filter.NewSingleFieldFilter(discountSelector, filter.AddFieldMeta{Urn: "applied_discount"})
 	discountResult, err := discountFilter.Filter(result2)
 	require.NoError(t, err)
 
@@ -367,12 +370,13 @@ func TestSelectorField_ErrorOnMismatchedDataTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to create selector with mismatched types (decimal vs integer)
-	selectorField := field.NewRefField("ServerMetrics:IsProduction")
-	trueField := field.NewRefField("ServerMetrics:ProdLatency")    // decimal
-	falseField := field.NewRefField("ServerMetrics:ProdRequestRate") // integer
+	selectorField := field.NewRefFieldValue("ServerMetrics:IsProduction")
+	trueField := field.NewRefFieldValue("ServerMetrics:ProdLatency")      // decimal
+	falseField := field.NewRefFieldValue("ServerMetrics:ProdRequestRate") // integer
 
-	selector := field.NewSelectorField("invalid", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "invalid"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	_, err = singleFieldFilter.Filter(result)
 	require.Error(t, err)
@@ -394,12 +398,13 @@ func TestSelectorField_ErrorOnMismatchedUnits(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to create selector with mismatched units
-	selectorField := field.NewRefField("PricingData:IsPremiumCustomer")
-	trueField := field.NewRefField("PricingData:PremiumPrice")     // usd
-	falseField := field.NewRefField("PricingData:PremiumDiscount") // percent
+	selectorField := field.NewRefFieldValue("PricingData:IsPremiumCustomer")
+	trueField := field.NewRefFieldValue("PricingData:PremiumPrice")     // usd
+	falseField := field.NewRefFieldValue("PricingData:PremiumDiscount") // percent
 
-	selector := field.NewSelectorField("invalid", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "invalid"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	_, err = singleFieldFilter.Filter(result)
 	require.Error(t, err)
@@ -421,12 +426,13 @@ func TestSelectorField_ErrorOnNonBooleanSelector(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to use a non-boolean field as selector (decimal instead of boolean)
-	selectorField := field.NewRefField("ServerMetrics:ProdLatency") // decimal, not boolean
-	trueField := field.NewRefField("ServerMetrics:ProdLatency")
-	falseField := field.NewRefField("ServerMetrics:DevLatency")
+	selectorField := field.NewRefFieldValue("ServerMetrics:ProdLatency") // decimal, not boolean
+	trueField := field.NewRefFieldValue("ServerMetrics:ProdLatency")
+	falseField := field.NewRefFieldValue("ServerMetrics:DevLatency")
 
-	selector := field.NewSelectorField("invalid", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "invalid"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	_, err = singleFieldFilter.Filter(result)
 	require.Error(t, err)
@@ -463,12 +469,13 @@ func TestSelectorField_ErrorOnOptionalSelector(t *testing.T) {
 	result = tsquery.NewResult(newMeta, result.Stream())
 
 	// Try to use optional boolean as selector
-	selectorField := field.NewRefField("ServerMetrics:IsProduction")
-	trueField := field.NewRefField("ServerMetrics:ProdLatency")
-	falseField := field.NewRefField("ServerMetrics:DevLatency")
+	selectorField := field.NewRefFieldValue("ServerMetrics:IsProduction")
+	trueField := field.NewRefFieldValue("ServerMetrics:ProdLatency")
+	falseField := field.NewRefFieldValue("ServerMetrics:DevLatency")
 
-	selector := field.NewSelectorField("invalid", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "invalid"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	_, err = singleFieldFilter.Filter(result)
 	require.Error(t, err)
@@ -505,12 +512,13 @@ func TestSelectorField_ErrorOnMismatchedRequiredStatus(t *testing.T) {
 	result = tsquery.NewResult(newMeta, result.Stream())
 
 	// Try to create selector with mismatched required status
-	selectorField := field.NewRefField("ServerMetrics:IsProduction")
-	trueField := field.NewRefField("ServerMetrics:ProdLatency")  // required
-	falseField := field.NewRefField("ServerMetrics:DevLatency") // optional
+	selectorField := field.NewRefFieldValue("ServerMetrics:IsProduction")
+	trueField := field.NewRefFieldValue("ServerMetrics:ProdLatency") // required
+	falseField := field.NewRefFieldValue("ServerMetrics:DevLatency") // optional
 
-	selector := field.NewSelectorField("invalid", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "invalid"
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{Urn: selectorUrn})
 
 	_, err = singleFieldFilter.Filter(result)
 	require.Error(t, err)
@@ -551,22 +559,34 @@ func TestSelectorField_MergesCustomMeta(t *testing.T) {
 	)
 
 	// Create selector field
-	selectorField := field.NewRefField("ServerMetrics:IsProduction")
-	trueField := field.NewRefField("ServerMetrics:ProdLatency")
-	falseField := field.NewRefField("ServerMetrics:DevLatency")
+	selectorField := field.NewRefFieldValue("ServerMetrics:IsProduction")
+	trueField := field.NewRefFieldValue("ServerMetrics:ProdLatency")
+	falseField := field.NewRefFieldValue("ServerMetrics:DevLatency")
 
-	selector := field.NewSelectorField("selected_latency", selectorField, trueField, falseField)
-	singleFieldFilter := filter.NewSingleFieldFilter(selector)
+	selector := field.NewSelectorFieldValue(selectorField, trueField, falseField)
+	selectorUrn := "selected_latency"
+
+	// With the new architecture, custom metadata is provided through AddFieldMeta at the filter level,
+	// not automatically merged from field values
+	customMeta := map[string]any{
+		"environment": "development",
+		"source":      "metrics-api",
+		"backup":      "enabled",
+	}
+	singleFieldFilter := filter.NewSingleFieldFilter(selector, filter.AddFieldMeta{
+		Urn:        selectorUrn,
+		CustomMeta: customMeta,
+	})
 
 	selectedResult, err := singleFieldFilter.Filter(result)
 	require.NoError(t, err)
 
-	// Verify custom meta is merged (false field overwrites true field's keys)
+	// Verify custom meta is set through AddFieldMeta
 	fieldsMeta := selectedResult.FieldsMeta()
 	require.Len(t, fieldsMeta, 1)
-	customMeta := fieldsMeta[0].CustomMeta()
-	require.NotNil(t, customMeta)
-	require.Equal(t, "development", customMeta["environment"]) // false field wins
-	require.Equal(t, "metrics-api", customMeta["source"])      // from true field
-	require.Equal(t, "enabled", customMeta["backup"])          // from false field
+	resultCustomMeta := fieldsMeta[0].CustomMeta()
+	require.NotNil(t, resultCustomMeta)
+	require.Equal(t, "development", resultCustomMeta["environment"])
+	require.Equal(t, "metrics-api", resultCustomMeta["source"])
+	require.Equal(t, "enabled", resultCustomMeta["backup"])
 }

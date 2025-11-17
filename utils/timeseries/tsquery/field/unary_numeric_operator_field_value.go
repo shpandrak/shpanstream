@@ -9,7 +9,7 @@ import (
 	"math"
 )
 
-var _ Field = UnaryNumericOperatorField{}
+var _ Value = UnaryNumericOperatorFieldValue{}
 
 type UnaryNumericOperatorType string
 
@@ -140,57 +140,48 @@ func (uno UnaryNumericOperatorType) getFuncImpl(forDataType tsquery.DataType) (f
 	return nil, fmt.Errorf("unsupported data type %s for unary numeric operations", forDataType)
 }
 
-type UnaryNumericOperatorField struct {
-	operand  Field
-	op       UnaryNumericOperatorType
-	fieldUrn string
+type UnaryNumericOperatorFieldValue struct {
+	operand Value
+	op      UnaryNumericOperatorType
 }
 
-func NewUnaryNumericOperatorField(
-	fieldUrn string,
-	operand Field,
+func NewUnaryNumericOperatorFieldValue(
+	operand Value,
 	op UnaryNumericOperatorType,
-) UnaryNumericOperatorField {
-	return UnaryNumericOperatorField{
-		operand:  operand,
-		op:       op,
-		fieldUrn: fieldUrn,
+) UnaryNumericOperatorFieldValue {
+	return UnaryNumericOperatorFieldValue{
+		operand: operand,
+		op:      op,
 	}
 }
 
-func (unof UnaryNumericOperatorField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
+func (unof UnaryNumericOperatorFieldValue) Execute(fieldsMeta []tsquery.FieldMeta) (ValueMeta, ValueSupplier, error) {
 	// Execute operand to get metadata (lazy validation)
 	operandMeta, operandValueSupplier, err := unof.operand.Execute(fieldsMeta)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed executing operand field: %w", err)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("failed executing operand field: %w", err)
 	}
-	dt := operandMeta.DataType()
+	dt := operandMeta.DataType
 
 	// Check that operand is a numeric type
 	if !dt.IsNumeric() {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("operand field %s has non-numeric data type: %s", operandMeta.Urn(), dt)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("operand field has non-numeric data type: %s", dt)
 	}
 
 	// Get the function implementation
 	funcImpl, err := unof.op.getFuncImpl(dt)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to get function implementation: %w", err)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("failed to get function implementation: %w", err)
 	}
 
-	// Create field metadata - unary operations maintain the same data type
-	fieldMeta, err := tsquery.NewFieldMetaWithCustomData(
-		unof.fieldUrn,
-		dt,
-		operandMeta.Required(),
-		operandMeta.Unit(),
-		operandMeta.CustomMeta(),
-	)
-	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to create field meta for unary operator field: %w", err)
+	fvm := ValueMeta{
+		DataType: dt,
+		Unit:     operandMeta.Unit,
+		Required: operandMeta.Required,
 	}
 
 	// Allow nil in the case of optional fields
-	if !fieldMeta.Required() {
+	if !fvm.Required {
 		originalFunc := funcImpl
 		funcImpl = func(v any) any {
 			if v == nil {
@@ -208,5 +199,5 @@ func (unof UnaryNumericOperatorField) Execute(fieldsMeta []tsquery.FieldMeta) (t
 		return funcImpl(value), nil
 	}
 
-	return *fieldMeta, valueSupplier, nil
+	return fvm, valueSupplier, nil
 }

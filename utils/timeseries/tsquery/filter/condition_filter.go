@@ -12,10 +12,10 @@ import (
 var _ Filter = ConditionFilter{}
 
 type ConditionFilter struct {
-	booleanField field.Field
+	booleanField field.Value
 }
 
-func NewConditionFilter(booleanField field.Field) ConditionFilter {
+func NewConditionFilter(booleanField field.Value) ConditionFilter {
 	return ConditionFilter{booleanField: booleanField}
 }
 
@@ -28,20 +28,18 @@ func (cf ConditionFilter) Filter(result tsquery.Result) (tsquery.Result, error) 
 		return util.DefaultValue[tsquery.Result](), fmt.Errorf("failed to execute boolean field for condition filter: %w", err)
 	}
 
-	// Validate that the field is of boolean type
-	if fieldMeta.DataType() != tsquery.DataTypeBoolean {
+	// Validate that the field is of a boolean type
+	if fieldMeta.DataType != tsquery.DataTypeBoolean {
 		return util.DefaultValue[tsquery.Result](), fmt.Errorf(
-			"condition filter requires a boolean field, got %s for field %s",
-			fieldMeta.DataType(),
-			fieldMeta.Urn(),
+			"condition filter requires a boolean field, got %s",
+			fieldMeta.DataType,
 		)
 	}
 
 	// Field must be required (non-optional)
-	if !fieldMeta.Required() {
+	if !fieldMeta.Required {
 		return util.DefaultValue[tsquery.Result](), fmt.Errorf(
-			"condition filter requires a required (non-optional) boolean field, got optional for field %s",
-			fieldMeta.Urn(),
+			"condition filter requires a required (non-optional) boolean field, got optional",
 		)
 	}
 

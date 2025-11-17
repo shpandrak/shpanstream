@@ -13,14 +13,12 @@ import (
 // ReplaceFieldFilter replaces an existing field with a new field value.
 type ReplaceFieldFilter struct {
 	fieldUrnToReplace string
-	field             field.Field
+	updatedValue      field.Value
+	updatedMeta       AddFieldMeta
 }
 
-func NewReplaceFieldFilter(fieldUrnToReplace string, field field.Field) ReplaceFieldFilter {
-	return ReplaceFieldFilter{
-		fieldUrnToReplace: fieldUrnToReplace,
-		field:             field,
-	}
+func NewReplaceFieldFilter(fieldUrnToReplace string, updatedValue field.Value, updatedMeta AddFieldMeta) ReplaceFieldFilter {
+	return ReplaceFieldFilter{fieldUrnToReplace: fieldUrnToReplace, updatedValue: updatedValue, updatedMeta: updatedMeta}
 }
 
 func (r ReplaceFieldFilter) Filter(result tsquery.Result) (tsquery.Result, error) {
@@ -29,10 +27,10 @@ func (r ReplaceFieldFilter) Filter(result tsquery.Result) (tsquery.Result, error
 		return util.DefaultValue[tsquery.Result](), fmt.Errorf("cannot replace field, since it does not exist: %s", r.fieldUrnToReplace)
 	}
 
-	// Execute field to get metadata and value supplier
-	fieldMeta, valueSupplier, err := r.field.Execute(result.FieldsMeta())
+	// Prepare field to get metadata and value supplier
+	fieldMeta, valueSupplier, err := PrepareField(r.updatedMeta, r.updatedValue, result.FieldsMeta())
 	if err != nil {
-		return util.DefaultValue[tsquery.Result](), err
+		return util.DefaultValue[tsquery.Result](), fmt.Errorf("failed preparing field for replacement: %w", err)
 	}
 
 	// Find the index of the field to replace
@@ -48,7 +46,7 @@ func (r ReplaceFieldFilter) Filter(result tsquery.Result) (tsquery.Result, error
 	// Create new fieldsMeta with the field replaced
 	newFieldsMeta := make([]tsquery.FieldMeta, len(fieldsMeta))
 	copy(newFieldsMeta, fieldsMeta)
-	newFieldsMeta[replaceIdx] = fieldMeta
+	newFieldsMeta[replaceIdx] = *fieldMeta
 
 	return tsquery.NewResult(
 		newFieldsMeta,

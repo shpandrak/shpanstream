@@ -19,7 +19,7 @@ const (
 	ConditionOperatorLessEqual    ConditionOperatorType = "less_equal"
 )
 
-var _ Field = ConditionField{}
+var _ Value = ConditionFieldValue{}
 
 // Integer comparison operations
 func equalsInt(v1, v2 any) bool {
@@ -156,76 +156,69 @@ func wrapWithNilCheck(compareFunc func(a, b any) bool) func(a, b any) bool {
 	}
 }
 
-type ConditionField struct {
-	urn          string
+type ConditionFieldValue struct {
 	operatorType ConditionOperatorType
-	operand1     Field
-	operand2     Field
+	operand1     Value
+	operand2     Value
 }
 
-func NewConditionField(
-	urn string,
+func NewConditionFieldValue(
 	operatorType ConditionOperatorType,
-	operand1 Field,
-	operand2 Field,
-) *ConditionField {
-	return &ConditionField{urn: urn, operatorType: operatorType, operand1: operand1, operand2: operand2}
+	operand1 Value,
+	operand2 Value,
+) ConditionFieldValue {
+	return ConditionFieldValue{operatorType: operatorType, operand1: operand1, operand2: operand2}
 }
 
-func (cf ConditionField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.FieldMeta, ValueSupplier, error) {
+func (cf ConditionFieldValue) Execute(fieldsMeta []tsquery.FieldMeta) (ValueMeta, ValueSupplier, error) {
 	operand1Meta, operand1Supplier, err := cf.operand1.Execute(fieldsMeta)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, err
+		return util.DefaultValue[ValueMeta](), nil, err
 	}
 
 	operand2Meta, operand2Supplier, err := cf.operand2.Execute(fieldsMeta)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, err
+		return util.DefaultValue[ValueMeta](), nil, err
 	}
 
-	dt1 := operand1Meta.DataType()
-	dt2 := operand2Meta.DataType()
+	dt1 := operand1Meta.DataType
+	dt2 := operand2Meta.DataType
 
 	// Check that both operands have the same data type
 	if dt1 != dt2 {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf(
-			"operand types do not match: %s vs %s when executing field %s",
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf(
+			"operand types do not match: %s vs %s when executing condition field",
 			dt1,
 			dt2,
-			cf.urn,
 		)
 	}
 
 	// Get the comparison function implementation
 	compareFunc, err := cf.operatorType.getFuncImpl(dt1)
 	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, fmt.Errorf("failed to get comparison function: %w", err)
+		return util.DefaultValue[ValueMeta](), nil, fmt.Errorf("failed to get comparison function: %w", err)
 	}
 
 	// Add nil handling for optional operands
-	if !operand1Meta.Required() || !operand2Meta.Required() {
+	if !operand1Meta.Required || !operand2Meta.Required {
 		compareFunc = wrapWithNilCheck(compareFunc)
 	}
 
-	fm, err := tsquery.NewFieldMeta(
-		cf.urn,
-		tsquery.DataTypeBoolean,
-		operand1Meta.Required() && operand2Meta.Required(),
-	)
-	if err != nil {
-		return util.DefaultValue[tsquery.FieldMeta](), nil, err
+	fvm := ValueMeta{
+		DataType: tsquery.DataTypeBoolean,
+		Required: operand1Meta.Required && operand2Meta.Required,
 	}
 
 	valueSupplier := func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error) {
 		val1, err := operand1Supplier(ctx, currRow)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get value for operand 1 when executing condition field %s: %w", cf.urn, err)
+			return nil, fmt.Errorf("failed to get value for operand 1 when executing condition field: %w", err)
 		}
 		val2, err := operand2Supplier(ctx, currRow)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get value for operand 2 when executing condition field %s: %w", cf.urn, err)
+			return nil, fmt.Errorf("failed to get value for operand 2 when executing condition field: %w", err)
 		}
 		return compareFunc(val1, val2), nil
 	}
-	return *fm, valueSupplier, nil
+	return fvm, valueSupplier, nil
 }

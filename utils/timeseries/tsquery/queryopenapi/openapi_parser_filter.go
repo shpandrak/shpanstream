@@ -32,12 +32,12 @@ func ParseFilter(rawFilter ApiQueryFilter) (filter.Filter, error) {
 }
 
 func parseAppendFieldFilter(appendFieldFilter ApiAppendFieldFilter) (filter.Filter, error) {
-	f, err := parseQueryField(appendFieldFilter.Field)
+	f, err := parseQueryField(appendFieldFilter.FieldValue)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse append field filter: %w", err)
 	}
-	return filter.NewAppendFieldFilter(f), nil
-
+	addFieldMeta := parseAddFieldMeta(appendFieldFilter.FieldMeta)
+	return filter.NewAppendFieldFilter(f, addFieldMeta), nil
 }
 
 func parseDropFieldFilter(dropFieldFilter ApiDropFieldFilter) (filter.Filter, error) {
@@ -48,11 +48,12 @@ func parseDropFieldFilter(dropFieldFilter ApiDropFieldFilter) (filter.Filter, er
 }
 
 func parseReplaceFieldFilter(replaceFieldFilter ApiReplaceFieldFilter) (filter.Filter, error) {
-	f, err := parseQueryField(replaceFieldFilter.Field)
+	f, err := parseQueryField(replaceFieldFilter.FieldValue)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse replace field filter: %w", err)
 	}
-	return filter.NewReplaceFieldFilter(replaceFieldFilter.FieldUrnToReplace, f), nil
+	addFieldMeta := parseAddFieldMeta(replaceFieldFilter.FieldMeta)
+	return filter.NewReplaceFieldFilter(replaceFieldFilter.FieldUrnToReplace, f, addFieldMeta), nil
 }
 
 func parseConditionFilter(conditionFilter ApiConditionFilter) (filter.Filter, error) {
@@ -64,11 +65,12 @@ func parseConditionFilter(conditionFilter ApiConditionFilter) (filter.Filter, er
 }
 
 func parseSingleFieldFilter(singleFieldFilter ApiSingleFieldFilter) (filter.Filter, error) {
-	f, err := parseQueryField(singleFieldFilter.Field)
+	f, err := parseQueryField(singleFieldFilter.FieldValue)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse field for single field filter: %w", err)
 	}
-	return filter.NewSingleFieldFilter(f), nil
+	addFieldMeta := parseAddFieldMeta(singleFieldFilter.FieldMeta)
+	return filter.NewSingleFieldFilter(f, addFieldMeta), nil
 }
 
 func parseOverrideFieldMetadataFilter(overrideFilter ApiOverrideFieldMetadataFilter) (filter.Filter, error) {
@@ -156,4 +158,12 @@ func parseCustomAlignmentPeriod(period ApiCustomAlignmentPeriod) (timeseries.Ali
 		return nil, badInputErrorf(period, "duration must be positive")
 	}
 	return timeseries.NewFixedAlignmentPeriod(time.Duration(period.DurationInMillis)*time.Millisecond, loc), nil
+}
+
+func parseAddFieldMeta(apiMeta ApiAddFieldMeta) filter.AddFieldMeta {
+	return filter.AddFieldMeta{
+		Urn:          apiMeta.Uri,
+		CustomMeta:   apiMeta.CustomMetadata,
+		OverrideUnit: apiMeta.OverrideUnit,
+	}
 }
