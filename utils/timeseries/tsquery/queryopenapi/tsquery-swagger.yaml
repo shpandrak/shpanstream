@@ -56,7 +56,7 @@ components:
         - to
       properties:
         datasource:
-          $ref: '#/components/schemas/ApiFilteredQueryDatasource'
+          $ref: '#/components/schemas/ApiQueryDatasource'
         from:
           type: string
           format: date-time
@@ -66,21 +66,49 @@ components:
 
 
     ApiQueryDatasource:
+      description: Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. join, filtered, etc.)
       type: object
       discriminator:
         propertyName: type
         mapping:
-          raw: '#/components/schemas/ApiRawQueryDatasource'
+          filtered: '#/components/schemas/ApiFilteredQueryDatasource'
           join: '#/components/schemas/ApiJoinQueryDatasource'
           static: '#/components/schemas/ApiStaticQueryDatasource'
       oneOf:
-        - $ref: '#/components/schemas/ApiRawQueryDatasource'
+        - $ref: '#/components/schemas/ApiFilteredQueryDatasource'
         - $ref: '#/components/schemas/ApiJoinQueryDatasource'
         - $ref: '#/components/schemas/ApiStaticQueryDatasource'
+
+    ApiMultiDatasource:
+      type: object
+      description: Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
+      discriminator:
+        propertyName: type
+        mapping:
+          list: '#/components/schemas/ApiListMultiDatasource'
+      oneOf:
+        - $ref: '#/components/schemas/ApiListMultiDatasource'
+
+    ApiListMultiDatasource:
+      type: object
+      description: List Multi Datasource is a static predefined list of datasources.
+      required:
+        - type
+        - datasources
+      properties:
+        type:
+          type: string
+          enum:
+            - list
+        datasources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiQueryDatasource'
 
     ApiFilteredQueryDatasource:
       type: object
       required:
+        - type
         - datasource
         - filters
       properties:
@@ -114,9 +142,7 @@ components:
             - left
             - full
         datasources:
-          type: array
-          items:
-            $ref: '#/components/schemas/ApiFilteredQueryDatasource'
+          $ref: '#/components/schemas/ApiMultiDatasource'
 
     ApiStaticQueryDatasource:
       type: object
@@ -656,21 +682,6 @@ components:
         - max
         - min
         - count
-
-    ApiRawQueryDatasource:
-      type: object
-      required:
-        - type
-        - config
-      properties:
-        type:
-          type: string
-          enum:
-            - raw
-        config:
-          type: object
-          additionalProperties: true
-          x-go-type: json.RawMessage
 
     ApiQueryResult:
       type: object

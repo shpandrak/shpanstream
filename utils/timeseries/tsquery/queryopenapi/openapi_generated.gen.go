@@ -94,6 +94,11 @@ const (
 	Join ApiJoinQueryDatasourceType = "join"
 )
 
+// Defines values for ApiListMultiDatasourceType.
+const (
+	List ApiListMultiDatasourceType = "list"
+)
+
 // Defines values for ApiLogicalExpressionQueryFieldValueType.
 const (
 	LogicalExpression ApiLogicalExpressionQueryFieldValueType = "logicalExpression"
@@ -112,11 +117,6 @@ const (
 // Defines values for ApiOverrideFieldMetadataFilterType.
 const (
 	OverrideFieldMetadata ApiOverrideFieldMetadataFilterType = "overrideFieldMetadata"
-)
-
-// Defines values for ApiRawQueryDatasourceType.
-const (
-	Raw ApiRawQueryDatasourceType = "raw"
 )
 
 // Defines values for ApiReduceQueryFieldValueType.
@@ -271,16 +271,18 @@ type ApiDropFieldFilterType string
 
 // ApiExecuteQueryCommandArgs defines model for ApiExecuteQueryCommandArgs.
 type ApiExecuteQueryCommandArgs struct {
-	Datasource ApiFilteredQueryDatasource `json:"datasource"`
-	From       time.Time                  `json:"from"`
-	To         time.Time                  `json:"to"`
+	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. join, filtered, etc.)
+	Datasource ApiQueryDatasource `json:"datasource"`
+	From       time.Time          `json:"from"`
+	To         time.Time          `json:"to"`
 }
 
 // ApiFilteredQueryDatasource defines model for ApiFilteredQueryDatasource.
 type ApiFilteredQueryDatasource struct {
-	Datasource ApiQueryDatasource              `json:"datasource"`
-	Filters    []ApiQueryFilter                `json:"filters"`
-	Type       *ApiFilteredQueryDatasourceType `json:"type,omitempty"`
+	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. join, filtered, etc.)
+	Datasource ApiQueryDatasource             `json:"datasource"`
+	Filters    []ApiQueryFilter               `json:"filters"`
+	Type       ApiFilteredQueryDatasourceType `json:"type"`
 }
 
 // ApiFilteredQueryDatasourceType defines model for ApiFilteredQueryDatasource.Type.
@@ -288,7 +290,8 @@ type ApiFilteredQueryDatasourceType string
 
 // ApiJoinQueryDatasource defines model for ApiJoinQueryDatasource.
 type ApiJoinQueryDatasource struct {
-	Datasources []ApiFilteredQueryDatasource   `json:"datasources"`
+	// Datasources Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
+	Datasources ApiMultiDatasource             `json:"datasources"`
 	JoinType    ApiJoinQueryDatasourceJoinType `json:"joinType"`
 	Type        ApiJoinQueryDatasourceType     `json:"type"`
 }
@@ -298,6 +301,15 @@ type ApiJoinQueryDatasourceJoinType string
 
 // ApiJoinQueryDatasourceType defines model for ApiJoinQueryDatasource.Type.
 type ApiJoinQueryDatasourceType string
+
+// ApiListMultiDatasource List Multi Datasource is a static predefined list of datasources.
+type ApiListMultiDatasource struct {
+	Datasources []ApiQueryDatasource       `json:"datasources"`
+	Type        ApiListMultiDatasourceType `json:"type"`
+}
+
+// ApiListMultiDatasourceType defines model for ApiListMultiDatasource.Type.
+type ApiListMultiDatasourceType string
 
 // ApiLogicalExpressionQueryFieldValue defines model for ApiLogicalExpressionQueryFieldValue.
 type ApiLogicalExpressionQueryFieldValue struct {
@@ -315,6 +327,11 @@ type ApiLogicalOperatorType = field.LogicalOperatorType
 
 // ApiMetricDataType defines model for ApiMetricDataType.
 type ApiMetricDataType = tsquery.DataType
+
+// ApiMultiDatasource Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
+type ApiMultiDatasource struct {
+	union json.RawMessage
+}
 
 // ApiNumericExpressionQueryFieldValue defines model for ApiNumericExpressionQueryFieldValue.
 type ApiNumericExpressionQueryFieldValue struct {
@@ -349,7 +366,7 @@ type ApiOverrideFieldMetadataFilter struct {
 // ApiOverrideFieldMetadataFilterType defines model for ApiOverrideFieldMetadataFilter.Type.
 type ApiOverrideFieldMetadataFilterType string
 
-// ApiQueryDatasource defines model for ApiQueryDatasource.
+// ApiQueryDatasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. join, filtered, etc.)
 type ApiQueryDatasource struct {
 	union json.RawMessage
 }
@@ -386,15 +403,6 @@ type ApiQueryResultMeta struct {
 
 // ApiRawMetricValueRow defines model for ApiRawMetricValueRow.
 type ApiRawMetricValueRow = []any
-
-// ApiRawQueryDatasource defines model for ApiRawQueryDatasource.
-type ApiRawQueryDatasource struct {
-	Config json.RawMessage           `json:"config"`
-	Type   ApiRawQueryDatasourceType `json:"type"`
-}
-
-// ApiRawQueryDatasourceType defines model for ApiRawQueryDatasource.Type.
-type ApiRawQueryDatasourceType string
 
 // ApiReduceQueryFieldValue defines model for ApiReduceQueryFieldValue.
 type ApiReduceQueryFieldValue struct {
@@ -548,16 +556,63 @@ func (t *ApiAlignmentPeriod) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsApiRawQueryDatasource returns the union data inside the ApiQueryDatasource as a ApiRawQueryDatasource
-func (t ApiQueryDatasource) AsApiRawQueryDatasource() (ApiRawQueryDatasource, error) {
-	var body ApiRawQueryDatasource
+// AsApiListMultiDatasource returns the union data inside the ApiMultiDatasource as a ApiListMultiDatasource
+func (t ApiMultiDatasource) AsApiListMultiDatasource() (ApiListMultiDatasource, error) {
+	var body ApiListMultiDatasource
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromApiRawQueryDatasource overwrites any union data inside the ApiQueryDatasource as the provided ApiRawQueryDatasource
-func (t *ApiQueryDatasource) FromApiRawQueryDatasource(v ApiRawQueryDatasource) error {
-	v.Type = "raw"
+// FromApiListMultiDatasource overwrites any union data inside the ApiMultiDatasource as the provided ApiListMultiDatasource
+func (t *ApiMultiDatasource) FromApiListMultiDatasource(v ApiListMultiDatasource) error {
+	v.Type = "list"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+func (t ApiMultiDatasource) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ApiMultiDatasource) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "list":
+		return t.AsApiListMultiDatasource()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ApiMultiDatasource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ApiMultiDatasource) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsApiFilteredQueryDatasource returns the union data inside the ApiQueryDatasource as a ApiFilteredQueryDatasource
+func (t ApiQueryDatasource) AsApiFilteredQueryDatasource() (ApiFilteredQueryDatasource, error) {
+	var body ApiFilteredQueryDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiFilteredQueryDatasource overwrites any union data inside the ApiQueryDatasource as the provided ApiFilteredQueryDatasource
+func (t *ApiQueryDatasource) FromApiFilteredQueryDatasource(v ApiFilteredQueryDatasource) error {
+	v.Type = "filtered"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -610,10 +665,10 @@ func (t ApiQueryDatasource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "filtered":
+		return t.AsApiFilteredQueryDatasource()
 	case "join":
 		return t.AsApiJoinQueryDatasource()
-	case "raw":
-		return t.AsApiRawQueryDatasource()
 	case "static":
 		return t.AsApiStaticQueryDatasource()
 	default:

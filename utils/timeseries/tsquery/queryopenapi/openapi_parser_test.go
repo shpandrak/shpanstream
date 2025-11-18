@@ -2,9 +2,7 @@ package queryopenapi
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -197,12 +195,8 @@ func TestParseDatasource_Static(t *testing.T) {
 	err := apiDs.FromApiStaticQueryDatasource(staticDs)
 	require.NoError(t, err)
 
-	// Parse using the main ParseDatasource function
-	rawDsProvider := func(rawDsConfig json.RawMessage) (datasource.DataSource, error) {
-		return nil, nil // Not used for static datasources
-	}
-
-	ds, err := ParseDatasource(apiDs, rawDsProvider)
+	// Parse using the main parseDatasource function
+	ds, err := ParseDatasource(NewParsingContext(context.Background(), nil), apiDs)
 	require.NoError(t, err)
 	require.NotNil(t, ds)
 
@@ -257,7 +251,7 @@ func TestParseStaticDatasource_AllDataTypes(t *testing.T) {
 	assert.Equal(t, "hello", records[0].Value[2])
 	assert.Equal(t, true, records[0].Value[3])
 
-	// Verify second record
+	// Verify the second record
 	assert.Equal(t, int64(100), records[1].Value[0])
 	assert.Equal(t, 2.71, records[1].Value[1])
 	assert.Equal(t, "world", records[1].Value[2])
