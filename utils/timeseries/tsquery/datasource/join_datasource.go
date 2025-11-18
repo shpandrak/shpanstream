@@ -19,21 +19,21 @@ const (
 )
 
 type JoinDatasource struct {
-	joinType    JoinType
-	datasources stream.Stream[DataSource]
+	joinType JoinType
+	multiDs  MultiDataSource
 }
 
-func NewJoinDatasource(datasources stream.Stream[DataSource], joinType JoinType) JoinDatasource {
+func NewJoinDatasource(multiDs MultiDataSource, joinType JoinType) JoinDatasource {
 	return JoinDatasource{
-		datasources: datasources,
-		joinType:    joinType,
+		multiDs:  multiDs,
+		joinType: joinType,
 	}
 }
 
 func (mds JoinDatasource) Execute(ctx context.Context, from time.Time, to time.Time) (tsquery.Result, error) {
 	var sourceStreams []stream.Stream[timeseries.TsRecord[[]any]]
 	downStreamResults, err := stream.MapWithErrAndCtx(
-		mds.datasources,
+		mds.multiDs.GetDatasources(ctx),
 		func(ctx context.Context, ds DataSource) (tsquery.Result, error) {
 			return ds.Execute(ctx, from, to)
 		},

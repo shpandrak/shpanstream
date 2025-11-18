@@ -65,7 +65,7 @@ func TestJoinDatasource_InnerJoin_ThreeStreams(t *testing.T) {
 
 	// Create join datasource with inner join
 	joinDS := NewJoinDatasource(
-		stream.Just[DataSource](cpuDS, memDS, diskDS),
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
 		InnerJoin,
 	)
 
@@ -94,21 +94,21 @@ func TestJoinDatasource_InnerJoin_ThreeStreams(t *testing.T) {
 
 	// First record at hour 2
 	assert.Equal(t, baseTime.Add(2*time.Hour), records[0].Timestamp)
-	assert.Equal(t, 30.1, records[0].Value[0])       // CPU Usage
-	assert.Equal(t, int64(4), records[0].Value[1])   // CPU Cores
-	assert.Equal(t, 2048.0, records[0].Value[2])     // Memory UsedMB
-	assert.Equal(t, 8192.0, records[0].Value[3])     // Memory TotalMB
-	assert.Equal(t, 100.0, records[0].Value[4])      // Disk ReadMBps
-	assert.Equal(t, 50.0, records[0].Value[5])       // Disk WriteMBps
+	assert.Equal(t, 30.1, records[0].Value[0])     // CPU Usage
+	assert.Equal(t, int64(4), records[0].Value[1]) // CPU Cores
+	assert.Equal(t, 2048.0, records[0].Value[2])   // Memory UsedMB
+	assert.Equal(t, 8192.0, records[0].Value[3])   // Memory TotalMB
+	assert.Equal(t, 100.0, records[0].Value[4])    // Disk ReadMBps
+	assert.Equal(t, 50.0, records[0].Value[5])     // Disk WriteMBps
 
 	// Second record at hour 4
 	assert.Equal(t, baseTime.Add(4*time.Hour), records[1].Timestamp)
-	assert.Equal(t, 50.7, records[1].Value[0])       // CPU Usage
-	assert.Equal(t, int64(4), records[1].Value[1])   // CPU Cores
-	assert.Equal(t, 4096.0, records[1].Value[2])     // Memory UsedMB
-	assert.Equal(t, 8192.0, records[1].Value[3])     // Memory TotalMB
-	assert.Equal(t, 200.0, records[1].Value[4])      // Disk ReadMBps
-	assert.Equal(t, 100.0, records[1].Value[5])      // Disk WriteMBps
+	assert.Equal(t, 50.7, records[1].Value[0])     // CPU Usage
+	assert.Equal(t, int64(4), records[1].Value[1]) // CPU Cores
+	assert.Equal(t, 4096.0, records[1].Value[2])   // Memory UsedMB
+	assert.Equal(t, 8192.0, records[1].Value[3])   // Memory TotalMB
+	assert.Equal(t, 200.0, records[1].Value[4])    // Disk ReadMBps
+	assert.Equal(t, 100.0, records[1].Value[5])    // Disk WriteMBps
 }
 
 func TestJoinDatasource_LeftJoin_ThreeStreams(t *testing.T) {
@@ -147,7 +147,7 @@ func TestJoinDatasource_LeftJoin_ThreeStreams(t *testing.T) {
 
 	// Create join datasource with left join
 	joinDS := NewJoinDatasource(
-		stream.Just[DataSource](cpuDS, memDS, diskDS),
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
 		LeftJoin,
 	)
 
@@ -247,7 +247,7 @@ func TestJoinDatasource_FullJoin_ThreeStreams(t *testing.T) {
 
 	// Create join datasource with full join
 	joinDS := NewJoinDatasource(
-		stream.Just[DataSource](cpuDS, memDS, diskDS),
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
 		FullJoin,
 	)
 
@@ -329,7 +329,7 @@ func TestJoinDatasource_EmptyStreams(t *testing.T) {
 
 	// Test InnerJoin with empty streams
 	innerJoinDS := NewJoinDatasource(
-		stream.Just[DataSource](cpuDS, memDS, diskDS),
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
 		InnerJoin,
 	)
 	result, err := innerJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
@@ -339,7 +339,7 @@ func TestJoinDatasource_EmptyStreams(t *testing.T) {
 
 	// Test LeftJoin with empty streams
 	leftJoinDS := NewJoinDatasource(
-		stream.Just[DataSource](cpuDS, memDS, diskDS),
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
 		LeftJoin,
 	)
 	result, err = leftJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
@@ -349,7 +349,7 @@ func TestJoinDatasource_EmptyStreams(t *testing.T) {
 
 	// Test FullJoin with empty streams
 	fullJoinDS := NewJoinDatasource(
-		stream.Just[DataSource](cpuDS, memDS, diskDS),
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
 		FullJoin,
 	)
 	result, err = fullJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
@@ -390,7 +390,7 @@ func TestJoinDatasource_NoOverlap(t *testing.T) {
 
 	// InnerJoin with no overlap should return empty
 	innerJoinDS := NewJoinDatasource(
-		stream.Just[DataSource](cpuDS, memDS, diskDS),
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
 		InnerJoin,
 	)
 	result, err := innerJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
@@ -400,7 +400,7 @@ func TestJoinDatasource_NoOverlap(t *testing.T) {
 
 	// FullJoin should return all 6 timestamps
 	fullJoinDS := NewJoinDatasource(
-		stream.Just[DataSource](cpuDS, memDS, diskDS),
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
 		FullJoin,
 	)
 	result, err = fullJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
@@ -443,7 +443,7 @@ func TestJoinDatasource_TimeFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	joinDS := NewJoinDatasource(
-		stream.Just[DataSource](cpuDS, memDS, diskDS),
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
 		InnerJoin,
 	)
 
