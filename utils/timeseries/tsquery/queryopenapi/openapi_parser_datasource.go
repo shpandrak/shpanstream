@@ -6,14 +6,13 @@ import (
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/filter"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
 )
 
 func ParseDatasource(
 	pCtx *ParsingContext,
 	ds ApiQueryDatasource,
-) (datasource.DataSource, error) {
+) (report.DataSource, error) {
 	rawDs, err := ds.ValueByDiscriminator()
 	if err != nil {
 		return nil, err
@@ -34,27 +33,27 @@ func ParseDatasource(
 func parseJoinDatasource(
 	pCtx *ParsingContext,
 	ds ApiJoinQueryDatasource,
-) (datasource.DataSource, error) {
+) (report.DataSource, error) {
 	multiDatasource, err := parseMultiDatasource(pCtx, ds.Datasources)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse multi datasource for join: %w", err)
 	}
-	var joinType datasource.JoinType
+	var joinType report.JoinType
 	switch ds.JoinType {
 	case Inner:
-		joinType = datasource.InnerJoin
+		joinType = report.InnerJoin
 	case Left:
-		joinType = datasource.LeftJoin
+		joinType = report.LeftJoin
 	case Full:
-		joinType = datasource.FullJoin
+		joinType = report.FullJoin
 	default:
 		return nil, fmt.Errorf("unsupported join type %v", ds.JoinType)
 	}
-	return datasource.NewJoinDatasource(multiDatasource, joinType), nil
+	return report.NewJoinDatasource(multiDatasource, joinType), nil
 
 }
 
-func parseStaticDatasource(ds ApiStaticQueryDatasource) (datasource.DataSource, error) {
+func parseStaticDatasource(ds ApiStaticQueryDatasource) (report.DataSource, error) {
 	// Parse field metadata
 	var fieldsMeta []tsquery.FieldMeta
 	for _, apiMeta := range ds.FieldsMeta {
@@ -84,10 +83,10 @@ func parseStaticDatasource(ds ApiStaticQueryDatasource) (datasource.DataSource, 
 	recordStream := stream.FromSlice(records)
 
 	// Create and return the static datasource
-	return datasource.NewStaticDatasource(fieldsMeta, recordStream)
+	return report.NewStaticDatasource(fieldsMeta, recordStream)
 }
 
-func parseMultiDatasource(pCtx *ParsingContext, multiDs ApiMultiDatasource) (datasource.MultiDataSource, error) {
+func parseMultiDatasource(pCtx *ParsingContext, multiDs ApiMultiDatasource) (report.MultiDataSource, error) {
 	valueByDiscriminator, err := multiDs.ValueByDiscriminator()
 	if err != nil {
 		return nil, err
@@ -101,8 +100,8 @@ func parseMultiDatasource(pCtx *ParsingContext, multiDs ApiMultiDatasource) (dat
 	}
 }
 
-func parseListMultiDatasource(pCtx *ParsingContext, typedMds ApiListMultiDatasource) (datasource.MultiDataSource, error) {
-	dsList := make([]datasource.DataSource, len(typedMds.Datasources))
+func parseListMultiDatasource(pCtx *ParsingContext, typedMds ApiListMultiDatasource) (report.MultiDataSource, error) {
+	dsList := make([]report.DataSource, len(typedMds.Datasources))
 	for i, ds := range typedMds.Datasources {
 		filteredDatasource, err := ParseDatasource(pCtx, ds)
 		if err != nil {
@@ -111,13 +110,13 @@ func parseListMultiDatasource(pCtx *ParsingContext, typedMds ApiListMultiDatasou
 		dsList[i] = filteredDatasource
 
 	}
-	return datasource.NewListMultiDatasource(dsList), nil
+	return report.NewListMultiDatasource(dsList), nil
 }
 
 func parseFilteredDatasource(
 	pCtx *ParsingContext,
 	filteredDs ApiFilteredQueryDatasource,
-) (datasource.DataSource, error) {
+) (report.DataSource, error) {
 	unfilteredDatasource, err := ParseDatasource(pCtx, filteredDs.Datasource)
 	if err != nil {
 		return nil, err
@@ -125,7 +124,7 @@ func parseFilteredDatasource(
 	if len(filteredDs.Filters) == 0 {
 		return unfilteredDatasource, nil
 	}
-	var parsedFilters []filter.Filter
+	var parsedFilters []report.Filter
 	for _, rawFilter := range filteredDs.Filters {
 		parsedFilter, err := ParseFilter(rawFilter)
 		if err != nil {
@@ -133,6 +132,6 @@ func parseFilteredDatasource(
 		}
 		parsedFilters = append(parsedFilters, parsedFilter)
 	}
-	return filter.NewFilteredDataSource(unfilteredDatasource, parsedFilters...), nil
+	return report.NewFilteredDataSource(unfilteredDatasource, parsedFilters...), nil
 
 }

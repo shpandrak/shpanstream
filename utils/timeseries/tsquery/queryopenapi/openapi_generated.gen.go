@@ -6,9 +6,8 @@ package queryopenapi
 import (
 	"encoding/json"
 	"errors"
-	"time"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
+	"time"
 )
 
 // Defines values for ApiAlignerFilterType.
@@ -190,7 +189,7 @@ type ApiAppendFieldFilter struct {
 type ApiAppendFieldFilterType string
 
 // ApiBinaryNumericOperatorType defines model for ApiBinaryNumericOperatorType.
-type ApiBinaryNumericOperatorType = field.BinaryNumericOperatorType
+type ApiBinaryNumericOperatorType = tsquery.BinaryNumericOperatorType
 
 // ApiCalendarAlignmentPeriod defines model for ApiCalendarAlignmentPeriod.
 type ApiCalendarAlignmentPeriod struct {
@@ -225,7 +224,7 @@ type ApiConditionFilter struct {
 type ApiConditionFilterType string
 
 // ApiConditionOperatorType defines model for ApiConditionOperatorType.
-type ApiConditionOperatorType = field.ConditionOperatorType
+type ApiConditionOperatorType = tsquery.ConditionOperatorType
 
 // ApiConditionQueryFieldValue defines model for ApiConditionQueryFieldValue.
 type ApiConditionQueryFieldValue struct {
@@ -323,7 +322,7 @@ type ApiLogicalExpressionQueryFieldValue struct {
 type ApiLogicalExpressionQueryFieldValueType string
 
 // ApiLogicalOperatorType defines model for ApiLogicalOperatorType.
-type ApiLogicalOperatorType = field.LogicalOperatorType
+type ApiLogicalOperatorType = tsquery.LogicalOperatorType
 
 // ApiMetricDataType defines model for ApiMetricDataType.
 type ApiMetricDataType = tsquery.DataType
@@ -416,7 +415,7 @@ type ApiReduceQueryFieldValue struct {
 type ApiReduceQueryFieldValueType string
 
 // ApiReductionType defines model for ApiReductionType.
-type ApiReductionType = field.ReductionType
+type ApiReductionType = tsquery.ReductionType
 
 // ApiRefQueryFieldValue defines model for ApiRefQueryFieldValue.
 type ApiRefQueryFieldValue struct {
@@ -486,7 +485,7 @@ type ApiUnaryNumericOperatorQueryFieldValue struct {
 type ApiUnaryNumericOperatorQueryFieldValueType string
 
 // ApiUnaryNumericOperatorType defines model for ApiUnaryNumericOperatorType.
-type ApiUnaryNumericOperatorType = field.UnaryNumericOperatorType
+type ApiUnaryNumericOperatorType = tsquery.UnaryNumericOperatorType
 
 // ExecuteQueryJSONRequestBody defines body for ExecuteQuery for application/json ContentType.
 type ExecuteQueryJSONRequestBody = ApiExecuteQueryCommandArgs

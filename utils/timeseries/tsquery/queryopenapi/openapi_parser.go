@@ -3,9 +3,7 @@ package queryopenapi
 import (
 	"context"
 	"fmt"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/filter"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
 )
 
 type ParsingContext struct {
@@ -53,16 +51,16 @@ func badInputErrorWrap(entity any, err error, format string, a ...any) invalidQu
 }
 
 type PluginApiParser interface {
-	ParseDatasource(pCtx *ParsingContext, queryDatasource ApiQueryDatasource) (datasource.DataSource, error)
-	ParseMultiDatasource(pCtx *ParsingContext, multiDatasource ApiMultiDatasource) (datasource.MultiDataSource, error)
-	ParseFilter(pCtx *ParsingContext, filter ApiQueryFilter) (filter.Filter, error)
-	ParseFieldValue(pCtx *ParsingContext, field ApiQueryFieldValue) (field.Value, error)
+	ParseDatasource(pCtx *ParsingContext, queryDatasource ApiQueryDatasource) (report.DataSource, error)
+	ParseMultiDatasource(pCtx *ParsingContext, multiDatasource ApiMultiDatasource) (report.MultiDataSource, error)
+	ParseFilter(pCtx *ParsingContext, filter ApiQueryFilter) (report.Filter, error)
+	ParseFieldValue(pCtx *ParsingContext, field ApiQueryFieldValue) (report.Value, error)
 }
 
 type noPluginApiParser struct {
 }
 
-func (n noPluginApiParser) ParseDatasource(_ *ParsingContext, queryDatasource ApiQueryDatasource) (datasource.DataSource, error) {
+func (n noPluginApiParser) ParseDatasource(_ *ParsingContext, queryDatasource ApiQueryDatasource) (report.DataSource, error) {
 	discriminator, err := queryDatasource.Discriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get datasource discriminator: %w", err)
@@ -70,7 +68,7 @@ func (n noPluginApiParser) ParseDatasource(_ *ParsingContext, queryDatasource Ap
 	return nil, fmt.Errorf("unsupported datasource discriminator %s", discriminator)
 }
 
-func (n noPluginApiParser) ParseMultiDatasource(_ *ParsingContext, multiDatasource ApiMultiDatasource) (datasource.MultiDataSource, error) {
+func (n noPluginApiParser) ParseMultiDatasource(_ *ParsingContext, multiDatasource ApiMultiDatasource) (report.MultiDataSource, error) {
 	discriminator, err := multiDatasource.Discriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get multi datasource discriminator: %w", err)
@@ -78,7 +76,7 @@ func (n noPluginApiParser) ParseMultiDatasource(_ *ParsingContext, multiDatasour
 	return nil, fmt.Errorf("unsupported multi datasource discriminator %s", discriminator)
 }
 
-func (n noPluginApiParser) ParseFilter(_ *ParsingContext, filter ApiQueryFilter) (filter.Filter, error) {
+func (n noPluginApiParser) ParseFilter(_ *ParsingContext, filter ApiQueryFilter) (report.Filter, error) {
 	discriminator, err := filter.Discriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get filter discriminator: %w", err)
@@ -87,7 +85,7 @@ func (n noPluginApiParser) ParseFilter(_ *ParsingContext, filter ApiQueryFilter)
 
 }
 
-func (n noPluginApiParser) ParseFieldValue(_ *ParsingContext, field ApiQueryFieldValue) (field.Value, error) {
+func (n noPluginApiParser) ParseFieldValue(_ *ParsingContext, field ApiQueryFieldValue) (report.Value, error) {
 	discriminator, err := field.Discriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get field discriminator: %w", err)
