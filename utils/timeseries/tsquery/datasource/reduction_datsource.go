@@ -144,9 +144,16 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 		streams[i] = result.Data()
 	}
 
-	// Use InnerJoinStreams to reduce all values
+	var outputDataStream stream.Stream[timeseries.TsRecord[any]]
+	// optimization for a single-datasource case: return the single stream directly
+	if len(streams) == 1 && r.reductionType.UseIdentityWhenSingleValue() {
+		outputDataStream = streams[0]
+	} else {
+		// Use InnerJoinStreams to reduce all values
+		outputDataStream = timeseries.InnerJoinStreams(streams, reducerFunc)
+	}
 	return Result{
 		meta: *resultFieldMeta,
-		data: timeseries.InnerJoinStreams(streams, reducerFunc),
+		data: outputDataStream,
 	}, nil
 }

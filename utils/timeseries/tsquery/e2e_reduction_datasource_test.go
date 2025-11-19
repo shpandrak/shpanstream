@@ -55,7 +55,7 @@ func TestReductionDatasource_SumAllDatasources_Decimal(t *testing.T) {
 	// Create multi datasource
 	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{tempDS, humidityDS, pressureDS})
 
-	// Create reduction datasource with 1 hour alignment
+	// Create a reduction datasource with 1 hour alignment
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
 		timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC),
@@ -665,4 +665,172 @@ func TestReductionDatasource_ErrorOnNilAlignmentPeriod(t *testing.T) {
 	_, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "alignment period is required")
+}
+
+// --- Single Datasource Optimization Tests ---
+
+// TestReductionDatasource_SingleDatasource_Sum verifies that when only one datasource
+// is provided to Sum reduction, it returns the data as-is (optimization)
+func TestReductionDatasource_SingleDatasource_Sum(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	timestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+		baseTime.Add(2 * time.Hour),
+	}
+
+	// Create single datasource
+	ds := createDatasource(t, "OnlyOne", tsquery.DataTypeInteger, true, "items",
+		timestamps, []any{int64(100), int64(200), int64(300)})
+
+	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{ds})
+
+	// Create reduction datasource with Sum
+	reductionDS := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeSum,
+		timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC),
+		multiDS,
+		tsquery.AddFieldMeta{Urn: "result"},
+	)
+
+	// Execute
+	ctx := context.Background()
+	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	// Verify data returned as-is
+	records := result.Data().MustCollect()
+	require.Len(t, records, 3)
+	require.Equal(t, int64(100), records[0].Value)
+	require.Equal(t, int64(200), records[1].Value)
+	require.Equal(t, int64(300), records[2].Value)
+
+	// Verify metadata
+	require.Equal(t, "result", result.Meta().Urn())
+	require.Equal(t, tsquery.DataTypeInteger, result.Meta().DataType())
+	require.Equal(t, "items", result.Meta().Unit())
+}
+
+// TestReductionDatasource_SingleDatasource_Avg verifies that when only one datasource
+// is provided to Avg reduction, it returns the data as-is (optimization)
+func TestReductionDatasource_SingleDatasource_Avg(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	timestamps := []time.Time{baseTime}
+
+	// Create single datasource
+	ds := createDatasource(t, "OnlyOne", tsquery.DataTypeDecimal, true, "meters",
+		timestamps, []any{42.5})
+
+	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{ds})
+
+	// Create reduction datasource with Avg
+	reductionDS := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeAvg,
+		timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC),
+		multiDS,
+		tsquery.AddFieldMeta{Urn: "result"},
+	)
+
+	// Execute
+	ctx := context.Background()
+	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	// Verify data returned as-is
+	records := result.Data().MustCollect()
+	require.Len(t, records, 1)
+	require.Equal(t, 42.5, records[0].Value)
+
+	// Verify metadata - Average returns decimal
+	require.Equal(t, tsquery.DataTypeDecimal, result.Meta().DataType())
+}
+
+// TestReductionDatasource_SingleDatasource_MinMax verifies that when only one datasource
+// is provided to Min/Max reduction, it returns the data as-is (optimization)
+func TestReductionDatasource_SingleDatasource_MinMax(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	timestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+	}
+
+	// Create single datasource
+	ds := createDatasource(t, "OnlyOne", tsquery.DataTypeInteger, true, "count",
+		timestamps, []any{int64(50), int64(75)})
+
+	// Test Min
+	multiDSMin := datasource.NewListMultiDatasource([]datasource.DataSource{ds})
+	reductionDSMin := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeMin,
+		timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC),
+		multiDSMin,
+		tsquery.AddFieldMeta{Urn: "result"},
+	)
+
+	ctx := context.Background()
+	minResult, err := reductionDSMin.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	minRecords := minResult.Data().MustCollect()
+	require.Len(t, minRecords, 2)
+	require.Equal(t, int64(50), minRecords[0].Value)
+	require.Equal(t, int64(75), minRecords[1].Value)
+
+	// Test Max
+	multiDSMax := datasource.NewListMultiDatasource([]datasource.DataSource{ds})
+	reductionDSMax := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeMax,
+		timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC),
+		multiDSMax,
+		tsquery.AddFieldMeta{Urn: "result"},
+	)
+
+	maxResult, err := reductionDSMax.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	maxRecords := maxResult.Data().MustCollect()
+	require.Len(t, maxRecords, 2)
+	require.Equal(t, int64(50), maxRecords[0].Value)
+	require.Equal(t, int64(75), maxRecords[1].Value)
+}
+
+// TestReductionDatasource_SingleDatasource_Count verifies that when only one datasource
+// is provided to Count reduction, it returns the COUNT (1), NOT the original data
+func TestReductionDatasource_SingleDatasource_Count(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	timestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+		baseTime.Add(2 * time.Hour),
+	}
+
+	// Create single datasource with values that are NOT 1
+	ds := createDatasource(t, "OnlyOne", tsquery.DataTypeInteger, true, "items",
+		timestamps, []any{int64(100), int64(200), int64(300)})
+
+	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{ds})
+
+	// Create reduction datasource with Count
+	reductionDS := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeCount,
+		timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC),
+		multiDS,
+		tsquery.AddFieldMeta{Urn: "datasource_count"},
+	)
+
+	// Execute
+	ctx := context.Background()
+	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	// Verify Count returns 1 for each record, NOT the original values
+	records := result.Data().MustCollect()
+	require.Len(t, records, 3)
+	require.Equal(t, int64(1), records[0].Value) // NOT 100
+	require.Equal(t, int64(1), records[1].Value) // NOT 200
+	require.Equal(t, int64(1), records[2].Value) // NOT 300
+
+	// Verify metadata
+	require.Equal(t, "datasource_count", result.Meta().Urn())
+	require.Equal(t, tsquery.DataTypeInteger, result.Meta().DataType())
 }
