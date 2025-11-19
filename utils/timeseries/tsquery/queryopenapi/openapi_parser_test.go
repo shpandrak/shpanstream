@@ -272,7 +272,7 @@ func TestParseReductionDatasource_WithPipeline(t *testing.T) {
 		},
 		Data: []ApiMeasurementValue{
 			{Timestamp: baseTime, Value: 4.0},
-			{Timestamp: base	Time.Add(1 * time.Hour), Value: 5.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 5.0},
 			{Timestamp: baseTime.Add(2 * time.Hour), Value: 6.0},
 		},
 	}
