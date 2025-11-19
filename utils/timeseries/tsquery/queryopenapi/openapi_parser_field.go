@@ -3,10 +3,10 @@ package queryopenapi
 import (
 	"fmt"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
 )
 
-func parseQueryField(queryField ApiQueryFieldValue) (report.Value, error) {
+func parseQueryField(queryField ApiQueryFieldValue) (datasource.Value, error) {
 	queryFieldValue, err := queryField.ValueByDiscriminator()
 	if err != nil {
 		return nil, err
@@ -30,24 +30,22 @@ func parseQueryField(queryField ApiQueryFieldValue) (report.Value, error) {
 		return parseNumericExpressionQueryFieldValue(typedField)
 	case ApiUnaryNumericOperatorQueryFieldValue:
 		return parseUnaryNumericOperatorQueryFieldValue(typedField)
-	case ApiReduceQueryFieldValue:
-		return parseReduceQueryFieldValue(typedField)
 	default:
 		return nil, fmt.Errorf("unsupported query field type %T", typedField)
 	}
 
 }
 
-func parseConstantQueryFieldValue(cqf ApiConstantQueryFieldValue) (report.Value, error) {
+func parseConstantQueryFieldValue(cqf ApiConstantQueryFieldValue) (datasource.Value, error) {
 	valueMeta := tsquery.ValueMeta{
 		DataType: cqf.DataType,
 		Required: cqf.Required,
 		Unit:     cqf.Unit,
 	}
-	return report.NewConstantFieldValue(valueMeta, cqf.FieldValue), nil
+	return datasource.NewConstantFieldValue(valueMeta, cqf.FieldValue), nil
 }
 
-func parseConditionQueryFieldValue(cqf ApiConditionQueryFieldValue) (report.Value, error) {
+func parseConditionQueryFieldValue(cqf ApiConditionQueryFieldValue) (datasource.Value, error) {
 	operand1, err := parseQueryField(cqf.Operand1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand1 for condition query field: %w", err)
@@ -56,10 +54,10 @@ func parseConditionQueryFieldValue(cqf ApiConditionQueryFieldValue) (report.Valu
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand2 for condition query field: %w", err)
 	}
-	return report.NewConditionFieldValue(cqf.OperatorType, operand1, operand2), nil
+	return datasource.NewConditionFieldValue(cqf.OperatorType, operand1, operand2), nil
 }
 
-func parseLogicalExpressionQueryFieldValue(lef ApiLogicalExpressionQueryFieldValue) (report.Value, error) {
+func parseLogicalExpressionQueryFieldValue(lef ApiLogicalExpressionQueryFieldValue) (datasource.Value, error) {
 	operand1, err := parseQueryField(lef.Operand1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand1 for logical expression query field: %w", err)
@@ -68,14 +66,14 @@ func parseLogicalExpressionQueryFieldValue(lef ApiLogicalExpressionQueryFieldVal
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand2 for logical expression query field: %w", err)
 	}
-	return report.NewLogicalExpressionFieldValue(lef.LogicalOperatorType, operand1, operand2), nil
+	return datasource.NewLogicalExpressionFieldValue(lef.LogicalOperatorType, operand1, operand2), nil
 }
 
-func parseRefQueryFieldValue(ref ApiRefQueryFieldValue) (report.Value, error) {
-	return report.NewRefFieldValue(ref.Urn), nil
+func parseRefQueryFieldValue(_ ApiRefQueryFieldValue) (datasource.Value, error) {
+	return datasource.NewRefFieldValue(), nil
 }
 
-func parseSelectorQueryFieldValue(sqf ApiSelectorQueryFieldValue) (report.Value, error) {
+func parseSelectorQueryFieldValue(sqf ApiSelectorQueryFieldValue) (datasource.Value, error) {
 	selectorField, err := parseQueryField(sqf.SelectorBooleanField)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse selector boolean field: %w", err)
@@ -88,10 +86,10 @@ func parseSelectorQueryFieldValue(sqf ApiSelectorQueryFieldValue) (report.Value,
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse false field: %w", err)
 	}
-	return report.NewSelectorFieldValue(selectorField, trueField, falseField), nil
+	return datasource.NewSelectorFieldValue(selectorField, trueField, falseField), nil
 }
 
-func parseNvlQueryFieldValue(nvl ApiNvlQueryFieldValue) (report.Value, error) {
+func parseNvlQueryFieldValue(nvl ApiNvlQueryFieldValue) (datasource.Value, error) {
 	source, err := parseQueryField(nvl.Source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse source field for nvl: %w", err)
@@ -100,18 +98,18 @@ func parseNvlQueryFieldValue(nvl ApiNvlQueryFieldValue) (report.Value, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse alt field for nvl: %w", err)
 	}
-	return report.NewNvlFieldValue(source, altField), nil
+	return datasource.NewNvlFieldValue(source, altField), nil
 }
 
-func parseCastQueryFieldValue(cast ApiCastQueryFieldValue) (report.Value, error) {
+func parseCastQueryFieldValue(cast ApiCastQueryFieldValue) (datasource.Value, error) {
 	source, err := parseQueryField(cast.Source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse source field for cast: %w", err)
 	}
-	return report.NewCastFieldValue(source, cast.TargetType), nil
+	return datasource.NewCastFieldValue(source, cast.TargetType), nil
 }
 
-func parseNumericExpressionQueryFieldValue(nef ApiNumericExpressionQueryFieldValue) (report.Value, error) {
+func parseNumericExpressionQueryFieldValue(nef ApiNumericExpressionQueryFieldValue) (datasource.Value, error) {
 	op1, err := parseQueryField(nef.Op1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse op1 field for numeric expression: %w", err)
@@ -120,22 +118,13 @@ func parseNumericExpressionQueryFieldValue(nef ApiNumericExpressionQueryFieldVal
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse op2 field for numeric expression: %w", err)
 	}
-	return report.NewNumericExpressionFieldValue(op1, nef.Op, op2), nil
+	return datasource.NewNumericExpressionFieldValue(op1, nef.Op, op2), nil
 }
 
-func parseUnaryNumericOperatorQueryFieldValue(ufv ApiUnaryNumericOperatorQueryFieldValue) (report.Value, error) {
+func parseUnaryNumericOperatorQueryFieldValue(ufv ApiUnaryNumericOperatorQueryFieldValue) (datasource.Value, error) {
 	operand, err := parseQueryField(ufv.Operand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand field for unary numeric operator: %w", err)
 	}
-	return report.NewUnaryNumericOperatorFieldValue(operand, ufv.Op), nil
-}
-
-func parseReduceQueryFieldValue(reduce ApiReduceQueryFieldValue) (report.Value, error) {
-	if reduce.FieldUrnsToReduce == nil || len(reduce.FieldUrnsToReduce) == 0 {
-		// Reduce all fields
-		return report.NewReduceAllFieldValues(reduce.ReductionType), nil
-	}
-	// Reduce specific fields
-	return report.NewReduceFieldValues(reduce.FieldUrnsToReduce, reduce.ReductionType), nil
+	return datasource.NewUnaryNumericOperatorFieldValue(operand, ufv.Op), nil
 }

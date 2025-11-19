@@ -6,8 +6,8 @@ package queryopenapi
 import (
 	"encoding/json"
 	"errors"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"time"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 )
 
 // Defines values for ApiAlignerFilterType.
@@ -22,11 +22,6 @@ const (
 	Max   ApiAlignerFunction = "max"
 	Min   ApiAlignerFunction = "min"
 	Sum   ApiAlignerFunction = "sum"
-)
-
-// Defines values for ApiAppendFieldFilterType.
-const (
-	AppendField ApiAppendFieldFilterType = "appendField"
 )
 
 // Defines values for ApiCalendarAlignmentPeriodType.
@@ -71,26 +66,14 @@ const (
 	Custom ApiCustomAlignmentPeriodType = "custom"
 )
 
-// Defines values for ApiDropFieldFilterType.
+// Defines values for ApiFieldValueFilterType.
 const (
-	DropField ApiDropFieldFilterType = "dropField"
+	FieldValue ApiFieldValueFilterType = "fieldValue"
 )
 
 // Defines values for ApiFilteredQueryDatasourceType.
 const (
 	Filtered ApiFilteredQueryDatasourceType = "filtered"
-)
-
-// Defines values for ApiJoinQueryDatasourceJoinType.
-const (
-	Full  ApiJoinQueryDatasourceJoinType = "full"
-	Inner ApiJoinQueryDatasourceJoinType = "inner"
-	Left  ApiJoinQueryDatasourceJoinType = "left"
-)
-
-// Defines values for ApiJoinQueryDatasourceType.
-const (
-	Join ApiJoinQueryDatasourceType = "join"
 )
 
 // Defines values for ApiListMultiDatasourceType.
@@ -118,9 +101,9 @@ const (
 	OverrideFieldMetadata ApiOverrideFieldMetadataFilterType = "overrideFieldMetadata"
 )
 
-// Defines values for ApiReduceQueryFieldValueType.
+// Defines values for ApiReductionQueryDatasourceType.
 const (
-	Reduce ApiReduceQueryFieldValueType = "reduce"
+	Reduction ApiReductionQueryDatasourceType = "reduction"
 )
 
 // Defines values for ApiRefQueryFieldValueType.
@@ -128,19 +111,9 @@ const (
 	Ref ApiRefQueryFieldValueType = "ref"
 )
 
-// Defines values for ApiReplaceFieldFilterType.
-const (
-	ReplaceField ApiReplaceFieldFilterType = "replaceField"
-)
-
 // Defines values for ApiSelectorQueryFieldValueType.
 const (
 	Selector ApiSelectorQueryFieldValueType = "selector"
-)
-
-// Defines values for ApiSingleFieldFilterType.
-const (
-	SingleField ApiSingleFieldFilterType = "singleField"
 )
 
 // Defines values for ApiStaticQueryDatasourceType.
@@ -177,16 +150,6 @@ type ApiAlignerFunction string
 type ApiAlignmentPeriod struct {
 	union json.RawMessage
 }
-
-// ApiAppendFieldFilter defines model for ApiAppendFieldFilter.
-type ApiAppendFieldFilter struct {
-	FieldMeta  ApiAddFieldMeta          `json:"fieldMeta"`
-	FieldValue ApiQueryFieldValue       `json:"fieldValue"`
-	Type       ApiAppendFieldFilterType `json:"type"`
-}
-
-// ApiAppendFieldFilterType defines model for ApiAppendFieldFilter.Type.
-type ApiAppendFieldFilterType string
 
 // ApiBinaryNumericOperatorType defines model for ApiBinaryNumericOperatorType.
 type ApiBinaryNumericOperatorType = tsquery.BinaryNumericOperatorType
@@ -259,26 +222,27 @@ type ApiCustomAlignmentPeriod struct {
 // ApiCustomAlignmentPeriodType defines model for ApiCustomAlignmentPeriod.Type.
 type ApiCustomAlignmentPeriodType string
 
-// ApiDropFieldFilter defines model for ApiDropFieldFilter.
-type ApiDropFieldFilter struct {
-	FieldUrns []string               `json:"fieldUrns"`
-	Type      ApiDropFieldFilterType `json:"type"`
-}
-
-// ApiDropFieldFilterType defines model for ApiDropFieldFilter.Type.
-type ApiDropFieldFilterType string
-
 // ApiExecuteQueryCommandArgs defines model for ApiExecuteQueryCommandArgs.
 type ApiExecuteQueryCommandArgs struct {
-	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. join, filtered, etc.)
+	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
 	Datasource ApiQueryDatasource `json:"datasource"`
 	From       time.Time          `json:"from"`
 	To         time.Time          `json:"to"`
 }
 
+// ApiFieldValueFilter defines model for ApiFieldValueFilter.
+type ApiFieldValueFilter struct {
+	FieldMeta  ApiAddFieldMeta         `json:"fieldMeta"`
+	FieldValue ApiQueryFieldValue      `json:"fieldValue"`
+	Type       ApiFieldValueFilterType `json:"type"`
+}
+
+// ApiFieldValueFilterType defines model for ApiFieldValueFilter.Type.
+type ApiFieldValueFilterType string
+
 // ApiFilteredQueryDatasource defines model for ApiFilteredQueryDatasource.
 type ApiFilteredQueryDatasource struct {
-	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. join, filtered, etc.)
+	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
 	Datasource ApiQueryDatasource             `json:"datasource"`
 	Filters    []ApiQueryFilter               `json:"filters"`
 	Type       ApiFilteredQueryDatasourceType `json:"type"`
@@ -286,20 +250,6 @@ type ApiFilteredQueryDatasource struct {
 
 // ApiFilteredQueryDatasourceType defines model for ApiFilteredQueryDatasource.Type.
 type ApiFilteredQueryDatasourceType string
-
-// ApiJoinQueryDatasource defines model for ApiJoinQueryDatasource.
-type ApiJoinQueryDatasource struct {
-	// Datasources Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
-	Datasources ApiMultiDatasource             `json:"datasources"`
-	JoinType    ApiJoinQueryDatasourceJoinType `json:"joinType"`
-	Type        ApiJoinQueryDatasourceType     `json:"type"`
-}
-
-// ApiJoinQueryDatasourceJoinType defines model for ApiJoinQueryDatasource.JoinType.
-type ApiJoinQueryDatasourceJoinType string
-
-// ApiJoinQueryDatasourceType defines model for ApiJoinQueryDatasource.Type.
-type ApiJoinQueryDatasourceType string
 
 // ApiListMultiDatasource List Multi Datasource is a static predefined list of datasources.
 type ApiListMultiDatasource struct {
@@ -323,6 +273,12 @@ type ApiLogicalExpressionQueryFieldValueType string
 
 // ApiLogicalOperatorType defines model for ApiLogicalOperatorType.
 type ApiLogicalOperatorType = tsquery.LogicalOperatorType
+
+// ApiMeasurementValue defines model for ApiMeasurementValue.
+type ApiMeasurementValue struct {
+	Timestamp time.Time `json:"timestamp"`
+	Value     any       `json:"value"`
+}
 
 // ApiMetricDataType defines model for ApiMetricDataType.
 type ApiMetricDataType = tsquery.DataType
@@ -355,7 +311,6 @@ type ApiNvlQueryFieldValueType string
 
 // ApiOverrideFieldMetadataFilter defines model for ApiOverrideFieldMetadataFilter.
 type ApiOverrideFieldMetadataFilter struct {
-	FieldUrn          string                             `json:"fieldUrn"`
 	Type              ApiOverrideFieldMetadataFilterType `json:"type"`
 	UpdatedCustomMeta map[string]interface{}             `json:"updatedCustomMeta,omitempty"`
 	UpdatedUnit       string                             `json:"updatedUnit,omitempty"`
@@ -365,7 +320,7 @@ type ApiOverrideFieldMetadataFilter struct {
 // ApiOverrideFieldMetadataFilterType defines model for ApiOverrideFieldMetadataFilter.Type.
 type ApiOverrideFieldMetadataFilterType string
 
-// ApiQueryDatasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. join, filtered, etc.)
+// ApiQueryDatasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
 type ApiQueryDatasource struct {
 	union json.RawMessage
 }
@@ -391,28 +346,23 @@ type ApiQueryFilter struct {
 
 // ApiQueryResult defines model for ApiQueryResult.
 type ApiQueryResult struct {
-	Data []ApiRawMetricValueRow `json:"data"`
-	Meta ApiQueryResultMeta     `json:"meta"`
+	Data []ApiMeasurementValue `json:"data"`
+	Meta ApiQueryFieldMeta     `json:"meta"`
 }
 
-// ApiQueryResultMeta defines model for ApiQueryResultMeta.
-type ApiQueryResultMeta struct {
-	Fields []ApiQueryFieldMeta `json:"fields"`
+// ApiReductionQueryDatasource defines model for ApiReductionQueryDatasource.
+type ApiReductionQueryDatasource struct {
+	AlignmentPeriod ApiAlignmentPeriod `json:"alignmentPeriod"`
+	FieldMeta       ApiAddFieldMeta    `json:"fieldMeta"`
+
+	// MultiDatasource Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
+	MultiDatasource ApiMultiDatasource              `json:"multiDatasource"`
+	ReductionType   ApiReductionType                `json:"reductionType"`
+	Type            ApiReductionQueryDatasourceType `json:"type"`
 }
 
-// ApiRawMetricValueRow defines model for ApiRawMetricValueRow.
-type ApiRawMetricValueRow = []any
-
-// ApiReduceQueryFieldValue defines model for ApiReduceQueryFieldValue.
-type ApiReduceQueryFieldValue struct {
-	// FieldUrnsToReduce List of field urns to reduce, if empty, all fields will be reduced
-	FieldUrnsToReduce []string                     `json:"fieldUrnsToReduce,omitempty"`
-	ReductionType     ApiReductionType             `json:"reductionType"`
-	Type              ApiReduceQueryFieldValueType `json:"type"`
-}
-
-// ApiReduceQueryFieldValueType defines model for ApiReduceQueryFieldValue.Type.
-type ApiReduceQueryFieldValueType string
+// ApiReductionQueryDatasourceType defines model for ApiReductionQueryDatasource.Type.
+type ApiReductionQueryDatasourceType string
 
 // ApiReductionType defines model for ApiReductionType.
 type ApiReductionType = tsquery.ReductionType
@@ -420,22 +370,10 @@ type ApiReductionType = tsquery.ReductionType
 // ApiRefQueryFieldValue defines model for ApiRefQueryFieldValue.
 type ApiRefQueryFieldValue struct {
 	Type ApiRefQueryFieldValueType `json:"type"`
-	Urn  string                    `json:"urn"`
 }
 
 // ApiRefQueryFieldValueType defines model for ApiRefQueryFieldValue.Type.
 type ApiRefQueryFieldValueType string
-
-// ApiReplaceFieldFilter defines model for ApiReplaceFieldFilter.
-type ApiReplaceFieldFilter struct {
-	FieldMeta         ApiAddFieldMeta           `json:"fieldMeta"`
-	FieldUrnToReplace string                    `json:"fieldUrnToReplace"`
-	FieldValue        ApiQueryFieldValue        `json:"fieldValue"`
-	Type              ApiReplaceFieldFilterType `json:"type"`
-}
-
-// ApiReplaceFieldFilterType defines model for ApiReplaceFieldFilter.Type.
-type ApiReplaceFieldFilterType string
 
 // ApiSelectorQueryFieldValue defines model for ApiSelectorQueryFieldValue.
 type ApiSelectorQueryFieldValue struct {
@@ -448,27 +386,11 @@ type ApiSelectorQueryFieldValue struct {
 // ApiSelectorQueryFieldValueType defines model for ApiSelectorQueryFieldValue.Type.
 type ApiSelectorQueryFieldValueType string
 
-// ApiSingleFieldFilter defines model for ApiSingleFieldFilter.
-type ApiSingleFieldFilter struct {
-	FieldMeta  ApiAddFieldMeta          `json:"fieldMeta"`
-	FieldValue ApiQueryFieldValue       `json:"fieldValue"`
-	Type       ApiSingleFieldFilterType `json:"type"`
-}
-
-// ApiSingleFieldFilterType defines model for ApiSingleFieldFilter.Type.
-type ApiSingleFieldFilterType string
-
-// ApiStaticDataRow defines model for ApiStaticDataRow.
-type ApiStaticDataRow struct {
-	Timestamp time.Time `json:"timestamp"`
-	Values    []any     `json:"values"`
-}
-
 // ApiStaticQueryDatasource defines model for ApiStaticQueryDatasource.
 type ApiStaticQueryDatasource struct {
-	Data       []ApiStaticDataRow           `json:"data"`
-	FieldsMeta []ApiQueryFieldMeta          `json:"fieldsMeta"`
-	Type       ApiStaticQueryDatasourceType `json:"type"`
+	Data      []ApiMeasurementValue        `json:"data"`
+	FieldMeta ApiQueryFieldMeta            `json:"fieldMeta"`
+	Type      ApiStaticQueryDatasourceType `json:"type"`
 }
 
 // ApiStaticQueryDatasourceType defines model for ApiStaticQueryDatasource.Type.
@@ -618,16 +540,16 @@ func (t *ApiQueryDatasource) FromApiFilteredQueryDatasource(v ApiFilteredQueryDa
 }
 
 
-// AsApiJoinQueryDatasource returns the union data inside the ApiQueryDatasource as a ApiJoinQueryDatasource
-func (t ApiQueryDatasource) AsApiJoinQueryDatasource() (ApiJoinQueryDatasource, error) {
-	var body ApiJoinQueryDatasource
+// AsApiReductionQueryDatasource returns the union data inside the ApiQueryDatasource as a ApiReductionQueryDatasource
+func (t ApiQueryDatasource) AsApiReductionQueryDatasource() (ApiReductionQueryDatasource, error) {
+	var body ApiReductionQueryDatasource
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromApiJoinQueryDatasource overwrites any union data inside the ApiQueryDatasource as the provided ApiJoinQueryDatasource
-func (t *ApiQueryDatasource) FromApiJoinQueryDatasource(v ApiJoinQueryDatasource) error {
-	v.Type = "join"
+// FromApiReductionQueryDatasource overwrites any union data inside the ApiQueryDatasource as the provided ApiReductionQueryDatasource
+func (t *ApiQueryDatasource) FromApiReductionQueryDatasource(v ApiReductionQueryDatasource) error {
+	v.Type = "reduction"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -666,8 +588,8 @@ func (t ApiQueryDatasource) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "filtered":
 		return t.AsApiFilteredQueryDatasource()
-	case "join":
-		return t.AsApiJoinQueryDatasource()
+	case "reduction":
+		return t.AsApiReductionQueryDatasource()
 	case "static":
 		return t.AsApiStaticQueryDatasource()
 	default:
@@ -829,22 +751,6 @@ func (t *ApiQueryFieldValue) FromApiUnaryNumericOperatorQueryFieldValue(v ApiUna
 }
 
 
-// AsApiReduceQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiReduceQueryFieldValue
-func (t ApiQueryFieldValue) AsApiReduceQueryFieldValue() (ApiReduceQueryFieldValue, error) {
-	var body ApiReduceQueryFieldValue
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiReduceQueryFieldValue overwrites any union data inside the ApiQueryFieldValue as the provided ApiReduceQueryFieldValue
-func (t *ApiQueryFieldValue) FromApiReduceQueryFieldValue(v ApiReduceQueryFieldValue) error {
-	v.Type = "reduce"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-
 func (t ApiQueryFieldValue) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -871,8 +777,6 @@ func (t ApiQueryFieldValue) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiNumericExpressionQueryFieldValue()
 	case "nvl":
 		return t.AsApiNvlQueryFieldValue()
-	case "reduce":
-		return t.AsApiReduceQueryFieldValue()
 	case "ref":
 		return t.AsApiRefQueryFieldValue()
 	case "selector":
@@ -910,54 +814,6 @@ func (t *ApiQueryFilter) FromApiAlignerFilter(v ApiAlignerFilter) error {
 }
 
 
-// AsApiAppendFieldFilter returns the union data inside the ApiQueryFilter as a ApiAppendFieldFilter
-func (t ApiQueryFilter) AsApiAppendFieldFilter() (ApiAppendFieldFilter, error) {
-	var body ApiAppendFieldFilter
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiAppendFieldFilter overwrites any union data inside the ApiQueryFilter as the provided ApiAppendFieldFilter
-func (t *ApiQueryFilter) FromApiAppendFieldFilter(v ApiAppendFieldFilter) error {
-	v.Type = "appendField"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-
-// AsApiDropFieldFilter returns the union data inside the ApiQueryFilter as a ApiDropFieldFilter
-func (t ApiQueryFilter) AsApiDropFieldFilter() (ApiDropFieldFilter, error) {
-	var body ApiDropFieldFilter
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiDropFieldFilter overwrites any union data inside the ApiQueryFilter as the provided ApiDropFieldFilter
-func (t *ApiQueryFilter) FromApiDropFieldFilter(v ApiDropFieldFilter) error {
-	v.Type = "dropField"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-
-// AsApiReplaceFieldFilter returns the union data inside the ApiQueryFilter as a ApiReplaceFieldFilter
-func (t ApiQueryFilter) AsApiReplaceFieldFilter() (ApiReplaceFieldFilter, error) {
-	var body ApiReplaceFieldFilter
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromApiReplaceFieldFilter overwrites any union data inside the ApiQueryFilter as the provided ApiReplaceFieldFilter
-func (t *ApiQueryFilter) FromApiReplaceFieldFilter(v ApiReplaceFieldFilter) error {
-	v.Type = "replaceField"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-
 // AsApiConditionFilter returns the union data inside the ApiQueryFilter as a ApiConditionFilter
 func (t ApiQueryFilter) AsApiConditionFilter() (ApiConditionFilter, error) {
 	var body ApiConditionFilter
@@ -974,16 +830,16 @@ func (t *ApiQueryFilter) FromApiConditionFilter(v ApiConditionFilter) error {
 }
 
 
-// AsApiSingleFieldFilter returns the union data inside the ApiQueryFilter as a ApiSingleFieldFilter
-func (t ApiQueryFilter) AsApiSingleFieldFilter() (ApiSingleFieldFilter, error) {
-	var body ApiSingleFieldFilter
+// AsApiFieldValueFilter returns the union data inside the ApiQueryFilter as a ApiFieldValueFilter
+func (t ApiQueryFilter) AsApiFieldValueFilter() (ApiFieldValueFilter, error) {
+	var body ApiFieldValueFilter
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromApiSingleFieldFilter overwrites any union data inside the ApiQueryFilter as the provided ApiSingleFieldFilter
-func (t *ApiQueryFilter) FromApiSingleFieldFilter(v ApiSingleFieldFilter) error {
-	v.Type = "singleField"
+// FromApiFieldValueFilter overwrites any union data inside the ApiQueryFilter as the provided ApiFieldValueFilter
+func (t *ApiQueryFilter) FromApiFieldValueFilter(v ApiFieldValueFilter) error {
+	v.Type = "fieldValue"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -1022,18 +878,12 @@ func (t ApiQueryFilter) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "aligner":
 		return t.AsApiAlignerFilter()
-	case "appendField":
-		return t.AsApiAppendFieldFilter()
 	case "condition":
 		return t.AsApiConditionFilter()
-	case "dropField":
-		return t.AsApiDropFieldFilter()
+	case "fieldValue":
+		return t.AsApiFieldValueFilter()
 	case "overrideFieldMetadata":
 		return t.AsApiOverrideFieldMetadataFilter()
-	case "replaceField":
-		return t.AsApiReplaceFieldFilter()
-	case "singleField":
-		return t.AsApiSingleFieldFilter()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
