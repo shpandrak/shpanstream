@@ -12,6 +12,16 @@ const (
 	ReductionTypeCount ReductionType = "count"
 )
 
+func (reductionType ReductionType) UseIdentityWhenSingleValue() bool {
+	switch reductionType {
+	case ReductionTypeSum, ReductionTypeAvg, ReductionTypeMax, ReductionTypeMin:
+		return true
+	case ReductionTypeCount:
+		return false
+	default:
+		return false
+	}
+}
 func (reductionType ReductionType) GetResultDataType(forDataType DataType) DataType {
 	if reductionType == ReductionTypeAvg {
 		// Average always returns decimal
