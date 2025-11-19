@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
-	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
 	"time"
 )
 
-func ParseFilter(rawFilter ApiQueryFilter) (report.Filter, error) {
+func ParseFilter(rawFilter ApiQueryFilter) (datasource.Filter, error) {
 	rawFilterType, err := rawFilter.ValueByDiscriminator()
 	if err != nil {
 		return nil, err
@@ -16,65 +16,34 @@ func ParseFilter(rawFilter ApiQueryFilter) (report.Filter, error) {
 	switch typedFilter := rawFilterType.(type) {
 	case ApiAlignerFilter:
 		return parseAlignerFilter(typedFilter)
-	case ApiAppendFieldFilter:
-		return parseAppendFieldFilter(typedFilter)
-	case ApiDropFieldFilter:
-		return parseDropFieldFilter(typedFilter)
-	case ApiReplaceFieldFilter:
-		return parseReplaceFieldFilter(typedFilter)
 	case ApiConditionFilter:
 		return parseConditionFilter(typedFilter)
-	case ApiSingleFieldFilter:
-		return parseSingleFieldFilter(typedFilter)
+	case ApiFieldValueFilter:
+		return parseFieldValueFilter(typedFilter)
 	case ApiOverrideFieldMetadataFilter:
 		return parseOverrideFieldMetadataFilter(typedFilter)
 	}
 	return nil, fmt.Errorf("filter type %T not supported", rawFilter)
 }
 
-func parseAppendFieldFilter(appendFieldFilter ApiAppendFieldFilter) (report.Filter, error) {
-	f, err := parseQueryField(appendFieldFilter.FieldValue)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse append field filter: %w", err)
-	}
-	addFieldMeta := parseAddFieldMeta(appendFieldFilter.FieldMeta)
-	return report.NewAppendFieldFilter(f, addFieldMeta), nil
-}
-
-func parseDropFieldFilter(dropFieldFilter ApiDropFieldFilter) (report.Filter, error) {
-	if len(dropFieldFilter.FieldUrns) == 0 {
-		return nil, fmt.Errorf("drop field filter must have at least one field URN")
-	}
-	return report.NewDropFieldsFilter(dropFieldFilter.FieldUrns...), nil
-}
-
-func parseReplaceFieldFilter(replaceFieldFilter ApiReplaceFieldFilter) (report.Filter, error) {
-	f, err := parseQueryField(replaceFieldFilter.FieldValue)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse replace field filter: %w", err)
-	}
-	addFieldMeta := parseAddFieldMeta(replaceFieldFilter.FieldMeta)
-	return report.NewReplaceFieldFilter(replaceFieldFilter.FieldUrnToReplace, f, addFieldMeta), nil
-}
-
-func parseConditionFilter(conditionFilter ApiConditionFilter) (report.Filter, error) {
+func parseConditionFilter(conditionFilter ApiConditionFilter) (datasource.Filter, error) {
 	booleanField, err := parseQueryField(conditionFilter.BooleanField)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse boolean field for condition filter: %w", err)
 	}
-	return report.NewConditionFilter(booleanField), nil
+	return datasource.NewConditionFilter(booleanField), nil
 }
 
-func parseSingleFieldFilter(singleFieldFilter ApiSingleFieldFilter) (report.Filter, error) {
-	f, err := parseQueryField(singleFieldFilter.FieldValue)
+func parseFieldValueFilter(fieldValueFilter ApiFieldValueFilter) (datasource.Filter, error) {
+	f, err := parseQueryField(fieldValueFilter.FieldValue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse field for single field filter: %w", err)
+		return nil, fmt.Errorf("failed to parse field for field value filter: %w", err)
 	}
-	addFieldMeta := parseAddFieldMeta(singleFieldFilter.FieldMeta)
-	return report.NewSingleFieldFilter(f, addFieldMeta), nil
+	addFieldMeta := parseAddFieldMeta(fieldValueFilter.FieldMeta)
+	return datasource.NewFieldValueFilter(f, addFieldMeta), nil
 }
 
-func parseOverrideFieldMetadataFilter(overrideFilter ApiOverrideFieldMetadataFilter) (report.Filter, error) {
+func parseOverrideFieldMetadataFilter(overrideFilter ApiOverrideFieldMetadataFilter) (datasource.Filter, error) {
 	var optUpdatedUrn *string
 	if overrideFilter.UpdatedUrn != "" {
 		optUpdatedUrn = &overrideFilter.UpdatedUrn
@@ -85,25 +54,21 @@ func parseOverrideFieldMetadataFilter(overrideFilter ApiOverrideFieldMetadataFil
 		optUpdatedUnit = &overrideFilter.UpdatedUnit
 	}
 
-	return report.NewOverrideFieldMetadataFilter(
-		overrideFilter.FieldUrn,
+	return datasource.NewOverrideFieldMetadataFilter(
 		optUpdatedUrn,
 		optUpdatedUnit,
 		overrideFilter.UpdatedCustomMeta,
 	), nil
 }
 
-func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (report.Filter, error) {
+func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.Filter, error) {
 	alignerPeriod, err := parseAlignmentPeriod(apiAlignerFilter.AlignerPeriod)
 	if err != nil {
 		return nil, err
 	}
-	switch apiAlignerFilter.AlignmentFunction {
-	case Avg:
-		return report.NewAlignerFilter(alignerPeriod), nil
-	default:
-		return nil, fmt.Errorf("aligner function %s is not yet supported", apiAlignerFilter.AlignmentFunction)
-	}
+	// Note: AlignmentFunction is present in the API but datasource.AlignerFilter doesn't use it
+	// It always uses time-weighted interpolation
+	return datasource.NewAlignerFilter(alignerPeriod), nil
 }
 
 func parseAlignmentPeriod(ap ApiAlignmentPeriod) (timeseries.AlignmentPeriod, error) {

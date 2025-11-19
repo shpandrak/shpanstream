@@ -39,14 +39,7 @@ components:
           anyOf:
             - type: string
             - type: number
-
-    ApiRawMetricValueRow:
-      type: array
-      items:
-        x-go-type: any
-        anyOf:
-          - type: string
-          - type: number
+            - type: boolean
 
     ApiExecuteQueryCommandArgs:
       type: object
@@ -66,17 +59,17 @@ components:
 
 
     ApiQueryDatasource:
-      description: Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. join, filtered, etc.)
+      description: Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
       type: object
       discriminator:
         propertyName: type
         mapping:
           filtered: '#/components/schemas/ApiFilteredQueryDatasource'
-          join: '#/components/schemas/ApiJoinQueryDatasource'
+          reduction: '#/components/schemas/ApiReductionQueryDatasource'
           static: '#/components/schemas/ApiStaticQueryDatasource'
       oneOf:
         - $ref: '#/components/schemas/ApiFilteredQueryDatasource'
-        - $ref: '#/components/schemas/ApiJoinQueryDatasource'
+        - $ref: '#/components/schemas/ApiReductionQueryDatasource'
         - $ref: '#/components/schemas/ApiStaticQueryDatasource'
 
     ApiMultiDatasource:
@@ -124,63 +117,45 @@ components:
             $ref: '#/components/schemas/ApiQueryFilter'
 
 
-    ApiJoinQueryDatasource:
+    ApiReductionQueryDatasource:
       type: object
       required:
         - type
-        - joinType
-        - datasources
+        - reductionType
+        - alignmentPeriod
+        - multiDatasource
+        - fieldMeta
       properties:
         type:
           type: string
           enum:
-            - join
-        joinType:
-          type: string
-          enum:
-            - inner
-            - left
-            - full
-        datasources:
+            - reduction
+        reductionType:
+          $ref: '#/components/schemas/ApiReductionType'
+        alignmentPeriod:
+          $ref: '#/components/schemas/ApiAlignmentPeriod'
+        multiDatasource:
           $ref: '#/components/schemas/ApiMultiDatasource'
+        fieldMeta:
+          $ref: '#/components/schemas/ApiAddFieldMeta'
 
     ApiStaticQueryDatasource:
       type: object
       required:
         - type
-        - fieldsMeta
+        - fieldMeta
         - data
       properties:
         type:
           type: string
           enum:
             - static
-        fieldsMeta:
-          type: array
-          items:
-            $ref: '#/components/schemas/ApiQueryFieldMeta'
+        fieldMeta:
+          $ref: '#/components/schemas/ApiQueryFieldMeta'
         data:
           type: array
           items:
-            $ref: '#/components/schemas/ApiStaticDataRow'
-
-    ApiStaticDataRow:
-      type: object
-      required:
-        - timestamp
-        - values
-      properties:
-        timestamp:
-          type: string
-          format: date-time
-        values:
-          type: array
-          items:
-            x-go-type: any
-            anyOf:
-              - type: string
-              - type: number
-              - type: boolean
+            $ref: '#/components/schemas/ApiMeasurementValue'
 
     ApiQueryFilter:
       type: object
@@ -188,19 +163,13 @@ components:
         propertyName: type
         mapping:
           aligner: '#/components/schemas/ApiAlignerFilter'
-          appendField: '#/components/schemas/ApiAppendFieldFilter'
-          dropField: '#/components/schemas/ApiDropFieldFilter'
-          replaceField: '#/components/schemas/ApiReplaceFieldFilter'
           condition: '#/components/schemas/ApiConditionFilter'
-          singleField: '#/components/schemas/ApiSingleFieldFilter'
+          fieldValue: '#/components/schemas/ApiFieldValueFilter'
           overrideFieldMetadata: '#/components/schemas/ApiOverrideFieldMetadataFilter'
       oneOf:
         - $ref: '#/components/schemas/ApiAlignerFilter'
-        - $ref: '#/components/schemas/ApiAppendFieldFilter'
-        - $ref: '#/components/schemas/ApiDropFieldFilter'
-        - $ref: '#/components/schemas/ApiReplaceFieldFilter'
         - $ref: '#/components/schemas/ApiConditionFilter'
-        - $ref: '#/components/schemas/ApiSingleFieldFilter'
+        - $ref: '#/components/schemas/ApiFieldValueFilter'
         - $ref: '#/components/schemas/ApiOverrideFieldMetadataFilter'
 
     ApiAlignmentPeriod:
@@ -233,22 +202,6 @@ components:
           format: int64
           minimum: 1
 
-    ApiAppendFieldFilter:
-      type: object
-      required:
-        - type
-        - fieldValue
-        - fieldMeta
-      properties:
-        type:
-          type: string
-          enum:
-            - appendField
-        fieldValue:
-          $ref: '#/components/schemas/ApiQueryFieldValue'
-        fieldMeta:
-          $ref: '#/components/schemas/ApiAddFieldMeta'
-
     ApiAddFieldMeta:
       type: object
       required:
@@ -265,41 +218,6 @@ components:
           x-go-type-skip-optional-pointer: true
           type: object
           additionalProperties: true
-    ApiDropFieldFilter:
-      type: object
-      required:
-        - type
-        - fieldUrns
-      properties:
-        type:
-          type: string
-          enum:
-            - dropField
-        fieldUrns:
-          type: array
-          items:
-            type: string
-            minLength: 1
-
-    ApiReplaceFieldFilter:
-      type: object
-      required:
-        - type
-        - fieldUrnToReplace
-        - fieldValue
-        - fieldMeta
-      properties:
-        type:
-          type: string
-          enum:
-            - replaceField
-        fieldUrnToReplace:
-          type: string
-          minLength: 1
-        fieldValue:
-          $ref: '#/components/schemas/ApiQueryFieldValue'
-        fieldMeta:
-          $ref: '#/components/schemas/ApiAddFieldMeta'
 
     ApiConditionFilter:
       type: object
@@ -314,7 +232,7 @@ components:
         booleanField:
           $ref: '#/components/schemas/ApiQueryFieldValue'
 
-    ApiSingleFieldFilter:
+    ApiFieldValueFilter:
       type: object
       required:
         - type
@@ -324,7 +242,7 @@ components:
         type:
           type: string
           enum:
-            - singleField
+            - fieldValue
         fieldValue:
           $ref: '#/components/schemas/ApiQueryFieldValue'
         fieldMeta:
@@ -334,15 +252,11 @@ components:
       type: object
       required:
         - type
-        - fieldUrn
       properties:
         type:
           type: string
           enum:
             - overrideFieldMetadata
-        fieldUrn:
-          type: string
-          minLength: 1
         updatedUrn:
           type: string
           minLength: 1
@@ -370,7 +284,6 @@ components:
           cast: '#/components/schemas/ApiCastQueryFieldValue'
           numericExpression: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
           unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
-          reduce: '#/components/schemas/ApiReduceQueryFieldValue'
       oneOf:
         - $ref: '#/components/schemas/ApiConstantQueryFieldValue'
         - $ref: '#/components/schemas/ApiConditionQueryFieldValue'
@@ -381,7 +294,6 @@ components:
         - $ref: '#/components/schemas/ApiCastQueryFieldValue'
         - $ref: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
         - $ref: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
-        - $ref: '#/components/schemas/ApiReduceQueryFieldValue'
 
     ApiConstantQueryFieldValue:
       type: object
@@ -411,8 +323,8 @@ components:
 
     ApiConditionOperatorType:
       type: string
-      x-go-type: field.ConditionOperatorType
-      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
+      x-go-type: tsquery.ConditionOperatorType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
       enum:
         - equals
         - not_equals
@@ -442,8 +354,8 @@ components:
 
     ApiLogicalOperatorType:
       type: string
-      x-go-type: field.LogicalOperatorType
-      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
+      x-go-type: tsquery.LogicalOperatorType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery/tsquery"
       enum:
         - and
         - or
@@ -471,15 +383,11 @@ components:
       type: object
       required:
         - type
-        - urn
       properties:
         type:
           type: string
           enum:
             - ref
-        urn:
-          type: string
-          minLength: 1
 
     ApiSelectorQueryFieldValue:
       type: object
@@ -534,8 +442,8 @@ components:
 
     ApiBinaryNumericOperatorType:
       type: string
-      x-go-type: field.BinaryNumericOperatorType
-      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
+      x-go-type: tsquery.BinaryNumericOperatorType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
       enum:
         - "+"
         - "-"
@@ -564,8 +472,8 @@ components:
 
     ApiUnaryNumericOperatorType:
       type: string
-      x-go-type: field.UnaryNumericOperatorType
-      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
+      x-go-type: tsquery.UnaryNumericOperatorType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
       enum:
         - abs
         - negate
@@ -598,34 +506,14 @@ components:
 
     ApiReductionType:
       type: string
-      x-go-type: field.ReductionType
-      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery/field"
+      x-go-type: tsquery.ReductionType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
       enum:
         - sum
         - avg
         - min
         - max
         - count
-
-    ApiReduceQueryFieldValue:
-      type: object
-      required:
-        - type
-        - reductionType
-      properties:
-        type:
-          type: string
-          enum:
-            - reduce
-        fieldUrnsToReduce:
-          type: array
-          description: List of field urns to reduce, if empty, all fields will be reduced
-          items:
-            type: string
-            minLength: 1
-          x-go-type-skip-optional-pointer: true
-        reductionType:
-          $ref: '#/components/schemas/ApiReductionType'
 
     ApiCalendarPeriodType:
       type: string
@@ -690,21 +578,11 @@ components:
         - data
       properties:
         meta:
-          $ref: '#/components/schemas/ApiQueryResultMeta'
+          $ref: '#/components/schemas/ApiQueryFieldMeta'
         data:
           type: array
           items:
-            $ref: '#/components/schemas/ApiRawMetricValueRow'
-
-    ApiQueryResultMeta:
-      type: object
-      required:
-        - fields
-      properties:
-        fields:
-          type: array
-          items:
-            $ref: '#/components/schemas/ApiQueryFieldMeta'
+            $ref: '#/components/schemas/ApiMeasurementValue'
 
     ApiQueryFieldMeta:
       type: object
