@@ -12,38 +12,38 @@ import (
 
 // Defines values for ApiAlignerFilterType.
 const (
-	Aligner ApiAlignerFilterType = "aligner"
+	ApiAlignerFilterTypeAligner ApiAlignerFilterType = "aligner"
 )
 
 // Defines values for ApiAlignerFunction.
 const (
-	Avg   ApiAlignerFunction = "avg"
-	Count ApiAlignerFunction = "count"
-	Max   ApiAlignerFunction = "max"
-	Min   ApiAlignerFunction = "min"
-	Sum   ApiAlignerFunction = "sum"
+	ApiAlignerFunctionAvg   ApiAlignerFunction = "avg"
+	ApiAlignerFunctionCount ApiAlignerFunction = "count"
+	ApiAlignerFunctionMax   ApiAlignerFunction = "max"
+	ApiAlignerFunctionMin   ApiAlignerFunction = "min"
+	ApiAlignerFunctionSum   ApiAlignerFunction = "sum"
 )
 
 // Defines values for ApiCalendarAlignmentPeriodType.
 const (
-	Calendar ApiCalendarAlignmentPeriodType = "calendar"
+	ApiCalendarAlignmentPeriodTypeCalendar ApiCalendarAlignmentPeriodType = "calendar"
 )
 
 // Defines values for ApiCalendarPeriodType.
 const (
-	Day         ApiCalendarPeriodType = "day"
-	HalfYear    ApiCalendarPeriodType = "halfYear"
-	Hour        ApiCalendarPeriodType = "hour"
-	Month       ApiCalendarPeriodType = "month"
-	Quarter     ApiCalendarPeriodType = "quarter"
-	QuarterHour ApiCalendarPeriodType = "quarterHour"
-	Week        ApiCalendarPeriodType = "week"
-	Year        ApiCalendarPeriodType = "year"
+	ApiCalendarPeriodTypeDay         ApiCalendarPeriodType = "day"
+	ApiCalendarPeriodTypeHalfYear    ApiCalendarPeriodType = "halfYear"
+	ApiCalendarPeriodTypeHour        ApiCalendarPeriodType = "hour"
+	ApiCalendarPeriodTypeMonth       ApiCalendarPeriodType = "month"
+	ApiCalendarPeriodTypeQuarter     ApiCalendarPeriodType = "quarter"
+	ApiCalendarPeriodTypeQuarterHour ApiCalendarPeriodType = "quarterHour"
+	ApiCalendarPeriodTypeWeek        ApiCalendarPeriodType = "week"
+	ApiCalendarPeriodTypeYear        ApiCalendarPeriodType = "year"
 )
 
 // Defines values for ApiCastQueryFieldValueType.
 const (
-	Cast ApiCastQueryFieldValueType = "cast"
+	ApiCastQueryFieldValueTypeCast ApiCastQueryFieldValueType = "cast"
 )
 
 // Defines values for ApiConditionFilterType.
@@ -58,72 +58,72 @@ const (
 
 // Defines values for ApiConstantQueryFieldValueType.
 const (
-	Constant ApiConstantQueryFieldValueType = "constant"
+	ApiConstantQueryFieldValueTypeConstant ApiConstantQueryFieldValueType = "constant"
 )
 
 // Defines values for ApiCustomAlignmentPeriodType.
 const (
-	Custom ApiCustomAlignmentPeriodType = "custom"
+	ApiCustomAlignmentPeriodTypeCustom ApiCustomAlignmentPeriodType = "custom"
 )
 
 // Defines values for ApiFieldValueFilterType.
 const (
-	FieldValue ApiFieldValueFilterType = "fieldValue"
+	ApiFieldValueFilterTypeFieldValue ApiFieldValueFilterType = "fieldValue"
 )
 
 // Defines values for ApiFilteredQueryDatasourceType.
 const (
-	Filtered ApiFilteredQueryDatasourceType = "filtered"
+	ApiFilteredQueryDatasourceTypeFiltered ApiFilteredQueryDatasourceType = "filtered"
 )
 
 // Defines values for ApiListMultiDatasourceType.
 const (
-	List ApiListMultiDatasourceType = "list"
+	ApiListMultiDatasourceTypeList ApiListMultiDatasourceType = "list"
 )
 
 // Defines values for ApiLogicalExpressionQueryFieldValueType.
 const (
-	LogicalExpression ApiLogicalExpressionQueryFieldValueType = "logicalExpression"
+	ApiLogicalExpressionQueryFieldValueTypeLogicalExpression ApiLogicalExpressionQueryFieldValueType = "logicalExpression"
 )
 
 // Defines values for ApiNumericExpressionQueryFieldValueType.
 const (
-	NumericExpression ApiNumericExpressionQueryFieldValueType = "numericExpression"
+	ApiNumericExpressionQueryFieldValueTypeNumericExpression ApiNumericExpressionQueryFieldValueType = "numericExpression"
 )
 
 // Defines values for ApiNvlQueryFieldValueType.
 const (
-	Nvl ApiNvlQueryFieldValueType = "nvl"
+	ApiNvlQueryFieldValueTypeNvl ApiNvlQueryFieldValueType = "nvl"
 )
 
 // Defines values for ApiOverrideFieldMetadataFilterType.
 const (
-	OverrideFieldMetadata ApiOverrideFieldMetadataFilterType = "overrideFieldMetadata"
+	ApiOverrideFieldMetadataFilterTypeOverrideFieldMetadata ApiOverrideFieldMetadataFilterType = "overrideFieldMetadata"
 )
 
 // Defines values for ApiReductionQueryDatasourceType.
 const (
-	Reduction ApiReductionQueryDatasourceType = "reduction"
+	ApiReductionQueryDatasourceTypeReduction ApiReductionQueryDatasourceType = "reduction"
 )
 
 // Defines values for ApiRefQueryFieldValueType.
 const (
-	Ref ApiRefQueryFieldValueType = "ref"
+	ApiRefQueryFieldValueTypeRef ApiRefQueryFieldValueType = "ref"
 )
 
 // Defines values for ApiSelectorQueryFieldValueType.
 const (
-	Selector ApiSelectorQueryFieldValueType = "selector"
+	ApiSelectorQueryFieldValueTypeSelector ApiSelectorQueryFieldValueType = "selector"
 )
 
 // Defines values for ApiStaticQueryDatasourceType.
 const (
-	Static ApiStaticQueryDatasourceType = "static"
+	ApiStaticQueryDatasourceTypeStatic ApiStaticQueryDatasourceType = "static"
 )
 
 // Defines values for ApiUnaryNumericOperatorQueryFieldValueType.
 const (
-	UnaryNumericOperator ApiUnaryNumericOperatorQueryFieldValueType = "unaryNumericOperator"
+	ApiUnaryNumericOperatorQueryFieldValueTypeUnaryNumericOperator ApiUnaryNumericOperatorQueryFieldValueType = "unaryNumericOperator"
 )
 
 // ApiAddFieldMeta defines model for ApiAddFieldMeta.
