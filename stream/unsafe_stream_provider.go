@@ -72,14 +72,40 @@ func newUnsafeStream[T any](
 	emitFunc func(ctx context.Context, b *unsafeProviderBuilder) (T, error),
 	optCloseFunc func(),
 ) Stream[T] {
+	// Take an immutable snapshot of the builder's initial state
+	// This is captured once and never modified, allowing proper cleanup on each close
+	initialSize := len(b.orderedUntypedStreams)
+	initialStreams := make([]any, initialSize)
+	copy(initialStreams, b.orderedUntypedStreams)
+
 	closeFunc := func() {
 		// Close all streams that were left open (reversed order)
 		for i := len(b.streamOpenOrder) - 1; i >= 0; i-- {
-			cf := b.orderedCloseFunctionsForStreamsThatAreOpen[b.streamOpenOrder[i]]
-			if cf != nil {
-				cf()
+			idx := b.streamOpenOrder[i]
+			// Bounds check in case of dynamic stream additions
+			if idx < len(b.orderedCloseFunctionsForStreamsThatAreOpen) {
+				if cf := b.orderedCloseFunctionsForStreamsThatAreOpen[idx]; cf != nil {
+					cf()
+				}
 			}
 		}
+
+		// Restore builder to initial state (for reusability/double collection)
+		// 1. Truncate arrays back to initial size
+		b.orderedUntypedStreams = b.orderedUntypedStreams[:initialSize]
+		b.orderedCloseFunctionsForStreamsThatAreOpen = b.orderedCloseFunctionsForStreamsThatAreOpen[:initialSize]
+
+		// 2. Restore stream references from immutable snapshot
+		copy(b.orderedUntypedStreams, initialStreams)
+
+		// 3. Clear all close functions
+		for i := 0; i < initialSize; i++ {
+			b.orderedCloseFunctionsForStreamsThatAreOpen[i] = nil
+		}
+
+		// 4. Clear the open order tracking
+		b.streamOpenOrder = b.streamOpenOrder[:0]
+
 		// Close the unsafe stream itself using the closeFunc
 		if optCloseFunc != nil {
 			optCloseFunc()
