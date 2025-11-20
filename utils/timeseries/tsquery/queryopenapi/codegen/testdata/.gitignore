@@ -1,0 +1,7 @@
+# Generated files - do not commit
+openapi_generated.gen.go
+openapi_parser.go
+openapi_parser_datasource.go
+openapi_parser_filter.go
+openapi_parser_field.go
+openapi_parser_test.go

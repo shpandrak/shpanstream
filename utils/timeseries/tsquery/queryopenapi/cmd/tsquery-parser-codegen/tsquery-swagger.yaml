@@ -1,0 +1,620 @@
+openapi: 3.2.0
+info:
+  title: Shpanstream Time Series Query API
+  version: "0.1"
+paths:
+  /api/commands/execute-query:
+    post:
+      tags:
+        - tsQuery
+      description: Execute time series query
+      operationId: executeQuery
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiExecuteQueryCommandArgs'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiQueryResult'
+
+
+components:
+  schemas:
+    ApiMeasurementValue:
+      type: object
+      required:
+        - timestamp
+        - value
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        value:
+          x-go-type: any
+          anyOf:
+            - type: string
+            - type: number
+            - type: boolean
+
+    ApiExecuteQueryCommandArgs:
+      type: object
+      required:
+        - datasource
+        - from
+        - to
+      properties:
+        datasource:
+          $ref: '#/components/schemas/ApiQueryDatasource'
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+
+
+    ApiQueryDatasource:
+      description: Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
+      type: object
+      discriminator:
+        propertyName: type
+        mapping:
+          filtered: '#/components/schemas/ApiFilteredQueryDatasource'
+          reduction: '#/components/schemas/ApiReductionQueryDatasource'
+          static: '#/components/schemas/ApiStaticQueryDatasource'
+      oneOf:
+        - $ref: '#/components/schemas/ApiFilteredQueryDatasource'
+        - $ref: '#/components/schemas/ApiReductionQueryDatasource'
+        - $ref: '#/components/schemas/ApiStaticQueryDatasource'
+
+    ApiMultiDatasource:
+      type: object
+      description: Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
+      discriminator:
+        propertyName: type
+        mapping:
+          list: '#/components/schemas/ApiListMultiDatasource'
+      oneOf:
+        - $ref: '#/components/schemas/ApiListMultiDatasource'
+
+    ApiListMultiDatasource:
+      type: object
+      description: List Multi Datasource is a static predefined list of datasources.
+      required:
+        - type
+        - datasources
+      properties:
+        type:
+          type: string
+          enum:
+            - list
+        datasources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiQueryDatasource'
+
+    ApiFilteredQueryDatasource:
+      type: object
+      required:
+        - type
+        - datasource
+        - filters
+      properties:
+        type:
+          type: string
+          enum:
+            - filtered
+        datasource:
+          $ref: '#/components/schemas/ApiQueryDatasource'
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiQueryFilter'
+
+
+    ApiReductionQueryDatasource:
+      type: object
+      required:
+        - type
+        - reductionType
+        - alignmentPeriod
+        - multiDatasource
+        - fieldMeta
+      properties:
+        type:
+          type: string
+          enum:
+            - reduction
+        reductionType:
+          $ref: '#/components/schemas/ApiReductionType'
+        alignmentPeriod:
+          $ref: '#/components/schemas/ApiAlignmentPeriod'
+        multiDatasource:
+          $ref: '#/components/schemas/ApiMultiDatasource'
+        fieldMeta:
+          $ref: '#/components/schemas/ApiAddFieldMeta'
+
+    ApiStaticQueryDatasource:
+      type: object
+      required:
+        - type
+        - fieldMeta
+        - data
+      properties:
+        type:
+          type: string
+          enum:
+            - static
+        fieldMeta:
+          $ref: '#/components/schemas/ApiQueryFieldMeta'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiMeasurementValue'
+
+    ApiQueryFilter:
+      type: object
+      discriminator:
+        propertyName: type
+        mapping:
+          aligner: '#/components/schemas/ApiAlignerFilter'
+          condition: '#/components/schemas/ApiConditionFilter'
+          fieldValue: '#/components/schemas/ApiFieldValueFilter'
+          overrideFieldMetadata: '#/components/schemas/ApiOverrideFieldMetadataFilter'
+      oneOf:
+        - $ref: '#/components/schemas/ApiAlignerFilter'
+        - $ref: '#/components/schemas/ApiConditionFilter'
+        - $ref: '#/components/schemas/ApiFieldValueFilter'
+        - $ref: '#/components/schemas/ApiOverrideFieldMetadataFilter'
+
+    ApiAlignmentPeriod:
+      type: object
+      discriminator:
+        propertyName: type
+        mapping:
+          calendar: '#/components/schemas/ApiCalendarAlignmentPeriod'
+          custom: '#/components/schemas/ApiCustomAlignmentPeriod'
+      oneOf:
+        - $ref: '#/components/schemas/ApiCalendarAlignmentPeriod'
+        - $ref: '#/components/schemas/ApiCustomAlignmentPeriod'
+
+    ApiCustomAlignmentPeriod:
+      type: object
+      required:
+        - type
+        - zoneId
+        - durationInMillis
+      properties:
+        type:
+          type: string
+          enum:
+            - custom
+        zoneId:
+          type: string
+          format: zone-id
+        durationInMillis:
+          type: integer
+          format: int64
+          minimum: 1
+
+    ApiAddFieldMeta:
+      type: object
+      required:
+        - uri
+      properties:
+        uri:
+          type: string
+          minLength: 1
+        overrideUnit:
+          type: string
+          minLength: 1
+          x-go-type-skip-optional-pointer: true
+        customMetadata:
+          x-go-type-skip-optional-pointer: true
+          type: object
+          additionalProperties: true
+
+    ApiConditionFilter:
+      type: object
+      required:
+        - type
+        - booleanField
+      properties:
+        type:
+          type: string
+          enum:
+            - condition
+        booleanField:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+
+    ApiFieldValueFilter:
+      type: object
+      required:
+        - type
+        - fieldValue
+        - fieldMeta
+      properties:
+        type:
+          type: string
+          enum:
+            - fieldValue
+        fieldValue:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        fieldMeta:
+          $ref: '#/components/schemas/ApiAddFieldMeta'
+
+    ApiOverrideFieldMetadataFilter:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - overrideFieldMetadata
+        updatedUrn:
+          type: string
+          minLength: 1
+          x-go-type-skip-optional-pointer: true
+        updatedUnit:
+          type: string
+          minLength: 1
+          x-go-type-skip-optional-pointer: true
+        updatedCustomMeta:
+          type: object
+          additionalProperties: true
+          x-go-type-skip-optional-pointer: true
+
+    ApiQueryFieldValue:
+      type: object
+      discriminator:
+        propertyName: type
+        mapping:
+          constant: '#/components/schemas/ApiConstantQueryFieldValue'
+          condition: '#/components/schemas/ApiConditionQueryFieldValue'
+          logicalExpression: '#/components/schemas/ApiLogicalExpressionQueryFieldValue'
+          ref: '#/components/schemas/ApiRefQueryFieldValue'
+          selector: '#/components/schemas/ApiSelectorQueryFieldValue'
+          nvl: '#/components/schemas/ApiNvlQueryFieldValue'
+          cast: '#/components/schemas/ApiCastQueryFieldValue'
+          numericExpression: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
+          unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
+      oneOf:
+        - $ref: '#/components/schemas/ApiConstantQueryFieldValue'
+        - $ref: '#/components/schemas/ApiConditionQueryFieldValue'
+        - $ref: '#/components/schemas/ApiLogicalExpressionQueryFieldValue'
+        - $ref: '#/components/schemas/ApiRefQueryFieldValue'
+        - $ref: '#/components/schemas/ApiSelectorQueryFieldValue'
+        - $ref: '#/components/schemas/ApiNvlQueryFieldValue'
+        - $ref: '#/components/schemas/ApiCastQueryFieldValue'
+        - $ref: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
+        - $ref: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
+
+    ApiConstantQueryFieldValue:
+      type: object
+      required:
+        - type
+        - dataType
+        - required
+        - fieldValue
+      properties:
+        type:
+          type: string
+          enum:
+            - constant
+        dataType:
+          $ref: '#/components/schemas/ApiMetricDataType'
+        required:
+          type: boolean
+        unit:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        fieldValue:
+          x-go-type: any
+          anyOf:
+            - type: string
+            - type: number
+            - type: boolean
+
+    ApiConditionOperatorType:
+      type: string
+      x-go-type: tsquery.ConditionOperatorType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
+      enum:
+        - equals
+        - not_equals
+        - greater_than
+        - less_than
+        - greater_equal
+        - less_equal
+
+    ApiConditionQueryFieldValue:
+      type: object
+      required:
+        - type
+        - operatorType
+        - operand1
+        - operand2
+      properties:
+        type:
+          type: string
+          enum:
+            - condition
+        operatorType:
+          $ref: '#/components/schemas/ApiConditionOperatorType'
+        operand1:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        operand2:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+
+    ApiLogicalOperatorType:
+      type: string
+      x-go-type: tsquery.LogicalOperatorType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery/tsquery"
+      enum:
+        - and
+        - or
+
+    ApiLogicalExpressionQueryFieldValue:
+      type: object
+      required:
+        - type
+        - logicalOperatorType
+        - operand1
+        - operand2
+      properties:
+        type:
+          type: string
+          enum:
+            - logicalExpression
+        logicalOperatorType:
+          $ref: '#/components/schemas/ApiLogicalOperatorType'
+        operand1:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        operand2:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+
+    ApiRefQueryFieldValue:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - ref
+
+    ApiSelectorQueryFieldValue:
+      type: object
+      required:
+        - type
+        - selectorBooleanField
+        - trueField
+        - falseField
+      properties:
+        type:
+          type: string
+          enum:
+            - selector
+        selectorBooleanField:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        trueField:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        falseField:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+
+    ApiNvlQueryFieldValue:
+      type: object
+      required:
+        - type
+        - source
+        - altField
+      properties:
+        type:
+          type: string
+          enum:
+            - nvl
+        source:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        altField:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+
+    ApiCastQueryFieldValue:
+      type: object
+      required:
+        - type
+        - source
+        - targetType
+      properties:
+        type:
+          type: string
+          enum:
+            - cast
+        source:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        targetType:
+          $ref: '#/components/schemas/ApiMetricDataType'
+
+    ApiBinaryNumericOperatorType:
+      type: string
+      x-go-type: tsquery.BinaryNumericOperatorType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
+      enum:
+        - "+"
+        - "-"
+        - "*"
+        - "/"
+        - "%"
+
+    ApiNumericExpressionQueryFieldValue:
+      type: object
+      required:
+        - type
+        - op1
+        - op
+        - op2
+      properties:
+        type:
+          type: string
+          enum:
+            - numericExpression
+        op1:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        op:
+          $ref: '#/components/schemas/ApiBinaryNumericOperatorType'
+        op2:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+
+    ApiUnaryNumericOperatorType:
+      type: string
+      x-go-type: tsquery.UnaryNumericOperatorType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
+      enum:
+        - abs
+        - negate
+        - sqrt
+        - ceil
+        - floor
+        - round
+        - log
+        - log10
+        - exp
+        - sin
+        - cos
+        - tan
+
+    ApiUnaryNumericOperatorQueryFieldValue:
+      type: object
+      required:
+        - type
+        - operand
+        - op
+      properties:
+        type:
+          type: string
+          enum:
+            - unaryNumericOperator
+        operand:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        op:
+          $ref: '#/components/schemas/ApiUnaryNumericOperatorType'
+
+    ApiReductionType:
+      type: string
+      x-go-type: tsquery.ReductionType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
+      enum:
+        - sum
+        - avg
+        - min
+        - max
+        - count
+
+    ApiCalendarPeriodType:
+      type: string
+      enum:
+        - quarterHour
+        - hour
+        - day
+        - week
+        - month
+        - quarter
+        - halfYear
+        - year
+
+    ApiCalendarAlignmentPeriod:
+      type: object
+      required:
+        - type
+        - alignmentPeriodType
+        - zoneId
+      properties:
+        type:
+          type: string
+          enum:
+            - calendar
+        alignmentPeriodType:
+          $ref: '#/components/schemas/ApiCalendarPeriodType'
+        zoneId:
+          type: string
+          format: zone-id
+
+
+    ApiAlignerFilter:
+      type: object
+      required:
+        - type
+        - alignerPeriod
+        - alignmentFunction
+      properties:
+        type:
+          type: string
+          enum:
+            - aligner
+        alignerPeriod:
+          $ref: '#/components/schemas/ApiAlignmentPeriod'
+        alignmentFunction:
+          $ref: '#/components/schemas/ApiAlignerFunction'
+
+
+    ApiAlignerFunction:
+      type: string
+      enum:
+        - avg
+        - sum
+        - max
+        - min
+        - count
+
+    ApiQueryResult:
+      type: object
+      required:
+        - meta
+        - data
+      properties:
+        meta:
+          $ref: '#/components/schemas/ApiQueryFieldMeta'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiMeasurementValue'
+
+    ApiQueryFieldMeta:
+      type: object
+      required:
+        - uri
+        - dataType
+        - required
+
+      properties:
+        uri:
+          type: string
+          minLength: 1
+        dataType:
+          $ref: '#/components/schemas/ApiMetricDataType'
+        required:
+          type: boolean
+        unit:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          minLength: 1
+        customMetadata:
+          type: object
+          additionalProperties: true
+          x-go-type-skip-optional-pointer: true
+
+    ApiMetricDataType:
+      type: string
+      x-go-type: tsquery.DataType
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
+      enum:
+        - integer
+        - decimal
+        - string
+        - boolean
+        - timestamp
