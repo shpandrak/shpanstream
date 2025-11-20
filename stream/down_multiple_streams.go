@@ -22,6 +22,8 @@ func NewDownMultiStream[S any, T any](
 	return newUnsafeStream[T](
 		b,
 		func(ctx context.Context, b *unsafeProviderBuilder) error {
+			// Reset srcProviders to support reusability (double collection)
+			srcProviders = srcProviders[:0]
 			for i := range srcs {
 				p, err := openSubStreamUnsafe[S](ctx, b, i)
 				if err != nil {
