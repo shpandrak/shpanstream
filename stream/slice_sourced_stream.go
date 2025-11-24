@@ -8,37 +8,35 @@ import (
 )
 
 func Just[T any](slice ...T) Stream[T] {
-	return NewStream(&justStream[T]{slcOrig: slice})
+	return NewStream(&justStream[T]{slc: slices.Clone(slice)})
 }
 
 func FromSlice[T any](slice []T) Stream[T] {
-	return NewStream(&justStream[T]{slcOrig: slice})
+	return NewStream(&justStream[T]{slc: slices.Clone(slice)})
 }
 
 type justStream[T any] struct {
-	slcOrig []T
-	slc     []T
+	slc []T
+	idx int
 }
 
 func (j *justStream[T]) Open(_ context.Context) error {
-	if j.slcOrig != nil {
-		j.slc = slices.Clone(j.slcOrig)
-	}
+	j.idx = 0
 	return nil
 }
 
 func (j *justStream[T]) Close() {
-	j.slc = nil
+	j.idx = 0
 }
 
 func (j *justStream[T]) Emit(ctx context.Context) (T, error) {
 	if ctx.Err() != nil {
 		return util.DefaultValue[T](), ctx.Err()
 	}
-	if len(j.slc) == 0 {
+	if j.idx >= len(j.slc) {
 		return util.DefaultValue[T](), io.EOF
 	}
-	v := j.slc[0]
-	j.slc = j.slc[1:]
+	v := j.slc[j.idx]
+	j.idx++
 	return v, nil
 }
