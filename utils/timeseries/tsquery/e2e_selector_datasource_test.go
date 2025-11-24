@@ -354,7 +354,7 @@ func TestSelectorDatasource_ErrorOnOptionalSelector(t *testing.T) {
 	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	// Create boolean datasource but make it optional
+	// Create a boolean datasource but make it optional
 	fieldMeta, err := tsquery.NewFieldMetaWithCustomData("IsActive", tsquery.DataTypeBoolean, false, "", nil)
 	require.NoError(t, err)
 

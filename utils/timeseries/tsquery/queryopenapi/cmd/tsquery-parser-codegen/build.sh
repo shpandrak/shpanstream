@@ -33,3 +33,7 @@ echo "✓ Tool built and installed successfully"
 echo ""
 echo "Embedded files:"
 ls -1 openapi_parser*.go tsquery-swagger.yaml
+
+# Verify you need to tag the tool so it can be installed!
+#git tag utils/timeseries/tsquery/queryopenapi/cmd/tsquery-parser-codegen/v0.4.7
+#git push origin utils/timeseries/tsquery/queryopenapi/cmd/tsquery-parser-codegen/v0.4.7
