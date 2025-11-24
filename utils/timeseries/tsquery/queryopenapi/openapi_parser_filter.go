@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func ParseFilter(rawFilter ApiQueryFilter) (datasource.Filter, error) {
+func ParseFilter(pCtx *ParsingContext, rawFilter ApiQueryFilter) (datasource.Filter, error) {
 	rawFilterType, err := rawFilter.ValueByDiscriminator()
 	if err != nil {
 		return nil, err
@@ -17,25 +17,25 @@ func ParseFilter(rawFilter ApiQueryFilter) (datasource.Filter, error) {
 	case ApiAlignerFilter:
 		return parseAlignerFilter(typedFilter)
 	case ApiConditionFilter:
-		return parseConditionFilter(typedFilter)
+		return parseConditionFilter(pCtx, typedFilter)
 	case ApiFieldValueFilter:
-		return parseFieldValueFilter(typedFilter)
+		return parseFieldValueFilter(pCtx, typedFilter)
 	case ApiOverrideFieldMetadataFilter:
 		return parseOverrideFieldMetadataFilter(typedFilter)
 	}
-	return nil, fmt.Errorf("filter type %T not supported", rawFilter)
+	return wrapAndReturn(pCtx.ParseFilter(pCtx, rawFilter))("failed parsing filter with plugin parser")
 }
 
-func parseConditionFilter(conditionFilter ApiConditionFilter) (datasource.Filter, error) {
-	booleanField, err := parseQueryField(conditionFilter.BooleanField)
+func parseConditionFilter(pCtx *ParsingContext, conditionFilter ApiConditionFilter) (datasource.Filter, error) {
+	booleanField, err := parseQueryField(pCtx, conditionFilter.BooleanField)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse boolean field for condition filter: %w", err)
 	}
 	return datasource.NewConditionFilter(booleanField), nil
 }
 
-func parseFieldValueFilter(fieldValueFilter ApiFieldValueFilter) (datasource.Filter, error) {
-	f, err := parseQueryField(fieldValueFilter.FieldValue)
+func parseFieldValueFilter(pCtx *ParsingContext, fieldValueFilter ApiFieldValueFilter) (datasource.Filter, error) {
+	f, err := parseQueryField(pCtx, fieldValueFilter.FieldValue)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse field for field value filter: %w", err)
 	}
@@ -66,8 +66,8 @@ func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.Filter, e
 	if err != nil {
 		return nil, err
 	}
-	// Note: AlignmentFunction is present in the API but datasource.AlignerFilter doesn't use it
-	// It always uses time-weighted interpolation
+	// Note: AlignmentFunction is present in the API, but datasource.AlignerFilter doesn't use it
+	// as it always uses time-weighted interpolation
 	return datasource.NewAlignerFilter(alignerPeriod), nil
 }
 

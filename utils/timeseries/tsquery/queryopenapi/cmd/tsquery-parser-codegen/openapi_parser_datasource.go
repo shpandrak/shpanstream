@@ -126,7 +126,7 @@ func parseFilteredDatasource(
 	}
 	var parsedFilters []datasource.Filter
 	for _, rawFilter := range filteredDs.Filters {
-		parsedFilter, err := ParseFilter(rawFilter)
+		parsedFilter, err := ParseFilter(pCtx, rawFilter)
 		if err != nil {
 			return nil, err
 		}
