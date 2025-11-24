@@ -11,8 +11,8 @@ import (
 )
 
 // Helper function to execute a field and get its value for nvl tests
-func executeFieldValue(t *testing.T, f Value, ctx context.Context) (any, error) {
-	_, valueSupplier, err := f.Execute(tsquery.FieldMeta{})
+func executeFieldValue(ctx context.Context, f Value) (any, error) {
+	_, valueSupplier, err := f.Execute(ctx, tsquery.FieldMeta{})
 	if err != nil {
 		return nil, err
 	}
@@ -21,8 +21,8 @@ func executeFieldValue(t *testing.T, f Value, ctx context.Context) (any, error) 
 }
 
 // Helper function to execute a field and get its metadata for nvl tests
-func executeFieldValueMeta(t *testing.T, f Value, ctx context.Context) (tsquery.ValueMeta, error) {
-	meta, _, err := f.Execute(tsquery.FieldMeta{})
+func executeFieldValueMeta(ctx context.Context, f Value) (tsquery.ValueMeta, error) {
+	meta, _, err := f.Execute(ctx, tsquery.FieldMeta{})
 	return meta, err
 }
 
@@ -41,7 +41,7 @@ func TestNvlField_SourceHasValue(t *testing.T) {
 	require.NotNil(t, nvlField)
 
 	// Should return source value
-	result, err := executeFieldValue(t, nvlField, ctx)
+	result, err := executeFieldValue(ctx, nvlField)
 	require.NoError(t, err)
 	require.Equal(t, int64(42), result)
 }
@@ -60,7 +60,7 @@ func TestNvlField_SourceIsNull(t *testing.T) {
 	nvlField := NewNvlFieldValue(sourceField, altField)
 
 	// Should return alternative value
-	result, err := executeFieldValue(t, nvlField, ctx)
+	result, err := executeFieldValue(ctx, nvlField)
 	require.NoError(t, err)
 	require.Equal(t, int64(100), result)
 }
@@ -78,8 +78,8 @@ func TestNvlField_SourceRequired(t *testing.T) {
 
 	nvlField := NewNvlFieldValue(sourceField, altField)
 
-	// Should take optimized path and return source value directly
-	result, err := executeFieldValue(t, nvlField, ctx)
+	// Should take an optimized path and return source value directly
+	result, err := executeFieldValue(ctx, nvlField)
 	require.NoError(t, err)
 	require.Equal(t, int64(42), result)
 }
@@ -125,12 +125,13 @@ func TestNvlField_DifferentDataTypes(t *testing.T) {
 				altVal = false
 			}
 
+			ctx := context.Background()
 			sourceField := NewConstantFieldValue(sourceMeta, sourceVal)
 
 			altField := NewConstantFieldValue(altMeta, altVal)
 
 			nvlField := NewNvlFieldValue(sourceField, altField)
-			_, _, err := nvlField.Execute(tsquery.FieldMeta{})
+			_, _, err := nvlField.Execute(ctx, tsquery.FieldMeta{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "incompatible datatypes")
 		})
@@ -138,6 +139,7 @@ func TestNvlField_DifferentDataTypes(t *testing.T) {
 }
 
 func TestNvlField_AlternativeNotRequired(t *testing.T) {
+	ctx := context.Background()
 	sourceMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 	altMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 
@@ -146,7 +148,7 @@ func TestNvlField_AlternativeNotRequired(t *testing.T) {
 	altField := NewConstantFieldValue(altMeta, int64(100))
 
 	nvlField := NewNvlFieldValue(sourceField, altField)
-	_, _, err := nvlField.Execute(tsquery.FieldMeta{})
+	_, _, err := nvlField.Execute(ctx, tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "alternative field")
 	require.Contains(t, err.Error(), "must be required")
@@ -163,7 +165,7 @@ func TestNvlField_Meta(t *testing.T) {
 
 	nvlField := NewNvlFieldValue(sourceField, altField)
 
-	fieldMeta, err := executeFieldValueMeta(t, nvlField, ctx)
+	fieldMeta, err := executeFieldValueMeta(ctx, nvlField)
 	require.NoError(t, err)
 	require.Equal(t, tsquery.DataTypeInteger, fieldMeta.DataType)
 	require.True(t, fieldMeta.Required) // NVL field is always required
@@ -183,7 +185,7 @@ func TestNvlField_SourceErrorPropagation(t *testing.T) {
 
 	nvlField := NewNvlFieldValue(sourceField, altField)
 
-	_, err = executeFieldValue(t, nvlField, ctx)
+	_, err = executeFieldValue(ctx, nvlField)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed getting value from source field")
 }
@@ -193,7 +195,7 @@ func TestNvlField_AlternativeErrorPropagation(t *testing.T) {
 
 	meta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 
-	// Source is null, so alternative will be called
+	// Source is null, so an alternative will be called
 	sourceField := NewConstantFieldValue(meta, nil)
 
 	// Alternative field returns error
@@ -203,7 +205,7 @@ func TestNvlField_AlternativeErrorPropagation(t *testing.T) {
 
 	nvlField := NewNvlFieldValue(sourceField, altField)
 
-	_, err = executeFieldValue(t, nvlField, ctx)
+	_, err = executeFieldValue(ctx, nvlField)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed getting value from alternative field")
 }
@@ -235,7 +237,7 @@ func TestNvlField_AllDataTypes(t *testing.T) {
 
 			nvlField := NewNvlFieldValue(sourceField, altField)
 
-			result, err := executeFieldValue(t, nvlField, ctx)
+			result, err := executeFieldValue(ctx, nvlField)
 			require.NoError(t, err)
 			require.Equal(t, tt.value, result)
 
@@ -244,7 +246,7 @@ func TestNvlField_AllDataTypes(t *testing.T) {
 
 			nvlFieldNull := NewNvlFieldValue(sourceFieldNull, altField)
 
-			resultNull, err := executeFieldValue(t, nvlFieldNull, ctx)
+			resultNull, err := executeFieldValue(ctx, nvlFieldNull)
 			require.NoError(t, err)
 			require.Equal(t, tt.altValue, resultNull)
 		})
@@ -270,7 +272,7 @@ func TestNvlField_ChainedNvl(t *testing.T) {
 
 	outerNvl := NewNvlFieldValue(innerNvl, alt2)
 
-	result, err := executeFieldValue(t, outerNvl, ctx)
+	result, err := executeFieldValue(ctx, outerNvl)
 	require.NoError(t, err)
 	require.Equal(t, int64(50), result)
 }
@@ -292,7 +294,7 @@ func TestNvlField_CombinedWithOperations(t *testing.T) {
 
 	sumField := NewNumericExpressionFieldValue(nvlField, tsquery.BinaryNumericOperatorAdd, constantFive)
 
-	result, err := executeFieldValue(t, sumField, ctx)
+	result, err := executeFieldValue(ctx, sumField)
 	require.NoError(t, err)
 	require.Equal(t, int64(15), result)
 }

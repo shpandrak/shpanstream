@@ -1,6 +1,7 @@
 package report
 
 import (
+	"context"
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
@@ -10,6 +11,7 @@ import (
 )
 
 func TestOverrideFieldMetadataFilter_OverrideUrnOnly(t *testing.T) {
+	ctx := context.Background()
 	// Create original field metadata
 	originalMeta, err := tsquery.NewFieldMetaWithCustomData(
 		"original_field",
@@ -30,7 +32,7 @@ func TestOverrideFieldMetadataFilter_OverrideUrnOnly(t *testing.T) {
 	// Override URN only
 	newUrn := "renamed_field"
 	filter := NewOverrideFieldMetadataFilter("original_field", &newUrn, nil, nil)
-	filteredResult, err := filter.Filter(result)
+	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify URN is updated
@@ -52,6 +54,7 @@ func TestOverrideFieldMetadataFilter_OverrideUrnOnly(t *testing.T) {
 }
 
 func TestOverrideFieldMetadataFilter_OverrideUnitOnly(t *testing.T) {
+	ctx := context.Background()
 	// Create original field metadata
 	originalMeta, err := tsquery.NewFieldMetaWithCustomData(
 		"temperature",
@@ -71,7 +74,7 @@ func TestOverrideFieldMetadataFilter_OverrideUnitOnly(t *testing.T) {
 	// Override unit only
 	newUnit := "fahrenheit"
 	filter := NewOverrideFieldMetadataFilter("temperature", nil, &newUnit, nil)
-	filteredResult, err := filter.Filter(result)
+	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify unit is updated
@@ -84,6 +87,7 @@ func TestOverrideFieldMetadataFilter_OverrideUnitOnly(t *testing.T) {
 }
 
 func TestOverrideFieldMetadataFilter_OverrideCustomMetaOnly(t *testing.T) {
+	ctx := context.Background()
 	// Create original field metadata with custom meta
 	originalMeta, err := tsquery.NewFieldMetaWithCustomData(
 		"sensor_reading",
@@ -109,7 +113,7 @@ func TestOverrideFieldMetadataFilter_OverrideCustomMetaOnly(t *testing.T) {
 		"device":   "thermometer", // Add new
 	}
 	filter := NewOverrideFieldMetadataFilter("sensor_reading", nil, nil, newCustomMeta)
-	filteredResult, err := filter.Filter(result)
+	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify custom metadata is replaced (not merged)
@@ -124,6 +128,7 @@ func TestOverrideFieldMetadataFilter_OverrideCustomMetaOnly(t *testing.T) {
 }
 
 func TestOverrideFieldMetadataFilter_OverrideMultipleProperties(t *testing.T) {
+	ctx := context.Background()
 	// Create original field metadata
 	originalMeta, err := tsquery.NewFieldMetaWithCustomData(
 		"old_name",
@@ -146,7 +151,7 @@ func TestOverrideFieldMetadataFilter_OverrideMultipleProperties(t *testing.T) {
 	newCustomMeta := map[string]any{"key2": "value2"}
 
 	filter := NewOverrideFieldMetadataFilter("old_name", &newUrn, &newUnit, newCustomMeta)
-	filteredResult, err := filter.Filter(result)
+	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify all overrides applied
@@ -161,6 +166,7 @@ func TestOverrideFieldMetadataFilter_OverrideMultipleProperties(t *testing.T) {
 }
 
 func TestOverrideFieldMetadataFilter_NoOverrides(t *testing.T) {
+	ctx := context.Background()
 	// Create original field metadata
 	originalMeta, err := tsquery.NewFieldMetaWithCustomData(
 		"field_name",
@@ -179,7 +185,7 @@ func TestOverrideFieldMetadataFilter_NoOverrides(t *testing.T) {
 
 	// No overrides (all nil)
 	filter := NewOverrideFieldMetadataFilter("field_name", nil, nil, nil)
-	filteredResult, err := filter.Filter(result)
+	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify immutable metadata is unchanged
@@ -192,6 +198,7 @@ func TestOverrideFieldMetadataFilter_NoOverrides(t *testing.T) {
 }
 
 func TestOverrideFieldMetadataFilter_ErrorOnFieldNotFound(t *testing.T) {
+	ctx := context.Background()
 	// Create field metadata
 	originalMeta, err := tsquery.NewFieldMeta("existing_field", tsquery.DataTypeDecimal, true)
 	require.NoError(t, err)
@@ -205,7 +212,7 @@ func TestOverrideFieldMetadataFilter_ErrorOnFieldNotFound(t *testing.T) {
 	// Try to override non-existent field
 	newUrn := "new_name"
 	filter := NewOverrideFieldMetadataFilter("non_existent_field", &newUrn, nil, nil)
-	_, err = filter.Filter(result)
+	_, err = filter.Filter(ctx, result)
 
 	// Verify error
 	require.Error(t, err)
@@ -214,6 +221,7 @@ func TestOverrideFieldMetadataFilter_ErrorOnFieldNotFound(t *testing.T) {
 }
 
 func TestOverrideFieldMetadataFilter_WithMultipleFields(t *testing.T) {
+	ctx := context.Background()
 	// Create multiple fields
 	field1, err := tsquery.NewFieldMeta("field1", tsquery.DataTypeDecimal, true)
 	require.NoError(t, err)
@@ -231,7 +239,7 @@ func TestOverrideFieldMetadataFilter_WithMultipleFields(t *testing.T) {
 	// Override only the middle field
 	newUrn := "field2_renamed"
 	filter := NewOverrideFieldMetadataFilter("field2", &newUrn, nil, nil)
-	filteredResult, err := filter.Filter(result)
+	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify correct field was updated
@@ -267,6 +275,7 @@ func TestOverrideFieldMetadataFilter_DataTypeAndRequiredUnchanged(t *testing.T) 
 				requiredStr = "true"
 			}
 			t.Run(string(dataType)+"_required_"+requiredStr, func(t *testing.T) {
+				ctx := context.Background()
 				originalMeta, err := tsquery.NewFieldMeta("field", dataType, required)
 				require.NoError(t, err)
 
@@ -280,7 +289,7 @@ func TestOverrideFieldMetadataFilter_DataTypeAndRequiredUnchanged(t *testing.T) 
 				newUrn := "new_field"
 				newUnit := "new_unit"
 				filter := NewOverrideFieldMetadataFilter("field", &newUrn, &newUnit, nil)
-				filteredResult, err := filter.Filter(result)
+				filteredResult, err := filter.Filter(ctx, result)
 				require.NoError(t, err)
 
 				// Verify dataType and required are unchanged
@@ -296,6 +305,7 @@ func TestOverrideFieldMetadataFilter_DataTypeAndRequiredUnchanged(t *testing.T) 
 }
 
 func TestOverrideFieldMetadataFilter_EmptyCustomMeta(t *testing.T) {
+	ctx := context.Background()
 	// Create field with no custom metadata
 	originalMeta, err := tsquery.NewFieldMeta("field", tsquery.DataTypeDecimal, true)
 	require.NoError(t, err)
@@ -309,7 +319,7 @@ func TestOverrideFieldMetadataFilter_EmptyCustomMeta(t *testing.T) {
 	// Add custom metadata
 	newCustomMeta := map[string]any{"key": "value"}
 	filter := NewOverrideFieldMetadataFilter("field", nil, nil, newCustomMeta)
-	filteredResult, err := filter.Filter(result)
+	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify custom metadata was added
@@ -317,6 +327,7 @@ func TestOverrideFieldMetadataFilter_EmptyCustomMeta(t *testing.T) {
 }
 
 func TestOverrideFieldMetadataFilter_PreservesStreamData(t *testing.T) {
+	ctx := context.Background()
 	// Create field metadata
 	originalMeta, err := tsquery.NewFieldMeta("field", tsquery.DataTypeDecimal, true)
 	require.NoError(t, err)
@@ -333,7 +344,7 @@ func TestOverrideFieldMetadataFilter_PreservesStreamData(t *testing.T) {
 	// Override metadata
 	newUrn := "renamed"
 	filter := NewOverrideFieldMetadataFilter("field", &newUrn, nil, nil)
-	filteredResult, err := filter.Filter(result)
+	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify stream data is completely unchanged
@@ -348,6 +359,7 @@ func TestOverrideFieldMetadataFilter_PreservesStreamData(t *testing.T) {
 }
 
 func TestOverrideFieldMetadataFilter_OverrideUnitToEmpty(t *testing.T) {
+	ctx := context.Background()
 	// Create field with unit
 	originalMeta, err := tsquery.NewFieldMetaWithCustomData(
 		"field",
@@ -367,7 +379,7 @@ func TestOverrideFieldMetadataFilter_OverrideUnitToEmpty(t *testing.T) {
 	// Override unit to empty string
 	emptyUnit := ""
 	filter := NewOverrideFieldMetadataFilter("field", nil, &emptyUnit, nil)
-	filteredResult, err := filter.Filter(result)
+	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify unit is now empty

@@ -13,6 +13,7 @@ import (
 )
 
 func TestSingleFieldFilter_WithRefField(t *testing.T) {
+	ctx := context.Background()
 	// Test using a RefField to extract a single field from a multi-field result
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c"})
 	records := []timeseries.TsRecord[[]any]{
@@ -22,7 +23,7 @@ func TestSingleFieldFilter_WithRefField(t *testing.T) {
 
 	// Extract field_b using RefField
 	singleFieldFilter := NewSingleFieldFilter(NewRefFieldValue("field_b"), tsquery.AddFieldMeta{Urn: "field_b"})
-	result, err := singleFieldFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify field metadata - should have only one field
@@ -37,6 +38,7 @@ func TestSingleFieldFilter_WithRefField(t *testing.T) {
 }
 
 func TestSingleFieldFilter_WithConstantField(t *testing.T) {
+	ctx := context.Background()
 	// Test using a ConstantField to create a single constant field
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b"})
 	records := []timeseries.TsRecord[[]any]{
@@ -50,7 +52,7 @@ func TestSingleFieldFilter_WithConstantField(t *testing.T) {
 	constantField := NewConstantFieldValue(constantValueMeta, 42.0)
 
 	singleFieldFilter := NewSingleFieldFilter(constantField, tsquery.AddFieldMeta{Urn: "constant"})
-	result, err := singleFieldFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify field metadata
@@ -66,6 +68,7 @@ func TestSingleFieldFilter_WithConstantField(t *testing.T) {
 }
 
 func TestSingleFieldFilter_FirstField(t *testing.T) {
+	ctx := context.Background()
 	// Test extracting the first field
 	fieldsMeta := createFieldsMeta(t, []string{"first", "second", "third"})
 	records := []timeseries.TsRecord[[]any]{
@@ -73,7 +76,7 @@ func TestSingleFieldFilter_FirstField(t *testing.T) {
 	}
 
 	singleFieldFilter := NewSingleFieldFilter(NewRefFieldValue("first"), tsquery.AddFieldMeta{Urn: "first"})
-	result, err := singleFieldFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	require.Len(t, result.FieldsMeta(), 1)
@@ -84,6 +87,7 @@ func TestSingleFieldFilter_FirstField(t *testing.T) {
 }
 
 func TestSingleFieldFilter_LastField(t *testing.T) {
+	ctx := context.Background()
 	// Test extracting the last field
 	fieldsMeta := createFieldsMeta(t, []string{"first", "second", "third"})
 	records := []timeseries.TsRecord[[]any]{
@@ -91,7 +95,7 @@ func TestSingleFieldFilter_LastField(t *testing.T) {
 	}
 
 	singleFieldFilter := NewSingleFieldFilter(NewRefFieldValue("third"), tsquery.AddFieldMeta{Urn: "third"})
-	result, err := singleFieldFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	require.Len(t, result.FieldsMeta(), 1)
@@ -102,6 +106,7 @@ func TestSingleFieldFilter_LastField(t *testing.T) {
 }
 
 func TestSingleFieldFilter_PreservesTimestamps(t *testing.T) {
+	ctx := context.Background()
 	// Test that timestamps are preserved
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b"})
 	timestamps := []time.Time{
@@ -116,7 +121,7 @@ func TestSingleFieldFilter_PreservesTimestamps(t *testing.T) {
 	}
 
 	singleFieldFilter := NewSingleFieldFilter(NewRefFieldValue("field_a"), tsquery.AddFieldMeta{Urn: "field_a"})
-	result, err := singleFieldFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	collectedRecords := result.Stream().MustCollect()
@@ -127,9 +132,10 @@ func TestSingleFieldFilter_PreservesTimestamps(t *testing.T) {
 }
 
 func TestSingleFieldFilter_EmptyStream(t *testing.T) {
+	ctx := context.Background()
 	// Test with an empty stream
 	singleFieldFilter := NewSingleFieldFilter(NewRefFieldValue("field_a"), tsquery.AddFieldMeta{Urn: "field_a"})
-	result, err := singleFieldFilter.Filter(NewResult(createFieldsMeta(
+	result, err := singleFieldFilter.Filter(ctx, NewResult(createFieldsMeta(
 		t,
 		[]string{"field_a", "field_b"},
 	), stream.Empty[timeseries.TsRecord[[]any]]()))
@@ -141,6 +147,7 @@ func TestSingleFieldFilter_EmptyStream(t *testing.T) {
 }
 
 func TestSingleFieldFilter_ErrorOnNonExistentField(t *testing.T) {
+	ctx := context.Background()
 	// Test that referencing a non-existent field returns an error
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b"})
 	records := []timeseries.TsRecord[[]any]{
@@ -148,12 +155,13 @@ func TestSingleFieldFilter_ErrorOnNonExistentField(t *testing.T) {
 	}
 
 	singleFieldFilter := NewSingleFieldFilter(NewRefFieldValue("field_x"), tsquery.AddFieldMeta{Urn: "field_x"})
-	_, err := singleFieldFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	_, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), " not found time series")
 }
 
 func TestSingleFieldFilter_ManyRecords(t *testing.T) {
+	ctx := context.Background()
 	// Test with many records to ensure efficiency
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c"})
 
@@ -168,7 +176,7 @@ func TestSingleFieldFilter_ManyRecords(t *testing.T) {
 	}
 
 	singleFieldFilter := NewSingleFieldFilter(NewRefFieldValue("field_b"), tsquery.AddFieldMeta{Urn: "field_b"})
-	result, err := singleFieldFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	require.Len(t, result.FieldsMeta(), 1)
@@ -183,6 +191,7 @@ func TestSingleFieldFilter_ManyRecords(t *testing.T) {
 }
 
 func TestSingleFieldFilter_WithCustomField(t *testing.T) {
+	ctx := context.Background()
 	// Test with a custom field implementation
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b"})
 	records := []timeseries.TsRecord[[]any]{
@@ -200,7 +209,7 @@ func TestSingleFieldFilter_WithCustomField(t *testing.T) {
 	}
 
 	singleFieldFilter := NewSingleFieldFilter(customField, tsquery.AddFieldMeta{Urn: "doubled"})
-	result, err := singleFieldFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	require.Len(t, result.FieldsMeta(), 1)
@@ -213,6 +222,7 @@ func TestSingleFieldFilter_WithCustomField(t *testing.T) {
 }
 
 func TestSingleFieldFilter_ErrorInValueSupplier(t *testing.T) {
+	ctx := context.Background()
 	// Test that errors in value supplier are propagated
 	fieldsMeta := createFieldsMeta(t, []string{"field_a"})
 	records := []timeseries.TsRecord[[]any]{
@@ -228,17 +238,17 @@ func TestSingleFieldFilter_ErrorInValueSupplier(t *testing.T) {
 	}
 
 	singleFieldFilter := NewSingleFieldFilter(errorField, tsquery.AddFieldMeta{Urn: "error_field"})
-	result, err := singleFieldFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err) // Filter itself doesn't error
 
 	// Error occurs during stream consumption
-	ctx := context.Background()
 	_, err = result.Stream().Collect(ctx)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "intentional error")
 }
 
 func TestSingleFieldFilter_WithDifferentDataTypes(t *testing.T) {
+	ctx := context.Background()
 	// Test that different data types are preserved
 	testCases := []struct {
 		name     string
@@ -263,7 +273,7 @@ func TestSingleFieldFilter_WithDifferentDataTypes(t *testing.T) {
 			}
 
 			singleFieldFilter := NewSingleFieldFilter(constantField, tsquery.AddFieldMeta{Urn: "field"})
-			result, err := singleFieldFilter.Filter(NewResult(dummyMeta, stream.Just(records...)))
+			result, err := singleFieldFilter.Filter(ctx, NewResult(dummyMeta, stream.Just(records...)))
 			require.NoError(t, err)
 
 			require.Len(t, result.FieldsMeta(), 1)
@@ -284,6 +294,6 @@ type mockField struct {
 	valueFunc func(ctx context.Context, record timeseries.TsRecord[[]any]) (any, error)
 }
 
-func (m *mockField) Execute(_ []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (m *mockField) Execute(ctx context.Context, fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	return m.valueMeta, m.valueFunc, nil
 }

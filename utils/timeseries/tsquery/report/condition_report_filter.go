@@ -18,11 +18,11 @@ func NewConditionFilter(booleanField Value) ConditionFilter {
 	return ConditionFilter{booleanField: booleanField}
 }
 
-func (cf ConditionFilter) Filter(result Result) (Result, error) {
+func (cf ConditionFilter) Filter(ctx context.Context, result Result) (Result, error) {
 	fieldsMeta := result.FieldsMeta()
 
 	// Execute the boolean field to get metadata and value supplier
-	fieldMeta, valueSupplier, err := cf.booleanField.Execute(fieldsMeta)
+	fieldMeta, valueSupplier, err := cf.booleanField.Execute(ctx, fieldsMeta)
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed to execute boolean field for condition filter: %w", err)
 	}

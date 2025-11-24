@@ -95,7 +95,8 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 
 	// Determine result unit: preserve if all datasources have the same unit
 	var resultUnit string
-	if allSameUnit {
+	// For count, we can't preserve unit, so leave empty
+	if allSameUnit && r.reductionType != tsquery.ReductionTypeCount {
 		resultUnit = firstUnit
 	}
 

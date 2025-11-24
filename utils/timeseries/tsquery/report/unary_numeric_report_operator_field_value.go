@@ -25,9 +25,9 @@ func NewUnaryNumericOperatorFieldValue(
 	}
 }
 
-func (ufv UnaryNumericOperatorFieldValue) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (ufv UnaryNumericOperatorFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	// Execute operand to get metadata (lazy validation)
-	operandMeta, operandValueSupplier, err := ufv.operand.Execute(fieldsMeta)
+	operandMeta, operandValueSupplier, err := ufv.operand.Execute(ctx, fieldsMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("failed executing operand field: %w", err)
 	}

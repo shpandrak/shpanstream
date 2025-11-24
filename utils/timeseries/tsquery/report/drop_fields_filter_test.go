@@ -1,6 +1,7 @@
 package report
 
 import (
+	"context"
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
@@ -11,6 +12,7 @@ import (
 )
 
 func TestDropFieldsFilter_DropSingleField(t *testing.T) {
+	ctx := context.Background()
 	// Test dropping a single field from a 3-field result
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c"})
 	records := []timeseries.TsRecord[[]any]{
@@ -19,7 +21,7 @@ func TestDropFieldsFilter_DropSingleField(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_b")
-	result, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify field metadata
@@ -35,6 +37,7 @@ func TestDropFieldsFilter_DropSingleField(t *testing.T) {
 }
 
 func TestDropFieldsFilter_DropMultipleFields(t *testing.T) {
+	ctx := context.Background()
 	// Test dropping multiple fields
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c", "field_d", "field_e"})
 	records := []timeseries.TsRecord[[]any]{
@@ -43,7 +46,7 @@ func TestDropFieldsFilter_DropMultipleFields(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_b", "field_d")
-	result, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify field metadata
@@ -60,6 +63,7 @@ func TestDropFieldsFilter_DropMultipleFields(t *testing.T) {
 }
 
 func TestDropFieldsFilter_DropFirstField(t *testing.T) {
+	ctx := context.Background()
 	// Test dropping the first field
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c"})
 	records := []timeseries.TsRecord[[]any]{
@@ -67,7 +71,7 @@ func TestDropFieldsFilter_DropFirstField(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_a")
-	result, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify field metadata
@@ -81,6 +85,7 @@ func TestDropFieldsFilter_DropFirstField(t *testing.T) {
 }
 
 func TestDropFieldsFilter_DropLastField(t *testing.T) {
+	ctx := context.Background()
 	// Test dropping the last field
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c"})
 	records := []timeseries.TsRecord[[]any]{
@@ -88,7 +93,7 @@ func TestDropFieldsFilter_DropLastField(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_c")
-	result, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify field metadata
@@ -102,6 +107,7 @@ func TestDropFieldsFilter_DropLastField(t *testing.T) {
 }
 
 func TestDropFieldsFilter_ErrorOnDropAllFields(t *testing.T) {
+	ctx := context.Background()
 	// Test that dropping all fields returns an error
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b"})
 	records := []timeseries.TsRecord[[]any]{
@@ -109,12 +115,13 @@ func TestDropFieldsFilter_ErrorOnDropAllFields(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_a", "field_b")
-	_, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	_, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot drop all fields")
 }
 
 func TestDropFieldsFilter_ErrorOnNonExistentField(t *testing.T) {
+	ctx := context.Background()
 	// Test that dropping a non-existent field returns an error
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c"})
 	records := []timeseries.TsRecord[[]any]{
@@ -122,13 +129,14 @@ func TestDropFieldsFilter_ErrorOnNonExistentField(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_x")
-	_, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	_, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot drop fields, since they do not exist")
 	require.Contains(t, err.Error(), "field_x")
 }
 
 func TestDropFieldsFilter_ErrorOnMultipleNonExistentFields(t *testing.T) {
+	ctx := context.Background()
 	// Test that dropping multiple non-existent fields returns an error listing all missing fields
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c"})
 	records := []timeseries.TsRecord[[]any]{
@@ -136,7 +144,7 @@ func TestDropFieldsFilter_ErrorOnMultipleNonExistentFields(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_x", "field_y", "field_b")
-	_, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	_, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot drop fields, since they do not exist")
 	// Both missing fields should be mentioned
@@ -145,12 +153,13 @@ func TestDropFieldsFilter_ErrorOnMultipleNonExistentFields(t *testing.T) {
 }
 
 func TestDropFieldsFilter_EmptyStream(t *testing.T) {
+	ctx := context.Background()
 	// Test that dropping fields from an empty stream works
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c"})
 	records := []timeseries.TsRecord[[]any]{}
 
 	filter := NewDropFieldsFilter("field_b")
-	result, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify field metadata
@@ -164,6 +173,7 @@ func TestDropFieldsFilter_EmptyStream(t *testing.T) {
 }
 
 func TestDropFieldsFilter_PreservesTimestamps(t *testing.T) {
+	ctx := context.Background()
 	// Test that timestamps are preserved correctly
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b"})
 	timestamps := []time.Time{
@@ -178,7 +188,7 @@ func TestDropFieldsFilter_PreservesTimestamps(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_b")
-	result, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify timestamps are preserved
@@ -190,6 +200,7 @@ func TestDropFieldsFilter_PreservesTimestamps(t *testing.T) {
 }
 
 func TestDropFieldsFilter_ManyRecords(t *testing.T) {
+	ctx := context.Background()
 	// Test efficiency with many records to ensure pre-allocation is working
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c", "field_d"})
 
@@ -204,7 +215,7 @@ func TestDropFieldsFilter_ManyRecords(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_b", "field_d")
-	result, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify metadata
@@ -221,6 +232,7 @@ func TestDropFieldsFilter_ManyRecords(t *testing.T) {
 }
 
 func TestDropFieldsFilter_DropAllButOne(t *testing.T) {
+	ctx := context.Background()
 	// Test dropping all fields except one
 	fieldsMeta := createFieldsMeta(t, []string{"field_a", "field_b", "field_c", "field_d"})
 	records := []timeseries.TsRecord[[]any]{
@@ -229,7 +241,7 @@ func TestDropFieldsFilter_DropAllButOne(t *testing.T) {
 	}
 
 	filter := NewDropFieldsFilter("field_a", "field_b", "field_d")
-	result, err := filter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	result, err := filter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
 	// Verify only one field remains

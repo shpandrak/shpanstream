@@ -1,6 +1,7 @@
 package report
 
 import (
+	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
@@ -25,7 +26,7 @@ func NewOverrideFieldMetadataFilter(fieldUrn string, optUpdatedUrn *string, optU
 	}
 }
 
-func (ofm OverrideFieldMetadataFilter) Filter(result Result) (Result, error) {
+func (ofm OverrideFieldMetadataFilter) Filter(ctx context.Context, result Result) (Result, error) {
 	// Find the field metadata for the specified URN
 	fieldsMeta := result.FieldsMeta()
 

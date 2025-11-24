@@ -20,14 +20,14 @@ func NewReplaceFieldFilter(fieldUrnToReplace string, updatedValue Value, updated
 	return ReplaceFieldFilter{fieldUrnToReplace: fieldUrnToReplace, updatedValue: updatedValue, updatedMeta: updatedMeta}
 }
 
-func (r ReplaceFieldFilter) Filter(result Result) (Result, error) {
+func (r ReplaceFieldFilter) Filter(ctx context.Context, result Result) (Result, error) {
 	// Verify the field to replace exists
 	if !result.HasField(r.fieldUrnToReplace) {
 		return util.DefaultValue[Result](), fmt.Errorf("cannot replace field, since it does not exist: %s", r.fieldUrnToReplace)
 	}
 
 	// Prepare field to get metadata and value supplier
-	fieldMeta, valueSupplier, err := PrepareField(r.updatedMeta, r.updatedValue, result.FieldsMeta())
+	fieldMeta, valueSupplier, err := PrepareField(ctx, r.updatedMeta, r.updatedValue, result.FieldsMeta())
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed preparing field for replacement: %w", err)
 	}

@@ -12,7 +12,7 @@ import (
 
 // Helper function to execute a field and get its value for nvl tests
 func executeFieldValue(t *testing.T, f Value, ctx context.Context) (any, error) {
-	_, valueSupplier, err := f.Execute([]tsquery.FieldMeta{})
+	_, valueSupplier, err := f.Execute(ctx, []tsquery.FieldMeta{})
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func executeFieldValue(t *testing.T, f Value, ctx context.Context) (any, error) 
 
 // Helper function to execute a field and get its metadata for nvl tests
 func executeFieldValueMeta(t *testing.T, f Value, ctx context.Context) (tsquery.ValueMeta, error) {
-	meta, _, err := f.Execute([]tsquery.FieldMeta{})
+	meta, _, err := f.Execute(ctx, []tsquery.FieldMeta{})
 	return meta, err
 }
 
@@ -32,7 +32,7 @@ type errorField struct {
 	err  error
 }
 
-func (ef *errorField) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (ef *errorField) Execute(ctx context.Context, fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	valueMeta := tsquery.ValueMeta{
 		DataType: ef.meta.DataType(),
 		Unit:     ef.meta.Unit(),
@@ -116,6 +116,7 @@ func TestNvlField_DifferentDataTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
 			sourceMeta := tsquery.ValueMeta{DataType: tt.sourceType, Required: false}
 			altMeta := tsquery.ValueMeta{DataType: tt.altType, Required: true}
 
@@ -148,7 +149,7 @@ func TestNvlField_DifferentDataTypes(t *testing.T) {
 			altField := NewConstantFieldValue(altMeta, altVal)
 
 			nvlField := NewNvlFieldValue(sourceField, altField)
-			_, _, err := nvlField.Execute([]tsquery.FieldMeta{})
+			_, _, err := nvlField.Execute(ctx, []tsquery.FieldMeta{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "incompatible datatypes")
 		})
@@ -156,6 +157,7 @@ func TestNvlField_DifferentDataTypes(t *testing.T) {
 }
 
 func TestNvlField_AlternativeNotRequired(t *testing.T) {
+	ctx := context.Background()
 	sourceMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 	altMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 
@@ -164,7 +166,7 @@ func TestNvlField_AlternativeNotRequired(t *testing.T) {
 	altField := NewConstantFieldValue(altMeta, int64(100))
 
 	nvlField := NewNvlFieldValue(sourceField, altField)
-	_, _, err := nvlField.Execute([]tsquery.FieldMeta{})
+	_, _, err := nvlField.Execute(ctx, []tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "alternative field")
 	require.Contains(t, err.Error(), "must be required")

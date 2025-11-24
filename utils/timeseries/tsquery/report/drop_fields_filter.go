@@ -1,6 +1,7 @@
 package report
 
 import (
+	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/stream"
@@ -23,7 +24,7 @@ func NewDropFieldsFilter(fieldUrns ...string) DropFieldsFilter {
 	}
 }
 
-func (a DropFieldsFilter) Filter(result Result) (Result, error) {
+func (a DropFieldsFilter) Filter(ctx context.Context, result Result) (Result, error) {
 	// We need to verify that fields to drop exist and that the remaining result is not empty
 	fieldsMeta := result.FieldsMeta()
 	fieldIdxToKeep := make([]int, 0, len(fieldsMeta)-len(a.fieldUrnsSetToRemove))

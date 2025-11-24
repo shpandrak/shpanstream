@@ -22,10 +22,10 @@ func NewFieldValueFilter(updatedValue Value, updatedMeta tsquery.AddFieldMeta) F
 	}
 }
 
-func (r FieldValueFilter) Filter(result Result) (Result, error) {
+func (r FieldValueFilter) Filter(ctx context.Context, result Result) (Result, error) {
 
 	// Prepare field to get metadata and value supplier
-	fieldMeta, valueSupplier, err := PrepareFieldValue(r.updatedMeta, r.fieldValue, result.meta)
+	fieldMeta, valueSupplier, err := PrepareFieldValue(ctx, r.updatedMeta, r.fieldValue, result.meta)
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed preparing field for filter value: %w", err)
 	}

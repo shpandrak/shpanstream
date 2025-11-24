@@ -1,6 +1,7 @@
 package tsquery_test
 
 import (
+	"context"
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
@@ -38,6 +39,7 @@ type ApplicationStatus struct {
 // --- Greater Than Tests ---
 
 func TestConditionFilter_GreaterThan_Decimal(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 15.0, Humidity: 60.0},
@@ -65,7 +67,7 @@ func TestConditionFilter_GreaterThan_Decimal(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -83,6 +85,7 @@ func TestConditionFilter_GreaterThan_Decimal(t *testing.T) {
 }
 
 func TestConditionFilter_GreaterThan_Integer(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []CounterMetrics{
 		{Timestamp: baseTime, Requests: 100, Errors: 5},
@@ -109,7 +112,7 @@ func TestConditionFilter_GreaterThan_Integer(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -126,6 +129,7 @@ func TestConditionFilter_GreaterThan_Integer(t *testing.T) {
 // --- Less Than Tests ---
 
 func TestConditionFilter_LessThan_Decimal(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 15.0, Humidity: 60.0},
@@ -151,7 +155,7 @@ func TestConditionFilter_LessThan_Decimal(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -165,6 +169,7 @@ func TestConditionFilter_LessThan_Decimal(t *testing.T) {
 // --- Greater Equal Tests ---
 
 func TestConditionFilter_GreaterEqual_Integer(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []CounterMetrics{
 		{Timestamp: baseTime, Requests: 100, Errors: 5},
@@ -191,7 +196,7 @@ func TestConditionFilter_GreaterEqual_Integer(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -205,6 +210,7 @@ func TestConditionFilter_GreaterEqual_Integer(t *testing.T) {
 // --- Less Equal Tests ---
 
 func TestConditionFilter_LessEqual_Decimal(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 15.0, Humidity: 60.0},
@@ -231,7 +237,7 @@ func TestConditionFilter_LessEqual_Decimal(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -246,6 +252,7 @@ func TestConditionFilter_LessEqual_Decimal(t *testing.T) {
 // --- Equals Tests ---
 
 func TestConditionFilter_Equals_Integer(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []CounterMetrics{
 		{Timestamp: baseTime, Requests: 100, Errors: 5},
@@ -272,7 +279,7 @@ func TestConditionFilter_Equals_Integer(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -287,6 +294,7 @@ func TestConditionFilter_Equals_Integer(t *testing.T) {
 // --- Not Equals Tests ---
 
 func TestConditionFilter_NotEquals_Decimal(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 20.0, Humidity: 60.0},
@@ -303,7 +311,7 @@ func TestConditionFilter_NotEquals_Decimal(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Create condition: Temperature != 20.0
+	// Create the condition: Temperature != 20.0
 	tempField := report.NewRefFieldValue("SensorReading:Temperature")
 	target := createConstantField(tsquery.DataTypeDecimal, 20.0)
 	conditionField := report.NewConditionFieldValue(tsquery.ConditionOperatorNotEquals,
@@ -313,7 +321,7 @@ func TestConditionFilter_NotEquals_Decimal(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -327,6 +335,7 @@ func TestConditionFilter_NotEquals_Decimal(t *testing.T) {
 // --- Field Comparison Tests ---
 
 func TestConditionFilter_CompareTwoFields(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []CounterMetrics{
 		{Timestamp: baseTime, Requests: 100, Errors: 5},
@@ -353,7 +362,7 @@ func TestConditionFilter_CompareTwoFields(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -376,6 +385,7 @@ func TestConditionFilter_CompareTwoFields(t *testing.T) {
 // --- Empty Result Tests ---
 
 func TestConditionFilter_NoMatchingRows(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 15.0, Humidity: 60.0},
@@ -401,7 +411,7 @@ func TestConditionFilter_NoMatchingRows(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify empty result
@@ -410,6 +420,7 @@ func TestConditionFilter_NoMatchingRows(t *testing.T) {
 }
 
 func TestConditionFilter_AllRowsMatch(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 25.0, Humidity: 60.0},
@@ -435,7 +446,7 @@ func TestConditionFilter_AllRowsMatch(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify all records returned
@@ -450,6 +461,7 @@ func TestConditionFilter_AllRowsMatch(t *testing.T) {
 // --- Error Cases ---
 
 func TestConditionFilter_ErrorOnNonBooleanField(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 20.0, Humidity: 60.0},
@@ -467,7 +479,7 @@ func TestConditionFilter_ErrorOnNonBooleanField(t *testing.T) {
 	nonBooleanField := report.NewRefFieldValue("SensorReading:Temperature")
 	conditionFilter := report.NewConditionFilter(nonBooleanField)
 
-	_, err = conditionFilter.Filter(result)
+	_, err = conditionFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "requires a boolean field")
 }
@@ -475,6 +487,7 @@ func TestConditionFilter_ErrorOnNonBooleanField(t *testing.T) {
 // --- Complex Filtering Tests ---
 
 func TestConditionFilter_ChainedWithOtherFilters(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 15.0, Humidity: 60.0},
@@ -500,12 +513,12 @@ func TestConditionFilter_ChainedWithOtherFilters(t *testing.T) {
 	)
 	conditionFilter := report.NewConditionFilter(conditionField)
 
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Second filter: Keep only temperature field
 	singleFieldFilter := report.NewSingleFieldFilter(report.NewRefFieldValue("SensorReading:Temperature"), tsquery.AddFieldMeta{Urn: "SensorReading:Temperature"})
-	finalResult, err := singleFieldFilter.Filter(filteredResult)
+	finalResult, err := singleFieldFilter.Filter(ctx, filteredResult)
 	require.NoError(t, err)
 
 	// Verify final result
@@ -518,6 +531,7 @@ func TestConditionFilter_ChainedWithOtherFilters(t *testing.T) {
 }
 
 func TestConditionFilter_PreservesFieldMetadata(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 25.0, Humidity: 60.0},
@@ -540,7 +554,7 @@ func TestConditionFilter_PreservesFieldMetadata(t *testing.T) {
 	)
 	conditionFilter := report.NewConditionFilter(conditionField)
 
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify metadata is preserved
@@ -555,6 +569,7 @@ func TestConditionFilter_PreservesFieldMetadata(t *testing.T) {
 // --- String Comparison Tests ---
 
 func TestConditionFilter_Equals_String(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ApplicationStatus{
 		{Timestamp: baseTime, Status: "running", Active: true},
@@ -581,7 +596,7 @@ func TestConditionFilter_Equals_String(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -596,6 +611,7 @@ func TestConditionFilter_Equals_String(t *testing.T) {
 }
 
 func TestConditionFilter_NotEquals_String(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ApplicationStatus{
 		{Timestamp: baseTime, Status: "running", Active: true},
@@ -622,7 +638,7 @@ func TestConditionFilter_NotEquals_String(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -636,6 +652,7 @@ func TestConditionFilter_NotEquals_String(t *testing.T) {
 // --- Boolean Comparison Tests ---
 
 func TestConditionFilter_Equals_Boolean(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ApplicationStatus{
 		{Timestamp: baseTime, Status: "running", Active: true},
@@ -662,7 +679,7 @@ func TestConditionFilter_Equals_Boolean(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -677,6 +694,7 @@ func TestConditionFilter_Equals_Boolean(t *testing.T) {
 }
 
 func TestConditionFilter_NotEquals_Boolean(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ApplicationStatus{
 		{Timestamp: baseTime, Status: "running", Active: true},
@@ -703,7 +721,7 @@ func TestConditionFilter_NotEquals_Boolean(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(conditionField)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -720,6 +738,7 @@ func TestConditionFilter_NotEquals_Boolean(t *testing.T) {
 // --- Error Cases for Non-Numeric Types ---
 
 func TestConditionFilter_ErrorOnStringWithGreaterThan(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ApplicationStatus{
 		{Timestamp: baseTime, Status: "running", Active: true},
@@ -742,13 +761,14 @@ func TestConditionFilter_ErrorOnStringWithGreaterThan(t *testing.T) {
 	)
 
 	conditionFilter := report.NewConditionFilter(conditionField)
-	_, err = conditionFilter.Filter(result)
+	_, err = conditionFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "is not supported for non-numeric type")
 	require.Contains(t, err.Error(), "Only equals and not_equals are supported")
 }
 
 func TestConditionFilter_ErrorOnBooleanWithLessThan(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ApplicationStatus{
 		{Timestamp: baseTime, Status: "running", Active: true},
@@ -771,7 +791,7 @@ func TestConditionFilter_ErrorOnBooleanWithLessThan(t *testing.T) {
 	)
 
 	conditionFilter := report.NewConditionFilter(conditionField)
-	_, err = conditionFilter.Filter(result)
+	_, err = conditionFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "is not supported for non-numeric type")
 	require.Contains(t, err.Error(), "Only equals and not_equals are supported")
@@ -780,6 +800,7 @@ func TestConditionFilter_ErrorOnBooleanWithLessThan(t *testing.T) {
 // --- Logical Expression Tests (AND/OR) ---
 
 func TestLogicalExpressionFilter_And_BothTrue(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 25.0, Humidity: 65.0},                    // temp>20 AND humidity>60 = true
@@ -821,7 +842,7 @@ func TestLogicalExpressionFilter_And_BothTrue(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(andCondition)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records - should only have records where BOTH conditions are true
@@ -838,6 +859,7 @@ func TestLogicalExpressionFilter_And_BothTrue(t *testing.T) {
 }
 
 func TestLogicalExpressionFilter_Or_AtLeastOneTrue(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 25.0, Humidity: 65.0},                    // temp>20 OR humidity>60 = true
@@ -878,7 +900,7 @@ func TestLogicalExpressionFilter_Or_AtLeastOneTrue(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(orCondition)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records - should have records where AT LEAST ONE condition is true
@@ -896,6 +918,7 @@ func TestLogicalExpressionFilter_Or_AtLeastOneTrue(t *testing.T) {
 }
 
 func TestLogicalExpressionFilter_And_WithIntegerFields(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []CounterMetrics{
 		{Timestamp: baseTime, Requests: 1000, Errors: 5},                    // requests>500 AND errors<10 = true
@@ -936,7 +959,7 @@ func TestLogicalExpressionFilter_And_WithIntegerFields(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(andCondition)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -951,6 +974,7 @@ func TestLogicalExpressionFilter_And_WithIntegerFields(t *testing.T) {
 }
 
 func TestLogicalExpressionFilter_NestedLogicalExpressions(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []CounterMetrics{
 		{Timestamp: baseTime, Requests: 1000, Errors: 5},                    // (requests>500 AND errors<10) OR errors==0 = true OR false = true
@@ -1004,7 +1028,7 @@ func TestLogicalExpressionFilter_NestedLogicalExpressions(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(orCondition)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify filtered records
@@ -1019,6 +1043,7 @@ func TestLogicalExpressionFilter_NestedLogicalExpressions(t *testing.T) {
 }
 
 func TestLogicalExpressionFilter_Or_AllFalse(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 15.0, Humidity: 55.0},
@@ -1057,7 +1082,7 @@ func TestLogicalExpressionFilter_Or_AllFalse(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(orCondition)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify empty result - no records match
@@ -1066,6 +1091,7 @@ func TestLogicalExpressionFilter_Or_AllFalse(t *testing.T) {
 }
 
 func TestLogicalExpressionFilter_And_AllTrue(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SensorReading{
 		{Timestamp: baseTime, Temperature: 25.0, Humidity: 65.0},
@@ -1095,7 +1121,7 @@ func TestLogicalExpressionFilter_And_AllTrue(t *testing.T) {
 			humidityField,
 			createConstantField(tsquery.DataTypeDecimal, 60.0),
 		),
-	)).Filter(result)
+	)).Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify all records match
@@ -1108,6 +1134,7 @@ func TestLogicalExpressionFilter_And_AllTrue(t *testing.T) {
 }
 
 func TestLogicalExpressionFilter_WithStringAndBooleanComparisons(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ApplicationStatus{
 		{Timestamp: baseTime, Status: "running", Active: true},                     // status=="running" AND active==true = true
@@ -1148,7 +1175,7 @@ func TestLogicalExpressionFilter_WithStringAndBooleanComparisons(t *testing.T) {
 
 	// Apply condition filter
 	conditionFilter := report.NewConditionFilter(andCondition)
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify only first record matches

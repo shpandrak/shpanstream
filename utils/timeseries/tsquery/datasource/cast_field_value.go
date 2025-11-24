@@ -27,9 +27,9 @@ func NewCastFieldValue(
 	}
 }
 
-func (cf CastFieldValue) Execute(fieldsMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (cf CastFieldValue) Execute(ctx context.Context, fieldMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	// Execute source to get metadata (lazy validation)
-	sourceMeta, sourceValueSupplier, err := cf.source.Execute(fieldsMeta)
+	sourceMeta, sourceValueSupplier, err := cf.source.Execute(ctx, fieldMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("failed executing source field: %w", err)
 	}

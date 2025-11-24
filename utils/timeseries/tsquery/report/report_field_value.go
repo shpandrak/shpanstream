@@ -9,5 +9,5 @@ import (
 type ValueSupplier func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error)
 
 type Value interface {
-	Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error)
+	Execute(ctx context.Context, fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error)
 }

@@ -1,6 +1,7 @@
 package datasource
 
 import (
+	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 )
@@ -33,7 +34,7 @@ func NewOverrideFieldMetadataFilter(
 	}
 }
 
-func (ofm OverrideFieldMetadataFilter) Filter(result Result) (Result, error) {
+func (ofm OverrideFieldMetadataFilter) Filter(ctx context.Context, result Result) (Result, error) {
 	// Get the field metadata from the single-field result
 	fieldMeta := result.Meta()
 
