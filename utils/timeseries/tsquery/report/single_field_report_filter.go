@@ -20,9 +20,9 @@ func NewSingleFieldFilter(fieldValue Value, meta tsquery.AddFieldMeta) SingleFie
 	return SingleFieldFilter{fieldValue: fieldValue, meta: meta}
 }
 
-func (sff SingleFieldFilter) Filter(result Result) (Result, error) {
+func (sff SingleFieldFilter) Filter(ctx context.Context, result Result) (Result, error) {
 	// Prepare field to get metadata and value supplier
-	fieldMeta, valueSupplier, err := PrepareField(sff.meta, sff.fieldValue, result.FieldsMeta())
+	fieldMeta, valueSupplier, err := PrepareField(ctx, sff.meta, sff.fieldValue, result.FieldsMeta())
 	if err != nil {
 		return Result{}, err
 	}

@@ -28,13 +28,13 @@ func NewLogicalExpressionFieldValue(
 	}
 }
 
-func (cf LogicalExpressionFieldValue) Execute(fieldsMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
-	operand1Meta, operand1Supplier, err := cf.operand1.Execute(fieldsMeta)
+func (cf LogicalExpressionFieldValue) Execute(ctx context.Context, fieldMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+	operand1Meta, operand1Supplier, err := cf.operand1.Execute(ctx, fieldMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, err
 	}
 
-	operand2Meta, operand2Supplier, err := cf.operand2.Execute(fieldsMeta)
+	operand2Meta, operand2Supplier, err := cf.operand2.Execute(ctx, fieldMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, err
 	}

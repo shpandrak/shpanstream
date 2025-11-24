@@ -24,13 +24,16 @@ func NewConditionFieldValue(
 	return ConditionFieldValue{operatorType: operatorType, operand1: operand1, operand2: operand2}
 }
 
-func (cf ConditionFieldValue) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
-	operand1Meta, operand1Supplier, err := cf.operand1.Execute(fieldsMeta)
+func (cf ConditionFieldValue) Execute(
+	ctx context.Context,
+	fieldsMeta []tsquery.FieldMeta,
+) (tsquery.ValueMeta, ValueSupplier, error) {
+	operand1Meta, operand1Supplier, err := cf.operand1.Execute(ctx, fieldsMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, err
 	}
 
-	operand2Meta, operand2Supplier, err := cf.operand2.Execute(fieldsMeta)
+	operand2Meta, operand2Supplier, err := cf.operand2.Execute(ctx, fieldsMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, err
 	}

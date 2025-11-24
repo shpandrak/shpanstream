@@ -19,10 +19,10 @@ func NewAppendFieldFilter(value Value, addFieldMeta tsquery.AddFieldMeta) Append
 	return AppendFieldFilter{value: value, addFieldMeta: addFieldMeta}
 }
 
-func (a AppendFieldFilter) Filter(result Result) (Result, error) {
+func (a AppendFieldFilter) Filter(ctx context.Context, result Result) (Result, error) {
 	// Execute field to get metadata and value supplier
 
-	fieldMeta, valueSupplier, err := PrepareField(a.addFieldMeta, a.value, result.FieldsMeta())
+	fieldMeta, valueSupplier, err := PrepareField(ctx, a.addFieldMeta, a.value, result.FieldsMeta())
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed to prepare field metadata for appending field filter: %w", err)
 	}

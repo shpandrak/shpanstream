@@ -20,7 +20,7 @@ func NewAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod) AlignerFilter 
 	return AlignerFilter{alignmentPeriod: alignmentPeriod}
 }
 
-func (af AlignerFilter) Filter(result Result) (Result, error) {
+func (af AlignerFilter) Filter(ctx context.Context, result Result) (Result, error) {
 	// Using ClusterSortedStreamComparable to group the items by the duration slot
 	fieldsMeta := result.FieldsMeta()
 	s := stream.ClusterSortedStreamComparable[timeseries.TsRecord[[]any], timeseries.TsRecord[[]any], time.Time](

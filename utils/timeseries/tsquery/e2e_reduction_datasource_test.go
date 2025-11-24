@@ -37,6 +37,7 @@ func createDatasource(t *testing.T, urn string, dataType tsquery.DataType, requi
 // --- Sum Tests ---
 
 func TestReductionDatasource_SumAllDatasources_Decimal(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -64,7 +65,6 @@ func TestReductionDatasource_SumAllDatasources_Decimal(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -90,6 +90,7 @@ func TestReductionDatasource_SumAllDatasources_Decimal(t *testing.T) {
 }
 
 func TestReductionDatasource_Sum_Integer(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -116,7 +117,6 @@ func TestReductionDatasource_Sum_Integer(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -141,6 +141,7 @@ func TestReductionDatasource_Sum_Integer(t *testing.T) {
 // --- Average Tests ---
 
 func TestReductionDatasource_AvgAllDatasources_Decimal(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -164,7 +165,6 @@ func TestReductionDatasource_AvgAllDatasources_Decimal(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -183,6 +183,7 @@ func TestReductionDatasource_AvgAllDatasources_Decimal(t *testing.T) {
 }
 
 func TestReductionDatasource_MinMax_Integer(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -203,7 +204,6 @@ func TestReductionDatasource_MinMax_Integer(t *testing.T) {
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
 
-	ctx := context.Background()
 	minResult, err := reductionDSMin.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -229,6 +229,7 @@ func TestReductionDatasource_MinMax_Integer(t *testing.T) {
 // --- Count Test ---
 
 func TestReductionDatasource_Count(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -252,7 +253,6 @@ func TestReductionDatasource_Count(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -273,6 +273,7 @@ func TestReductionDatasource_Count(t *testing.T) {
 // --- Error Cases ---
 
 func TestReductionDatasource_ErrorOnMixedDataTypes(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -294,13 +295,13 @@ func TestReductionDatasource_ErrorOnMixedDataTypes(t *testing.T) {
 	)
 
 	// Execute - should fail
-	ctx := context.Background()
 	_, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "all datasources must have the same data type")
 }
 
 func TestReductionDatasource_ErrorOnOptionalDatasource(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -324,7 +325,6 @@ func TestReductionDatasource_ErrorOnOptionalDatasource(t *testing.T) {
 	)
 
 	// Execute - should fail
-	ctx := context.Background()
 	_, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "must be required")
@@ -333,6 +333,7 @@ func TestReductionDatasource_ErrorOnOptionalDatasource(t *testing.T) {
 // --- Unit Preservation Tests ---
 
 func TestReductionDatasource_PreservesUnitWhenAllSame(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -356,7 +357,6 @@ func TestReductionDatasource_PreservesUnitWhenAllSame(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -366,6 +366,7 @@ func TestReductionDatasource_PreservesUnitWhenAllSame(t *testing.T) {
 }
 
 func TestReductionDatasource_NoUnitWhenDifferent(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -389,7 +390,6 @@ func TestReductionDatasource_NoUnitWhenDifferent(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -401,6 +401,7 @@ func TestReductionDatasource_NoUnitWhenDifferent(t *testing.T) {
 // --- Multiple Records Test ---
 
 func TestReductionDatasource_MultipleRecordsProcessedCorrectly(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -429,7 +430,6 @@ func TestReductionDatasource_MultipleRecordsProcessedCorrectly(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -455,6 +455,7 @@ func TestReductionDatasource_MultipleRecordsProcessedCorrectly(t *testing.T) {
 // TestReductionDatasource_AlignsMisalignedData_Sum verifies that the reduction datasource
 // correctly aligns misaligned datasources before reducing them
 func TestReductionDatasource_AlignsMisalignedData_Sum(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	// Create datasources with misaligned timestamps
@@ -488,7 +489,6 @@ func TestReductionDatasource_AlignsMisalignedData_Sum(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -515,6 +515,7 @@ func TestReductionDatasource_AlignsMisalignedData_Sum(t *testing.T) {
 // TestReductionDatasource_AlignsMisalignedData_WeightedAverage verifies time-weighted averaging
 // during alignment with non-constant values
 func TestReductionDatasource_AlignsMisalignedData_WeightedAverage(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	// Create datasources with misaligned timestamps and varying values
@@ -549,7 +550,6 @@ func TestReductionDatasource_AlignsMisalignedData_WeightedAverage(t *testing.T) 
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -575,6 +575,7 @@ func TestReductionDatasource_AlignsMisalignedData_WeightedAverage(t *testing.T) 
 // TestReductionDatasource_HandlesPartialOverlap verifies that inner join only produces
 // records where all datasources have data
 func TestReductionDatasource_HandlesPartialOverlap(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	// DS1: Has data for hours 0, 1, 2, 3
@@ -609,7 +610,6 @@ func TestReductionDatasource_HandlesPartialOverlap(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -642,6 +642,7 @@ func TestReductionDatasource_HandlesPartialOverlap(t *testing.T) {
 // TestReductionDatasource_ErrorOnNilAlignmentPeriod verifies that
 // a nil alignment period results in an error
 func TestReductionDatasource_ErrorOnNilAlignmentPeriod(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -661,7 +662,6 @@ func TestReductionDatasource_ErrorOnNilAlignmentPeriod(t *testing.T) {
 	)
 
 	// Execute - should fail
-	ctx := context.Background()
 	_, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "alignment period is required")
@@ -672,6 +672,7 @@ func TestReductionDatasource_ErrorOnNilAlignmentPeriod(t *testing.T) {
 // TestReductionDatasource_SingleDatasource_Sum verifies that when only one datasource
 // is provided to Sum reduction, it returns the data as-is (optimization)
 func TestReductionDatasource_SingleDatasource_Sum(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -694,7 +695,6 @@ func TestReductionDatasource_SingleDatasource_Sum(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -714,6 +714,7 @@ func TestReductionDatasource_SingleDatasource_Sum(t *testing.T) {
 // TestReductionDatasource_SingleDatasource_Avg verifies that when only one datasource
 // is provided to Avg reduction, it returns the data as-is (optimization)
 func TestReductionDatasource_SingleDatasource_Avg(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -732,7 +733,6 @@ func TestReductionDatasource_SingleDatasource_Avg(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -748,6 +748,7 @@ func TestReductionDatasource_SingleDatasource_Avg(t *testing.T) {
 // TestReductionDatasource_SingleDatasource_MinMax verifies that when only one datasource
 // is provided to Min/Max reduction, it returns the data as-is (optimization)
 func TestReductionDatasource_SingleDatasource_MinMax(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -767,7 +768,6 @@ func TestReductionDatasource_SingleDatasource_MinMax(t *testing.T) {
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
 
-	ctx := context.Background()
 	minResult, err := reductionDSMin.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -797,6 +797,7 @@ func TestReductionDatasource_SingleDatasource_MinMax(t *testing.T) {
 // TestReductionDatasource_SingleDatasource_Count verifies that when only one datasource
 // is provided to Count reduction, it returns the COUNT (1), NOT the original data
 func TestReductionDatasource_SingleDatasource_Count(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -819,7 +820,6 @@ func TestReductionDatasource_SingleDatasource_Count(t *testing.T) {
 	)
 
 	// Execute
-	ctx := context.Background()
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 

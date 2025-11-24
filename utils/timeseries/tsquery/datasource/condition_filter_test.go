@@ -37,7 +37,7 @@ func TestConditionFilter_FilterTrue(t *testing.T) {
 	conditionFilter := NewConditionFilter(trueField)
 
 	// Apply filter
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// All records should pass through
@@ -73,7 +73,7 @@ func TestConditionFilter_FilterFalse(t *testing.T) {
 	conditionFilter := NewConditionFilter(falseField)
 
 	// Apply filter
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// No records should pass through
@@ -107,7 +107,7 @@ func TestConditionFilter_NonBooleanField(t *testing.T) {
 	conditionFilter := NewConditionFilter(intField)
 
 	// Apply filter - should fail
-	_, err = conditionFilter.Filter(result)
+	_, err = conditionFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "boolean field")
 }
@@ -137,7 +137,7 @@ func TestConditionFilter_OptionalBooleanField(t *testing.T) {
 	conditionFilter := NewConditionFilter(optionalBoolField)
 
 	// Apply filter - should fail because field is optional
-	_, err = conditionFilter.Filter(result)
+	_, err = conditionFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "required")
 	require.Contains(t, err.Error(), "non-optional")
@@ -174,7 +174,7 @@ func TestConditionFilter_MetadataPreserved(t *testing.T) {
 
 	conditionFilter := NewConditionFilter(trueField)
 
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify metadata is preserved
@@ -190,7 +190,7 @@ type mockConditionalField struct {
 	threshold int64
 }
 
-func (m mockConditionalField) Execute(fieldsMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (m mockConditionalField) Execute(ctx context.Context, fieldMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	valueMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
 
 	valueSupplier := func(ctx context.Context, record timeseries.TsRecord[any]) (any, error) {
@@ -232,7 +232,7 @@ func TestConditionFilter_WithDynamicCondition(t *testing.T) {
 	conditionFilter := NewConditionFilter(conditionalField)
 
 	// Apply filter
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Only records with value > 25 should pass (30, 40, 50)
@@ -266,7 +266,7 @@ func TestConditionFilter_EmptyStream(t *testing.T) {
 
 	conditionFilter := NewConditionFilter(trueField)
 
-	filteredResult, err := conditionFilter.Filter(result)
+	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Should still be empty

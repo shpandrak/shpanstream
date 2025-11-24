@@ -15,15 +15,15 @@ func NewRefFieldValue() RefFieldValue {
 	return RefFieldValue{}
 }
 
-func (rf RefFieldValue) Execute(fieldsMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (rf RefFieldValue) Execute(ctx context.Context, fieldMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	// Create a value supplier that extracts the value from the current row at the correct index
 	valueSupplier := func(_ context.Context, currRow timeseries.TsRecord[any]) (any, error) {
 		return currRow.Value, nil
 	}
 
 	return tsquery.ValueMeta{
-		DataType: fieldsMeta.DataType(),
-		Unit:     fieldsMeta.Unit(),
-		Required: fieldsMeta.Required(),
+		DataType: fieldMeta.DataType(),
+		Unit:     fieldMeta.Unit(),
+		Required: fieldMeta.Required(),
 	}, valueSupplier, nil
 }

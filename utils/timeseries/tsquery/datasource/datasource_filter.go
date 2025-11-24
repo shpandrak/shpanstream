@@ -9,11 +9,12 @@ import (
 )
 
 func PrepareFieldValue(
+	ctx context.Context,
 	meta tsquery.AddFieldMeta,
 	value Value,
 	fieldMeta tsquery.FieldMeta,
 ) (*tsquery.FieldMeta, ValueSupplier, error) {
-	valueMeta, valueSupplier, err := value.Execute(fieldMeta)
+	valueMeta, valueSupplier, err := value.Execute(ctx, fieldMeta)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed executing field %s: %w", meta.Urn, err)
 	}
@@ -36,13 +37,13 @@ func PrepareFieldValue(
 }
 
 type Filter interface {
-	Filter(result Result) (Result, error)
+	Filter(ctx context.Context, result Result) (Result, error)
 }
 
-func ApplyFilters(result Result, filters ...Filter) (Result, error) {
+func ApplyFilters(ctx context.Context, result Result, filters ...Filter) (Result, error) {
 	var err error
 	for _, filter := range filters {
-		result, err = filter.Filter(result)
+		result, err = filter.Filter(ctx, result)
 		if err != nil {
 			return util.DefaultValue[Result](), err
 		}
@@ -60,7 +61,7 @@ func (f filteredDataSource) Execute(ctx context.Context, from time.Time, to time
 	if err != nil {
 		return util.DefaultValue[Result](), err
 	}
-	return ApplyFilters(result, f.filters...)
+	return ApplyFilters(ctx, result, f.filters...)
 }
 
 func NewFilteredDataSource(dataSource DataSource, filters ...Filter) DataSource {

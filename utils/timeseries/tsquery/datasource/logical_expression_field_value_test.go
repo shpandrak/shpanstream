@@ -11,8 +11,8 @@ import (
 )
 
 // Helper function to execute a logical expression field and get its value
-func executeLogicalFieldValue(t *testing.T, f Value, ctx context.Context) (any, error) {
-	_, valueSupplier, err := f.Execute(tsquery.FieldMeta{})
+func executeLogicalFieldValue(ctx context.Context, f Value) (any, error) {
+	_, valueSupplier, err := f.Execute(ctx, tsquery.FieldMeta{})
 	if err != nil {
 		return nil, err
 	}
@@ -21,8 +21,8 @@ func executeLogicalFieldValue(t *testing.T, f Value, ctx context.Context) (any, 
 }
 
 // Helper function to execute a logical expression field and get its metadata
-func executeLogicalFieldValueMeta(t *testing.T, f Value) (tsquery.ValueMeta, error) {
-	meta, _, err := f.Execute(tsquery.FieldMeta{})
+func executeLogicalFieldValueMeta(ctx context.Context, f Value) (tsquery.ValueMeta, error) {
+	meta, _, err := f.Execute(ctx, tsquery.FieldMeta{})
 	return meta, err
 }
 
@@ -51,7 +51,7 @@ func TestLogicalExpressionField_AndOperator(t *testing.T) {
 			logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, field1, field2)
 			require.NotNil(t, logicalField)
 
-			result, err := executeLogicalFieldValue(t, logicalField, ctx)
+			result, err := executeLogicalFieldValue(ctx, logicalField)
 			require.NoError(t, err)
 			require.Equal(t, tt.expected, result)
 		})
@@ -83,7 +83,7 @@ func TestLogicalExpressionField_OrOperator(t *testing.T) {
 			logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorOr, field1, field2)
 			require.NotNil(t, logicalField)
 
-			result, err := executeLogicalFieldValue(t, logicalField, ctx)
+			result, err := executeLogicalFieldValue(ctx, logicalField)
 			require.NoError(t, err)
 			require.Equal(t, tt.expected, result)
 		})
@@ -91,6 +91,7 @@ func TestLogicalExpressionField_OrOperator(t *testing.T) {
 }
 
 func TestLogicalExpressionField_UnsupportedOperator(t *testing.T) {
+	ctx := context.Background()
 	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
 
 	field1 := NewConstantFieldValue(boolMeta, true)
@@ -99,12 +100,13 @@ func TestLogicalExpressionField_UnsupportedOperator(t *testing.T) {
 	// Try to use an unsupported operator (e.g., "xor" which doesn't exist)
 	logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorType("xor"), field1, field2)
 
-	_, _, err := logicalField.Execute(tsquery.FieldMeta{})
+	_, _, err := logicalField.Execute(ctx, tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported logical operator")
 }
 
 func TestLogicalExpressionField_NonBooleanOperand1(t *testing.T) {
+	ctx := context.Background()
 	intMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: true}
 	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
 
@@ -113,13 +115,14 @@ func TestLogicalExpressionField_NonBooleanOperand1(t *testing.T) {
 
 	logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, field1, field2)
 
-	_, _, err := logicalField.Execute(tsquery.FieldMeta{})
+	_, _, err := logicalField.Execute(ctx, tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "operand 1")
 	require.Contains(t, err.Error(), "boolean type")
 }
 
 func TestLogicalExpressionField_NonBooleanOperand2(t *testing.T) {
+	ctx := context.Background()
 	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
 	stringMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeString, Required: true}
 
@@ -128,13 +131,14 @@ func TestLogicalExpressionField_NonBooleanOperand2(t *testing.T) {
 
 	logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, field1, field2)
 
-	_, _, err := logicalField.Execute(tsquery.FieldMeta{})
+	_, _, err := logicalField.Execute(ctx, tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "operand 2")
 	require.Contains(t, err.Error(), "boolean type")
 }
 
 func TestLogicalExpressionField_OptionalOperand1(t *testing.T) {
+	ctx := context.Background()
 	optionalBoolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: false}
 	requiredBoolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
 
@@ -143,13 +147,14 @@ func TestLogicalExpressionField_OptionalOperand1(t *testing.T) {
 
 	logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, field1, field2)
 
-	_, _, err := logicalField.Execute(tsquery.FieldMeta{})
+	_, _, err := logicalField.Execute(ctx, tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "operand 1")
 	require.Contains(t, err.Error(), "required")
 }
 
 func TestLogicalExpressionField_OptionalOperand2(t *testing.T) {
+	ctx := context.Background()
 	requiredBoolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
 	optionalBoolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: false}
 
@@ -158,13 +163,14 @@ func TestLogicalExpressionField_OptionalOperand2(t *testing.T) {
 
 	logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, field1, field2)
 
-	_, _, err := logicalField.Execute(tsquery.FieldMeta{})
+	_, _, err := logicalField.Execute(ctx, tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "operand 2")
 	require.Contains(t, err.Error(), "required")
 }
 
 func TestLogicalExpressionField_MetadataCorrect(t *testing.T) {
+	ctx := context.Background()
 	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
 
 	field1 := NewConstantFieldValue(boolMeta, true)
@@ -172,7 +178,7 @@ func TestLogicalExpressionField_MetadataCorrect(t *testing.T) {
 
 	logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, field1, field2)
 
-	meta, err := executeLogicalFieldValueMeta(t, logicalField)
+	meta, err := executeLogicalFieldValueMeta(ctx, logicalField)
 	require.NoError(t, err)
 	require.Equal(t, tsquery.DataTypeBoolean, meta.DataType)
 	require.True(t, meta.Required)
@@ -189,7 +195,7 @@ func TestLogicalExpressionField_ErrorPropagationOperand1(t *testing.T) {
 
 	logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, errorField1, field2)
 
-	_, err := executeLogicalFieldValue(t, logicalField, ctx)
+	_, err := executeLogicalFieldValue(ctx, logicalField)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "operand 1")
 }
@@ -205,7 +211,7 @@ func TestLogicalExpressionField_ErrorPropagationOperand2(t *testing.T) {
 
 	logicalField := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, field1, errorField2)
 
-	_, err := executeLogicalFieldValue(t, logicalField, ctx)
+	_, err := executeLogicalFieldValue(ctx, logicalField)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "operand 2")
 }
@@ -235,7 +241,7 @@ func TestLogicalExpressionField_ComplexExpression(t *testing.T) {
 	// false OR true = true
 	orExpr := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorOr, andExpr, orExpr2)
 
-	result, err := executeLogicalFieldValue(t, orExpr, ctx)
+	result, err := executeLogicalFieldValue(ctx, orExpr)
 	require.NoError(t, err)
 	require.Equal(t, true, result)
 }
@@ -256,7 +262,7 @@ func TestLogicalExpressionField_ChainedAndOperations(t *testing.T) {
 	// (true AND true) AND true = true
 	andExpr2 := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, andExpr1, trueField3)
 
-	result, err := executeLogicalFieldValue(t, andExpr2, ctx)
+	result, err := executeLogicalFieldValue(ctx, andExpr2)
 	require.NoError(t, err)
 	require.Equal(t, true, result)
 }
@@ -277,7 +283,7 @@ func TestLogicalExpressionField_ChainedOrOperations(t *testing.T) {
 	// (false OR false) OR true = true
 	orExpr2 := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorOr, orExpr1, trueField)
 
-	result, err := executeLogicalFieldValue(t, orExpr2, ctx)
+	result, err := executeLogicalFieldValue(ctx, orExpr2)
 	require.NoError(t, err)
 	require.Equal(t, true, result)
 }
@@ -308,7 +314,7 @@ func TestLogicalExpressionField_DeMorgansLaw(t *testing.T) {
 
 			andExpr := NewLogicalExpressionFieldValue(tsquery.LogicalOperatorAnd, fieldA, fieldB)
 
-			result, err := executeLogicalFieldValue(t, andExpr, ctx)
+			result, err := executeLogicalFieldValue(ctx, andExpr)
 			require.NoError(t, err)
 
 			// Verify the AND result

@@ -12,7 +12,7 @@ import (
 
 // Helper function to execute a field and get its value for testing
 func executeAndGetValueForNumericTest(t *testing.T, f Value, ctx context.Context) (any, error) {
-	_, valueSupplier, err := f.Execute([]tsquery.FieldMeta{})
+	_, valueSupplier, err := f.Execute(ctx, []tsquery.FieldMeta{})
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func executeAndGetValueForNumericTest(t *testing.T, f Value, ctx context.Context
 
 // Helper function to execute a field and get its metadata for testing
 func executeAndGetMetaForNumericTest(t *testing.T, f Value, ctx context.Context) (tsquery.ValueMeta, error) {
-	meta, _, err := f.Execute([]tsquery.FieldMeta{})
+	meta, _, err := f.Execute(ctx, []tsquery.FieldMeta{})
 	return meta, err
 }
 
@@ -32,7 +32,7 @@ type errorFieldForNumeric struct {
 	err  error
 }
 
-func (ef *errorFieldForNumeric) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (ef *errorFieldForNumeric) Execute(ctx context.Context, fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	valueSupplier := func(_ context.Context, _ timeseries.TsRecord[[]any]) (any, error) {
 		return nil, ef.err
 	}
@@ -113,6 +113,7 @@ func TestNumericExpressionField_DecimalOperations(t *testing.T) {
 }
 
 func TestNumericExpressionField_IncompatibleTypes(t *testing.T) {
+	ctx := context.Background()
 	intMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 	decMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
 
@@ -120,31 +121,33 @@ func TestNumericExpressionField_IncompatibleTypes(t *testing.T) {
 	field2 := NewConstantFieldValue(decMeta, 5.5)
 
 	expr := NewNumericExpressionFieldValue(field1, tsquery.BinaryNumericOperatorAdd, field2)
-	_, _, err := expr.Execute([]tsquery.FieldMeta{})
+	_, _, err := expr.Execute(ctx, []tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "incompatible datatypes")
 }
 
 func TestNumericExpressionField_NonNumericTypes(t *testing.T) {
+	ctx := context.Background()
 	stringMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeString, Required: false}
 
 	field1 := NewConstantFieldValue(stringMeta, "hello")
 	field2 := NewConstantFieldValue(stringMeta, "world")
 
 	expr := NewNumericExpressionFieldValue(field1, tsquery.BinaryNumericOperatorAdd, field2)
-	_, _, err := expr.Execute([]tsquery.FieldMeta{})
+	_, _, err := expr.Execute(ctx, []tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "non-numeric data type")
 }
 
 func TestNumericExpressionField_ModuloOnlyForIntegers(t *testing.T) {
+	ctx := context.Background()
 	decMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
 
 	field1 := NewConstantFieldValue(decMeta, 10.5)
 	field2 := NewConstantFieldValue(decMeta, 2.5)
 
 	expr := NewNumericExpressionFieldValue(field1, tsquery.BinaryNumericOperatorMod, field2)
-	_, _, err := expr.Execute([]tsquery.FieldMeta{})
+	_, _, err := expr.Execute(ctx, []tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "mod operator is only supported for integer fields")
 }

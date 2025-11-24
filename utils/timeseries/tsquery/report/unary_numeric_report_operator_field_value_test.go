@@ -13,7 +13,7 @@ import (
 
 // Helper function to execute a field and get its value for unary tests
 func executeUnaryFieldValue(f Value, ctx context.Context) (any, error) {
-	_, valueSupplier, err := f.Execute([]tsquery.FieldMeta{})
+	_, valueSupplier, err := f.Execute(ctx, []tsquery.FieldMeta{})
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,8 @@ func executeUnaryFieldValue(f Value, ctx context.Context) (any, error) {
 
 // Helper function to execute a field and get its metadata for unary tests
 func executeUnaryFieldValueMeta(f Value) (tsquery.ValueMeta, error) {
-	meta, _, err := f.Execute([]tsquery.FieldMeta{})
+	ctx := context.Background()
+	meta, _, err := f.Execute(ctx, []tsquery.FieldMeta{})
 	return meta, err
 }
 
@@ -119,6 +120,7 @@ func TestUnaryNumericOperatorField_DecimalOperations(t *testing.T) {
 }
 
 func TestUnaryNumericOperatorField_UnsupportedIntegerOperations(t *testing.T) {
+	ctx := context.Background()
 	meta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 
 	sourceField := NewConstantFieldValue(meta, int64(42))
@@ -138,7 +140,7 @@ func TestUnaryNumericOperatorField_UnsupportedIntegerOperations(t *testing.T) {
 	for _, op := range unsupportedOps {
 		t.Run(string(op), func(t *testing.T) {
 			unaryField := NewUnaryNumericOperatorFieldValue(sourceField, op)
-			_, _, err := unaryField.Execute([]tsquery.FieldMeta{})
+			_, _, err := unaryField.Execute(ctx, []tsquery.FieldMeta{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "unsupported operator")
 		})
@@ -146,12 +148,13 @@ func TestUnaryNumericOperatorField_UnsupportedIntegerOperations(t *testing.T) {
 }
 
 func TestUnaryNumericOperatorField_NonNumericType(t *testing.T) {
+	ctx := context.Background()
 	stringMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeString, Required: false}
 
 	sourceField := NewConstantFieldValue(stringMeta, "hello")
 
 	unaryField := NewUnaryNumericOperatorFieldValue(sourceField, tsquery.UnaryNumericOperatorAbs)
-	_, _, err := unaryField.Execute([]tsquery.FieldMeta{})
+	_, _, err := unaryField.Execute(ctx, []tsquery.FieldMeta{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "non-numeric data type")
 }

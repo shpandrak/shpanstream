@@ -316,6 +316,7 @@ func TestAlignerFilter_MixedDataTypes(t *testing.T) {
 }
 
 func TestAlignerFilter_ErrorOnNonNumericDataType(t *testing.T) {
+	ctx := context.Background()
 	// Test that we get an error when trying to align non-numeric data types
 	// We need at least 2 records in different alignment periods where the second doesn't
 	// fall exactly on the boundary, to trigger interpolation
@@ -337,17 +338,17 @@ func TestAlignerFilter_ErrorOnNonNumericDataType(t *testing.T) {
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(NewResult(fieldsMeta, inputStream))
+	outputResult, err := alignerFilter.Filter(ctx, NewResult(fieldsMeta, inputStream))
 	require.NoError(t, err) // Filter itself doesn't error, the error occurs during stream consumption
 
 	// Try to collect the results - this should trigger the error when interpolation is attempted
-	ctx := context.Background()
 	_, err = outputResult.Stream().Collect(ctx)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported data type")
 }
 
 func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
+	ctx := context.Background()
 	// Test that we get an error when trying to align boolean data types
 	// We need at least 2 records in different alignment periods where the second doesn't
 	// fall exactly on the boundary, to trigger interpolation
@@ -368,11 +369,10 @@ func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(NewResult(fieldsMeta, stream.Just(records...)))
+	outputResult, err := alignerFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err) // Filter itself doesn't error, the error occurs during stream consumption
 
 	// Try to collect the results - this should trigger the error when interpolation is attempted
-	ctx := context.Background()
 	_, err = outputResult.Stream().Collect(ctx)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported data type")
@@ -388,6 +388,7 @@ func testAlignerFilterAsExpected(
 	expected []timeseries.TsRecord[[]any],
 ) {
 	t.Helper() // Marks this function as a test helper
+	ctx := context.Background()
 
 	// Create field metadata - all fields are decimal (float64) for these tests
 	var fieldsMeta []tsquery.FieldMeta
@@ -409,7 +410,7 @@ func testAlignerFilterAsExpected(
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(NewResult(fieldsMeta, inputStream))
+	outputResult, err := alignerFilter.Filter(ctx, NewResult(fieldsMeta, inputStream))
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
@@ -444,6 +445,7 @@ func testAlignerFilterWithFieldMeta(
 	expected []timeseries.TsRecord[[]any],
 ) {
 	t.Helper() // Marks this function as a test helper
+	ctx := context.Background()
 
 	// Create field metadata based on provided data types
 	var fieldsMeta []tsquery.FieldMeta
@@ -463,7 +465,7 @@ func testAlignerFilterWithFieldMeta(
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(NewResult(fieldsMeta, inputStream))
+	outputResult, err := alignerFilter.Filter(ctx, NewResult(fieldsMeta, inputStream))
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records

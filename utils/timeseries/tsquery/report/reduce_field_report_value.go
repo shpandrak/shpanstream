@@ -33,7 +33,7 @@ func NewReduceFieldValues(fieldUrns []string, reductionType tsquery.ReductionTyp
 	}
 }
 
-func (r ReduceFieldValue) Execute(fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (r ReduceFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	// Determine which fields to reduce
 	var fieldsToReduce []tsquery.FieldMeta
 	var fieldIndices []int

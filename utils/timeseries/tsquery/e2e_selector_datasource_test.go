@@ -62,6 +62,7 @@ func createConstantDatasourceField(dataType tsquery.DataType, value any) datasou
 // --- Boolean to String Selector Test ---
 
 func TestSelectorDatasource_BooleanToString_Production(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -86,7 +87,6 @@ func TestSelectorDatasource_BooleanToString_Production(t *testing.T) {
 	filteredDS := datasource.NewFilteredDataSource(ds, filter)
 
 	// Execute
-	ctx := context.Background()
 	result, err := filteredDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -114,6 +114,7 @@ func TestSelectorDatasource_BooleanToString_Production(t *testing.T) {
 // --- Integer Threshold to String Selector Test ---
 
 func TestSelectorDatasource_IntegerThreshold_HighLow(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -146,7 +147,6 @@ func TestSelectorDatasource_IntegerThreshold_HighLow(t *testing.T) {
 	filteredDS := datasource.NewFilteredDataSource(ds, filter)
 
 	// Execute
-	ctx := context.Background()
 	result, err := filteredDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -169,6 +169,7 @@ func TestSelectorDatasource_IntegerThreshold_HighLow(t *testing.T) {
 // --- Fun Math Test: Square Root Threshold ---
 
 func TestSelectorDatasource_SquareRootThreshold_Fun(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -208,7 +209,6 @@ func TestSelectorDatasource_SquareRootThreshold_Fun(t *testing.T) {
 	filteredDS := datasource.NewFilteredDataSource(ds, filter)
 
 	// Execute
-	ctx := context.Background()
 	result, err := filteredDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -234,6 +234,7 @@ func TestSelectorDatasource_SquareRootThreshold_Fun(t *testing.T) {
 // --- Selector with Numeric Values (not just strings) ---
 
 func TestSelectorDatasource_NumericSelector_Decimal(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
@@ -259,7 +260,6 @@ func TestSelectorDatasource_NumericSelector_Decimal(t *testing.T) {
 	filteredDS := datasource.NewFilteredDataSource(ds, filter)
 
 	// Execute
-	ctx := context.Background()
 	result, err := filteredDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
@@ -281,6 +281,7 @@ func TestSelectorDatasource_NumericSelector_Decimal(t *testing.T) {
 // --- Error Tests ---
 
 func TestSelectorDatasource_ErrorOnMismatchedTypes(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -296,13 +297,13 @@ func TestSelectorDatasource_ErrorOnMismatchedTypes(t *testing.T) {
 	filteredDS := datasource.NewFilteredDataSource(ds, filter)
 
 	// Execute - should fail
-	ctx := context.Background()
 	_, err := filteredDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "incompatible datatypes")
 }
 
 func TestSelectorDatasource_ErrorOnMismatchedUnits(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -321,13 +322,13 @@ func TestSelectorDatasource_ErrorOnMismatchedUnits(t *testing.T) {
 	filteredDS := datasource.NewFilteredDataSource(ds, filter)
 
 	// Execute - should fail
-	ctx := context.Background()
 	_, err := filteredDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "incompatible units")
 }
 
 func TestSelectorDatasource_ErrorOnNonBooleanSelector(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
 
@@ -344,13 +345,13 @@ func TestSelectorDatasource_ErrorOnNonBooleanSelector(t *testing.T) {
 	filteredDS := datasource.NewFilteredDataSource(ds, filter)
 
 	// Execute - should fail
-	ctx := context.Background()
 	_, err := filteredDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "selector field must be boolean")
 }
 
 func TestSelectorDatasource_ErrorOnOptionalSelector(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	// Create boolean datasource but make it optional
@@ -371,7 +372,6 @@ func TestSelectorDatasource_ErrorOnOptionalSelector(t *testing.T) {
 	filteredDS := datasource.NewFilteredDataSource(ds, filter)
 
 	// Execute - should fail
-	ctx := context.Background()
 	_, err = filteredDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "selector field must be required")

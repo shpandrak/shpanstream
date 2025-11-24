@@ -1,6 +1,7 @@
 package tsquery_test
 
 import (
+	"context"
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
@@ -39,6 +40,7 @@ type SystemMode struct {
 // --- Basic Selector Tests with Decimals ---
 
 func TestSelectorField_DecimalValues_SelectTrue(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ServerMetrics{
 		{Timestamp: baseTime, IsProduction: true, ProdLatency: 10.5, DevLatency: 25.0, ProdRequestRate: 1000, DevRequestRate: 50},
@@ -63,7 +65,7 @@ func TestSelectorField_DecimalValues_SelectTrue(t *testing.T) {
 	selectorUrn := "selected_latency"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	selectedResult, err := singleFieldFilter.Filter(result)
+	selectedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify metadata
@@ -83,6 +85,7 @@ func TestSelectorField_DecimalValues_SelectTrue(t *testing.T) {
 }
 
 func TestSelectorField_DecimalValues_SelectFalse(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ServerMetrics{
 		{Timestamp: baseTime, IsProduction: false, ProdLatency: 10.5, DevLatency: 25.0, ProdRequestRate: 1000, DevRequestRate: 50},
@@ -106,7 +109,7 @@ func TestSelectorField_DecimalValues_SelectFalse(t *testing.T) {
 	selectorUrn := "selected_latency"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	selectedResult, err := singleFieldFilter.Filter(result)
+	selectedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify values - all should be dev latency since IsProduction=false
@@ -117,6 +120,7 @@ func TestSelectorField_DecimalValues_SelectFalse(t *testing.T) {
 }
 
 func TestSelectorField_DecimalValues_MixedSelection(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ServerMetrics{
 		{Timestamp: baseTime, IsProduction: true, ProdLatency: 10.5, DevLatency: 25.0, ProdRequestRate: 1000, DevRequestRate: 50},
@@ -142,7 +146,7 @@ func TestSelectorField_DecimalValues_MixedSelection(t *testing.T) {
 	selectorUrn := "selected_latency"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	selectedResult, err := singleFieldFilter.Filter(result)
+	selectedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify values alternate between prod and dev
@@ -170,6 +174,7 @@ type RequestRateMetrics struct {
 }
 
 func TestSelectorField_IntegerValues(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []RequestRateMetrics{
 		{Timestamp: baseTime, IsProduction: true, ProdRate: 1000, DevRate: 50},
@@ -194,7 +199,7 @@ func TestSelectorField_IntegerValues(t *testing.T) {
 	selectorUrn := "selected_request_rate"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	selectedResult, err := singleFieldFilter.Filter(result)
+	selectedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify metadata
@@ -216,6 +221,7 @@ func TestSelectorField_IntegerValues(t *testing.T) {
 // --- String Selector Tests ---
 
 func TestSelectorField_StringValues(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []SystemMode{
 		{Timestamp: baseTime, IsHighPerformance: true, HighPerfMode: "turbo", LowPerfMode: "eco"},
@@ -240,7 +246,7 @@ func TestSelectorField_StringValues(t *testing.T) {
 	selectorUrn := "active_mode"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	selectedResult, err := singleFieldFilter.Filter(result)
+	selectedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify metadata
@@ -261,6 +267,7 @@ func TestSelectorField_StringValues(t *testing.T) {
 // --- Selector with Condition Field ---
 
 func TestSelectorField_WithConditionAsSelector(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []PricingData{
 		{Timestamp: baseTime, IsPremiumCustomer: true, PremiumPrice: 100.0, StandardPrice: 150.0, PremiumDiscount: 20.0, StandardDiscount: 5.0},
@@ -309,7 +316,7 @@ func TestSelectorField_WithConditionAsSelector(t *testing.T) {
 
 	// Apply both selectors
 	priceFilter := report.NewSingleFieldFilter(priceSelector, tsquery.AddFieldMeta{Urn: "final_price"})
-	priceResult, err := priceFilter.Filter(result)
+	priceResult, err := priceFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Need to recreate a result for the second filter
@@ -334,7 +341,7 @@ func TestSelectorField_WithConditionAsSelector(t *testing.T) {
 	require.NoError(t, err)
 
 	discountFilter := report.NewSingleFieldFilter(discountSelector, tsquery.AddFieldMeta{Urn: "applied_discount"})
-	discountResult, err := discountFilter.Filter(result2)
+	discountResult, err := discountFilter.Filter(ctx, result2)
 	require.NoError(t, err)
 
 	// Verify prices
@@ -355,6 +362,7 @@ func TestSelectorField_WithConditionAsSelector(t *testing.T) {
 // --- Error Cases ---
 
 func TestSelectorField_ErrorOnMismatchedDataTypes(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ServerMetrics{
 		{Timestamp: baseTime, IsProduction: true, ProdLatency: 10.5, DevLatency: 25.0, ProdRequestRate: 1000, DevRequestRate: 50},
@@ -377,12 +385,13 @@ func TestSelectorField_ErrorOnMismatchedDataTypes(t *testing.T) {
 	selectorUrn := "invalid"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	_, err = singleFieldFilter.Filter(result)
+	_, err = singleFieldFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "incompatible datatypes")
 }
 
 func TestSelectorField_ErrorOnMismatchedUnits(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []PricingData{
 		{Timestamp: baseTime, IsPremiumCustomer: true, PremiumPrice: 100.0, StandardPrice: 150.0, PremiumDiscount: 20.0, StandardDiscount: 5.0},
@@ -405,12 +414,13 @@ func TestSelectorField_ErrorOnMismatchedUnits(t *testing.T) {
 	selectorUrn := "invalid"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	_, err = singleFieldFilter.Filter(result)
+	_, err = singleFieldFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "incompatible units")
 }
 
 func TestSelectorField_ErrorOnNonBooleanSelector(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ServerMetrics{
 		{Timestamp: baseTime, IsProduction: true, ProdLatency: 10.5, DevLatency: 25.0, ProdRequestRate: 1000, DevRequestRate: 50},
@@ -433,13 +443,14 @@ func TestSelectorField_ErrorOnNonBooleanSelector(t *testing.T) {
 	selectorUrn := "invalid"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	_, err = singleFieldFilter.Filter(result)
+	_, err = singleFieldFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "selector field")
 	require.Contains(t, err.Error(), "must be boolean")
 }
 
 func TestSelectorField_ErrorOnOptionalSelector(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ServerMetrics{
 		{Timestamp: baseTime, IsProduction: true, ProdLatency: 10.5, DevLatency: 25.0, ProdRequestRate: 1000, DevRequestRate: 50},
@@ -476,13 +487,14 @@ func TestSelectorField_ErrorOnOptionalSelector(t *testing.T) {
 	selectorUrn := "invalid"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	_, err = singleFieldFilter.Filter(result)
+	_, err = singleFieldFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "selector field")
 	require.Contains(t, err.Error(), "must be required")
 }
 
 func TestSelectorField_ErrorOnMismatchedRequiredStatus(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ServerMetrics{
 		{Timestamp: baseTime, IsProduction: true, ProdLatency: 10.5, DevLatency: 25.0, ProdRequestRate: 1000, DevRequestRate: 50},
@@ -519,7 +531,7 @@ func TestSelectorField_ErrorOnMismatchedRequiredStatus(t *testing.T) {
 	selectorUrn := "invalid"
 	singleFieldFilter := report.NewSingleFieldFilter(selector, tsquery.AddFieldMeta{Urn: selectorUrn})
 
-	_, err = singleFieldFilter.Filter(result)
+	_, err = singleFieldFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "incompatible required status")
 }
@@ -527,6 +539,7 @@ func TestSelectorField_ErrorOnMismatchedRequiredStatus(t *testing.T) {
 // --- Custom Meta Tests ---
 
 func TestSelectorField_MergesCustomMeta(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []ServerMetrics{
 		{Timestamp: baseTime, IsProduction: true, ProdLatency: 10.5, DevLatency: 25.0, ProdRequestRate: 1000, DevRequestRate: 50},
@@ -577,7 +590,7 @@ func TestSelectorField_MergesCustomMeta(t *testing.T) {
 		CustomMeta: customMeta,
 	})
 
-	selectedResult, err := singleFieldFilter.Filter(result)
+	selectedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify custom meta is set through AddFieldMeta

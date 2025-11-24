@@ -28,19 +28,19 @@ func NewSelectorFieldValue(
 	}
 }
 
-func (cf SelectorFieldValue) Execute(fieldMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (cf SelectorFieldValue) Execute(ctx context.Context, fieldMeta tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	// Execute all three fields to get metadata
-	selectorMeta, selectorValueSupplier, err := cf.selectorBooleanField.Execute(fieldMeta)
+	selectorMeta, selectorValueSupplier, err := cf.selectorBooleanField.Execute(ctx, fieldMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("failed executing selector boolean field: %w", err)
 	}
 
-	trueMeta, trueValueSupplier, err := cf.trueField.Execute(fieldMeta)
+	trueMeta, trueValueSupplier, err := cf.trueField.Execute(ctx, fieldMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("failed executing true field: %w", err)
 	}
 
-	falseMeta, falseValueSupplier, err := cf.falseField.Execute(fieldMeta)
+	falseMeta, falseValueSupplier, err := cf.falseField.Execute(ctx, fieldMeta)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("failed executing false field: %w", err)
 	}

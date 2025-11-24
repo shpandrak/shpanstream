@@ -73,6 +73,7 @@ type OptionalFieldMetrics struct {
 // --- Sum Tests ---
 
 func TestReduceField_SumAllFields_Decimal(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []DecimalMetrics{
 		{Timestamp: baseTime, Temperature: 20.0, Humidity: 60.0, Pressure: 1013.0},
@@ -92,7 +93,7 @@ func TestReduceField_SumAllFields_Decimal(t *testing.T) {
 	reduceField := report.NewReduceAllFieldValues(tsquery.ReductionTypeSum)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "total"})
 
-	reducedResult, err := singleFieldFilter.Filter(result)
+	reducedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify metadata
@@ -118,6 +119,7 @@ func TestReduceField_SumAllFields_Decimal(t *testing.T) {
 }
 
 func TestReduceField_SumSpecificFields_Integer(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []IntegerMetrics{
 		{Timestamp: baseTime, Count1: 10, Count2: 20, Count3: 30},
@@ -136,7 +138,7 @@ func TestReduceField_SumSpecificFields_Integer(t *testing.T) {
 	reduceField := report.NewReduceFieldValues([]string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, tsquery.ReductionTypeSum)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "sum_counts"})
 
-	reducedResult, err := singleFieldFilter.Filter(result)
+	reducedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify metadata
@@ -161,6 +163,7 @@ func TestReduceField_SumSpecificFields_Integer(t *testing.T) {
 // --- Average Tests ---
 
 func TestReduceField_AvgAllFields_Decimal(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []DecimalMetrics{
 		{Timestamp: baseTime, Temperature: 20.0, Humidity: 60.0, Pressure: 90.0},
@@ -178,7 +181,7 @@ func TestReduceField_AvgAllFields_Decimal(t *testing.T) {
 	reduceField := report.NewReduceAllFieldValues(tsquery.ReductionTypeAvg)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "average"})
 
-	reducedResult, err := singleFieldFilter.Filter(result)
+	reducedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify metadata
@@ -197,6 +200,7 @@ func TestReduceField_AvgAllFields_Decimal(t *testing.T) {
 }
 
 func TestReduceField_MinMax_Integer(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []IntegerMetrics{
 		{Timestamp: baseTime, Count1: 100, Count2: 50, Count3: 75},
@@ -213,7 +217,7 @@ func TestReduceField_MinMax_Integer(t *testing.T) {
 	// Test MIN
 	minField := report.NewReduceFieldValues([]string{"IntegerMetrics:Count1", "IntegerMetrics:Count2"}, tsquery.ReductionTypeMin)
 	minFilter := report.NewSingleFieldFilter(minField, tsquery.AddFieldMeta{Urn: "result"})
-	minResult, err := minFilter.Filter(result)
+	minResult, err := minFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	minRecords := minResult.Stream().MustCollect()
@@ -232,7 +236,7 @@ func TestReduceField_MinMax_Integer(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	maxResult, err := maxFilter.Filter(result2)
+	maxResult, err := maxFilter.Filter(ctx, result2)
 	require.NoError(t, err)
 
 	maxRecords := maxResult.Stream().MustCollect()
@@ -242,6 +246,7 @@ func TestReduceField_MinMax_Integer(t *testing.T) {
 // --- Count Test ---
 
 func TestReduceField_Count(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []DecimalMetrics{
 		{Timestamp: baseTime, Temperature: 20.0, Humidity: 60.0, Pressure: 1013.0},
@@ -259,7 +264,7 @@ func TestReduceField_Count(t *testing.T) {
 	reduceField := report.NewReduceAllFieldValues(tsquery.ReductionTypeCount)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "field_count"})
 
-	reducedResult, err := singleFieldFilter.Filter(result)
+	reducedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify metadata
@@ -280,6 +285,7 @@ func TestReduceField_Count(t *testing.T) {
 // --- Error Cases ---
 
 func TestReduceField_ErrorOnMixedDataTypes(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []MixedTypeMetrics{
 		{Timestamp: baseTime, Temperature: 20.0, Count: 10},
@@ -297,12 +303,13 @@ func TestReduceField_ErrorOnMixedDataTypes(t *testing.T) {
 	reduceField := report.NewReduceAllFieldValues(tsquery.ReductionTypeSum)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "result"})
 
-	_, err = singleFieldFilter.Filter(result)
+	_, err = singleFieldFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "all fields must have the same data type")
 }
 
 func TestReduceField_ErrorOnNonExistentField(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []IntegerMetrics{
 		{Timestamp: baseTime, Count1: 10, Count2: 20, Count3: 30},
@@ -320,12 +327,13 @@ func TestReduceField_ErrorOnNonExistentField(t *testing.T) {
 	reduceField := report.NewReduceFieldValues([]string{"IntegerMetrics:NonExistent"}, tsquery.ReductionTypeSum)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "result"})
 
-	_, err = singleFieldFilter.Filter(result)
+	_, err = singleFieldFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "some fields not found")
 }
 
 func TestReduceField_ErrorOnOptionalField(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []OptionalFieldMetrics{
 		{Timestamp: baseTime, Required1: 10.0, Optional1: 20.0, Required2: 30.0},
@@ -358,7 +366,7 @@ func TestReduceField_ErrorOnOptionalField(t *testing.T) {
 	reduceField := report.NewReduceAllFieldValues(tsquery.ReductionTypeSum)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "result"})
 
-	_, err = singleFieldFilter.Filter(result)
+	_, err = singleFieldFilter.Filter(ctx, result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "must be required")
 }
@@ -366,6 +374,7 @@ func TestReduceField_ErrorOnOptionalField(t *testing.T) {
 // --- Unit Preservation Tests ---
 
 func TestReduceField_PreservesUnitWhenAllSame(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []IntegerMetrics{
 		{Timestamp: baseTime, Count1: 10, Count2: 20, Count3: 30},
@@ -383,7 +392,7 @@ func TestReduceField_PreservesUnitWhenAllSame(t *testing.T) {
 	reduceField := report.NewReduceAllFieldValues(tsquery.ReductionTypeSum)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "result"})
 
-	reducedResult, err := singleFieldFilter.Filter(result)
+	reducedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify unit is preserved
@@ -392,6 +401,7 @@ func TestReduceField_PreservesUnitWhenAllSame(t *testing.T) {
 }
 
 func TestReduceField_NoUnitWhenDifferent(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []DecimalMetrics{
 		{Timestamp: baseTime, Temperature: 20.0, Humidity: 60.0, Pressure: 1013.0},
@@ -409,7 +419,7 @@ func TestReduceField_NoUnitWhenDifferent(t *testing.T) {
 	reduceField := report.NewReduceAllFieldValues(tsquery.ReductionTypeSum)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "result"})
 
-	reducedResult, err := singleFieldFilter.Filter(result)
+	reducedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify no unit when they differ
@@ -420,6 +430,7 @@ func TestReduceField_NoUnitWhenDifferent(t *testing.T) {
 // --- Multiple Records Test ---
 
 func TestReduceField_MultipleRecordsProcessedCorrectly(t *testing.T) {
+	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	testData := []IntegerMetrics{
 		{Timestamp: baseTime, Count1: 1, Count2: 2, Count3: 3},
@@ -440,7 +451,7 @@ func TestReduceField_MultipleRecordsProcessedCorrectly(t *testing.T) {
 	reduceField := report.NewReduceAllFieldValues(tsquery.ReductionTypeSum)
 	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "result"})
 
-	reducedResult, err := singleFieldFilter.Filter(result)
+	reducedResult, err := singleFieldFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Verify all records processed

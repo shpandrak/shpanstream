@@ -120,8 +120,8 @@ func TestAlignerFilter_NonAligned_LargeValues(t *testing.T) {
 			{Value: 4000.0, Timestamp: time.Unix(225, 0)}, // 00:03:45
 		},
 		[]timeseries.TsRecord[any]{
-			{Value: 1000.0, Timestamp: time.Unix(0, 0)},  // 00:00:00 (smeared)
-			{Value: 1250.0, Timestamp: time.Unix(60, 0)}, // 00:01:00
+			{Value: 1000.0, Timestamp: time.Unix(0, 0)},   // 00:00:00 (smeared)
+			{Value: 1250.0, Timestamp: time.Unix(60, 0)},  // 00:01:00
 			{Value: 2250.0, Timestamp: time.Unix(120, 0)}, // 00:02:00
 			{Value: 3250.0, Timestamp: time.Unix(180, 0)}, // 00:03:00
 		},
@@ -224,9 +224,9 @@ func TestAlignerFilter_UnevenTemporal(t *testing.T) {
 			{Value: 400.0, Timestamp: time.Unix(300, 0)}, // 00:05:00 (medium gap)
 		},
 		[]timeseries.TsRecord[any]{
-			{Value: 100.0, Timestamp: time.Unix(0, 0)},                 // 00:00:00 (smeared)
+			{Value: 100.0, Timestamp: time.Unix(0, 0)},                // 00:00:00 (smeared)
 			{Value: 178.57142857142858, Timestamp: time.Unix(120, 0)}, // 00:02:00
-			{Value: 400.0, Timestamp: time.Unix(300, 0)},               // 00:05:00
+			{Value: 400.0, Timestamp: time.Unix(300, 0)},              // 00:05:00
 		},
 	)
 }
@@ -255,10 +255,10 @@ func TestAlignerFilter_PointExactlyAtBoundary(t *testing.T) {
 		t,
 		time.Minute, // Align to every minute
 		[]timeseries.TsRecord[any]{
-			{Value: 100.0, Timestamp: time.Unix(0, 0)},   // 00:00:00 (exactly at boundary)
-			{Value: 200.0, Timestamp: time.Unix(45, 0)},  // 00:00:45 (not at boundary)
-			{Value: 300.0, Timestamp: time.Unix(60, 0)},  // 00:01:00 (exactly at boundary)
-			{Value: 400.0, Timestamp: time.Unix(75, 0)},  // 00:01:15 (not at boundary)
+			{Value: 100.0, Timestamp: time.Unix(0, 0)},  // 00:00:00 (exactly at boundary)
+			{Value: 200.0, Timestamp: time.Unix(45, 0)}, // 00:00:45 (not at boundary)
+			{Value: 300.0, Timestamp: time.Unix(60, 0)}, // 00:01:00 (exactly at boundary)
+			{Value: 400.0, Timestamp: time.Unix(75, 0)}, // 00:01:15 (not at boundary)
 		},
 		[]timeseries.TsRecord[any]{
 			{Value: 100.0, Timestamp: time.Unix(0, 0)},  // 00:00:00 (preserved exactly)
@@ -282,8 +282,8 @@ func TestAlignerFilter_NonIntegerAlignment(t *testing.T) {
 			{Value: 300.0, Timestamp: time.Unix(210, 0)}, // 00:03:30
 		},
 		[]timeseries.TsRecord[any]{
-			{Value: 100.0, Timestamp: time.Unix(0, 0)},                 // 00:00:00 (smeared)
-			{Value: 166.66666666666666, Timestamp: time.Unix(90, 0)},  // 00:01:30
+			{Value: 100.0, Timestamp: time.Unix(0, 0)},               // 00:00:00 (smeared)
+			{Value: 166.66666666666666, Timestamp: time.Unix(90, 0)}, // 00:01:30
 			{Value: 266.6666666666667, Timestamp: time.Unix(180, 0)}, // 00:03:00
 		},
 	)
@@ -355,7 +355,7 @@ func TestAlignerFilter_ErrorOnStringDataType(t *testing.T) {
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(result)
+	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err) // Filter itself doesn't error, the error occurs during stream consumption
 
 	// Try to collect the results - this should trigger the error when interpolation is attempted
@@ -390,7 +390,7 @@ func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(result)
+	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err) // Filter itself doesn't error, the error occurs during stream consumption
 
 	// Try to collect the results - this should trigger the error when interpolation is attempted
@@ -428,7 +428,7 @@ func testAlignerFilterAsExpected(
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(result)
+	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
@@ -483,7 +483,7 @@ func testAlignerFilterWithFieldMeta(
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(result)
+	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
