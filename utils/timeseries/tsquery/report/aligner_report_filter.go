@@ -20,7 +20,16 @@ func NewAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod) AlignerFilter 
 	return AlignerFilter{alignmentPeriod: alignmentPeriod}
 }
 
-func (af AlignerFilter) Filter(ctx context.Context, result Result) (Result, error) {
+func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error) {
+
+	for _, fieldMeta := range result.FieldsMeta() {
+		if !fieldMeta.DataType().IsNumeric() {
+			return util.DefaultValue[Result](), fmt.Errorf(
+				"aligner filter can only be applied to numeric data types, got: %s",
+				fieldMeta.DataType(),
+			)
+		}
+	}
 	// Using ClusterSortedStreamComparable to group the items by the duration slot
 	fieldsMeta := result.FieldsMeta()
 	s := stream.ClusterSortedStreamComparable[timeseries.TsRecord[[]any], timeseries.TsRecord[[]any], time.Time](
