@@ -355,13 +355,9 @@ func TestAlignerFilter_ErrorOnStringDataType(t *testing.T) {
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(ctx, result)
-	require.NoError(t, err) // Filter itself doesn't error, the error occurs during stream consumption
+	_, err = alignerFilter.Filter(ctx, result)
+	require.ErrorContains(t, err, "numeric data types")
 
-	// Try to collect the results - this should trigger the error when interpolation is attempted
-	_, err = outputResult.Data().Collect(ctx)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "unsupported data type")
 }
 
 func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
@@ -390,13 +386,9 @@ func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
 	// Apply the filter
-	outputResult, err := alignerFilter.Filter(ctx, result)
-	require.NoError(t, err) // Filter itself doesn't error, the error occurs during stream consumption
+	_, err = alignerFilter.Filter(ctx, result)
+	require.ErrorContains(t, err, "numeric data types")
 
-	// Try to collect the results - this should trigger the error when interpolation is attempted
-	_, err = outputResult.Data().Collect(ctx)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "unsupported data type")
 }
 
 // --- Test Helper Functions ---

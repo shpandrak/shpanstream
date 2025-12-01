@@ -21,6 +21,12 @@ func NewAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod) AlignerFilter 
 }
 
 func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error) {
+	if !result.meta.DataType().IsNumeric() {
+		return util.DefaultValue[Result](), fmt.Errorf(
+			"aligner filter can only be applied to numeric data types, got: %s",
+			result.meta.DataType(),
+		)
+	}
 	// Using ClusterSortedStreamComparable to group the items by the duration slot
 	return Result{
 		meta: result.meta,
