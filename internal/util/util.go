@@ -25,3 +25,7 @@ func WrapAndReturn[T any](v T, err error) func(format string, a ...any) (T, erro
 		return v, nil
 	}
 }
+
+func JustValue[T any](val T, _ error) T {
+	return val
+}

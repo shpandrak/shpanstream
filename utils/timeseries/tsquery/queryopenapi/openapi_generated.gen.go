@@ -66,6 +66,11 @@ const (
 	ApiCustomAlignmentPeriodTypeCustom ApiCustomAlignmentPeriodType = "custom"
 )
 
+// Defines values for ApiDeltaFilterType.
+const (
+	ApiDeltaFilterTypeDelta ApiDeltaFilterType = "delta"
+)
+
 // Defines values for ApiFieldValueFilterType.
 const (
 	ApiFieldValueFilterTypeFieldValue ApiFieldValueFilterType = "fieldValue"
@@ -99,6 +104,11 @@ const (
 // Defines values for ApiOverrideFieldMetadataFilterType.
 const (
 	ApiOverrideFieldMetadataFilterTypeOverrideFieldMetadata ApiOverrideFieldMetadataFilterType = "overrideFieldMetadata"
+)
+
+// Defines values for ApiRateFilterType.
+const (
+	ApiRateFilterTypeRate ApiRateFilterType = "rate"
 )
 
 // Defines values for ApiReductionQueryDatasourceType.
@@ -221,6 +231,14 @@ type ApiCustomAlignmentPeriod struct {
 
 // ApiCustomAlignmentPeriodType defines model for ApiCustomAlignmentPeriod.Type.
 type ApiCustomAlignmentPeriodType string
+
+// ApiDeltaFilter Delta filter computes the difference between consecutive values (current - previous). Requires numeric, required field.
+type ApiDeltaFilter struct {
+	Type ApiDeltaFilterType `json:"type"`
+}
+
+// ApiDeltaFilterType defines model for ApiDeltaFilter.Type.
+type ApiDeltaFilterType string
 
 // ApiExecuteQueryCommandArgs defines model for ApiExecuteQueryCommandArgs.
 type ApiExecuteQueryCommandArgs struct {
@@ -349,6 +367,16 @@ type ApiQueryResult struct {
 	Data []ApiMeasurementValue `json:"data"`
 	Meta ApiQueryFieldMeta     `json:"meta"`
 }
+
+// ApiRateFilter Rate filter computes the rate of change (delta / time_diff_in_seconds). Requires numeric, required field. Output is always decimal.
+type ApiRateFilter struct {
+	// OverrideUnit Unit for the rate output. If not specified, unit will be empty.
+	OverrideUnit string            `json:"overrideUnit,omitempty"`
+	Type         ApiRateFilterType `json:"type"`
+}
+
+// ApiRateFilterType defines model for ApiRateFilter.Type.
+type ApiRateFilterType string
 
 // ApiReductionQueryDatasource defines model for ApiReductionQueryDatasource.
 type ApiReductionQueryDatasource struct {
@@ -862,6 +890,38 @@ func (t *ApiQueryFilter) FromApiOverrideFieldMetadataFilter(v ApiOverrideFieldMe
 }
 
 
+// AsApiDeltaFilter returns the union data inside the ApiQueryFilter as a ApiDeltaFilter
+func (t ApiQueryFilter) AsApiDeltaFilter() (ApiDeltaFilter, error) {
+	var body ApiDeltaFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiDeltaFilter overwrites any union data inside the ApiQueryFilter as the provided ApiDeltaFilter
+func (t *ApiQueryFilter) FromApiDeltaFilter(v ApiDeltaFilter) error {
+	v.Type = "delta"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiRateFilter returns the union data inside the ApiQueryFilter as a ApiRateFilter
+func (t ApiQueryFilter) AsApiRateFilter() (ApiRateFilter, error) {
+	var body ApiRateFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiRateFilter overwrites any union data inside the ApiQueryFilter as the provided ApiRateFilter
+func (t *ApiQueryFilter) FromApiRateFilter(v ApiRateFilter) error {
+	v.Type = "rate"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiQueryFilter) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -880,10 +940,14 @@ func (t ApiQueryFilter) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiAlignerFilter()
 	case "condition":
 		return t.AsApiConditionFilter()
+	case "delta":
+		return t.AsApiDeltaFilter()
 	case "fieldValue":
 		return t.AsApiFieldValueFilter()
 	case "overrideFieldMetadata":
 		return t.AsApiOverrideFieldMetadataFilter()
+	case "rate":
+		return t.AsApiRateFilter()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

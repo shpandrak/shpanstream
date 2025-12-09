@@ -22,6 +22,10 @@ func ParseFilter(pCtx *ParsingContext, rawFilter ApiQueryFilter) (datasource.Fil
 		return parseFieldValueFilter(pCtx, typedFilter)
 	case ApiOverrideFieldMetadataFilter:
 		return parseOverrideFieldMetadataFilter(typedFilter)
+	case ApiDeltaFilter:
+		return parseDeltaFilter()
+	case ApiRateFilter:
+		return parseRateFilter(typedFilter)
 	}
 	return wrapAndReturn(pCtx.ParseFilter(pCtx, rawFilter))("failed parsing filter with plugin parser")
 }
@@ -59,6 +63,14 @@ func parseOverrideFieldMetadataFilter(overrideFilter ApiOverrideFieldMetadataFil
 		optUpdatedUnit,
 		overrideFilter.UpdatedCustomMeta,
 	), nil
+}
+
+func parseDeltaFilter() (datasource.Filter, error) {
+	return datasource.NewDeltaFilter(), nil
+}
+
+func parseRateFilter(rateFilter ApiRateFilter) (datasource.Filter, error) {
+	return datasource.NewRateFilter(rateFilter.OverrideUnit), nil
 }
 
 func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.Filter, error) {
