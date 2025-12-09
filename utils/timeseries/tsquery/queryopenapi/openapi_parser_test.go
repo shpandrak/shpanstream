@@ -1364,6 +1364,229 @@ func TestParseDatasource_CustomAlignmentPeriod(t *testing.T) {
 	assert.Greater(t, len(records), 0, "Custom alignment period should produce records")
 }
 
+// ========================================
+// Delta and Rate Filter Tests
+// ========================================
+
+func TestParseFilter_DeltaFilter(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create a static datasource with cumulative values
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "LifetimeEnergy",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true, // Must be required for delta filter
+			Unit:     "kWh",
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 150.0},
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 180.0},
+			{Timestamp: baseTime.Add(3 * time.Hour), Value: 250.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Create delta filter
+	var deltaFilter ApiQueryFilter
+	require.NoError(t, deltaFilter.FromApiDeltaFilter(ApiDeltaFilter{
+		Type: ApiDeltaFilterTypeDelta,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{deltaFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+	require.NotNil(t, ds)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(4*time.Hour))
+	require.NoError(t, err)
+
+	// Verify metadata preserved
+	meta := result.Meta()
+	assert.Equal(t, "LifetimeEnergy", meta.Urn())
+	assert.Equal(t, tsquery.DataTypeDecimal, meta.DataType())
+	assert.Equal(t, "kWh", meta.Unit())
+
+	// Verify deltas: 50, 30, 70
+	records := result.Data().MustCollect()
+	require.Len(t, records, 3) // First record dropped
+
+	assert.Equal(t, 50.0, records[0].Value) // 150 - 100
+	assert.Equal(t, 30.0, records[1].Value) // 180 - 150
+	assert.Equal(t, 70.0, records[2].Value) // 250 - 180
+}
+
+func TestParseFilter_RateFilter(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create a static datasource with cumulative values
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "LifetimeEnergy",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true, // Must be required for rate filter
+			Unit:     "kWh",
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 150.0},
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 180.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Create rate filter with unit override
+	var rateFilter ApiQueryFilter
+	require.NoError(t, rateFilter.FromApiRateFilter(ApiRateFilter{
+		Type:         ApiRateFilterTypeRate,
+		OverrideUnit: "kW",
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{rateFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+	require.NotNil(t, ds)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(3*time.Hour))
+	require.NoError(t, err)
+
+	// Verify metadata
+	meta := result.Meta()
+	assert.Equal(t, "LifetimeEnergy", meta.Urn())
+	assert.Equal(t, tsquery.DataTypeDecimal, meta.DataType()) // Rate always returns decimal
+	assert.Equal(t, "kW", meta.Unit())                        // Overridden unit
+
+	// Verify rates
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2) // First record dropped
+
+	// Rate 1: (150 - 100) / 3600 = 50/3600 ≈ 0.01389 kW
+	assert.InDelta(t, 50.0/3600.0, records[0].Value.(float64), 1e-10)
+
+	// Rate 2: (180 - 150) / 3600 = 30/3600 ≈ 0.00833 kW
+	assert.InDelta(t, 30.0/3600.0, records[1].Value.(float64), 1e-10)
+}
+
+func TestParseFilter_RateFilter_NoUnitOverride(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "Energy",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+			Unit:     "kWh",
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 200.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Create rate filter without unit override
+	var rateFilter ApiQueryFilter
+	require.NoError(t, rateFilter.FromApiRateFilter(ApiRateFilter{
+		Type: ApiRateFilterTypeRate,
+		// No OverrideUnit - should result in empty unit
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{rateFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	// Verify unit is empty when no override specified
+	assert.Equal(t, "", result.Meta().Unit())
+}
+
+func TestParseFilter_DeltaFilter_NegativeDelta(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create a static datasource where values decrease
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "Temperature",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 80.0},
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 50.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	var deltaFilter ApiQueryFilter
+	require.NoError(t, deltaFilter.FromApiDeltaFilter(ApiDeltaFilter{
+		Type: ApiDeltaFilterTypeDelta,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{deltaFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(3*time.Hour))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2)
+	assert.Equal(t, -20.0, records[0].Value) // 80 - 100 = -20
+	assert.Equal(t, -30.0, records[1].Value) // 50 - 80 = -30
+}
+
 // Helper function to create a test context
 func testContext() context.Context {
 	return context.Background()
