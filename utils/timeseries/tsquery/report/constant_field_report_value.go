@@ -21,19 +21,21 @@ func NewConstantFieldValue(meta tsquery.ValueMeta, value any) ConstantFieldValue
 
 func (cf ConstantFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	// Validate on execute (lazy validation)
-	if cf.value == nil {
+	valueToUse := cf.value
+	if valueToUse == nil {
 		if cf.meta.Required {
 			return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("cannot execute constant field: value is required")
 		}
 	} else {
-		err := cf.meta.DataType.ValidateData(cf.value)
+		var err error
+		valueToUse, err = cf.meta.DataType.ForceCastAndValidate(valueToUse)
 		if err != nil {
 			return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("failed validating constant field data: %w", err)
 		}
 	}
 
 	valueSupplier := func(_ context.Context, _ timeseries.TsRecord[[]any]) (any, error) {
-		return cf.value, nil
+		return valueToUse, nil
 	}
 	return cf.meta, valueSupplier, nil
 }
