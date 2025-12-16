@@ -6,6 +6,7 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
 )
 
 // CustomPluginParser implements PluginApiParser to handle custom datasource types
@@ -35,6 +36,10 @@ func (p CustomPluginParser) ParseFilter(_ *ParsingContext, filter ApiQueryFilter
 
 func (p CustomPluginParser) ParseFieldValue(_ *ParsingContext, field ApiQueryFieldValue) (datasource.Value, error) {
 	return nil, fmt.Errorf("no custom field value types supported")
+}
+
+func (p CustomPluginParser) ParseReportFieldValue(_ *ParsingContext, field ApiReportFieldValue) (report.Value, error) {
+	return nil, fmt.Errorf("no custom report field value types supported")
 }
 
 // parsePostgresDatasource creates a Postgres-backed datasource

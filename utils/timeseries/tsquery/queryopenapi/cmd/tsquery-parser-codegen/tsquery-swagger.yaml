@@ -648,3 +648,217 @@ components:
         - string
         - boolean
         - timestamp
+
+    # Report Field Value types (for report.Value)
+    ApiReportFieldValue:
+      type: object
+      discriminator:
+        propertyName: type
+        mapping:
+          constant: '#/components/schemas/ApiConstantReportFieldValue'
+          condition: '#/components/schemas/ApiConditionReportFieldValue'
+          logicalExpression: '#/components/schemas/ApiLogicalExpressionReportFieldValue'
+          ref: '#/components/schemas/ApiRefReportFieldValue'
+          selector: '#/components/schemas/ApiSelectorReportFieldValue'
+          nvl: '#/components/schemas/ApiNvlReportFieldValue'
+          cast: '#/components/schemas/ApiCastReportFieldValue'
+          numericExpression: '#/components/schemas/ApiNumericExpressionReportFieldValue'
+          unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorReportFieldValue'
+          reduce: '#/components/schemas/ApiReduceReportFieldValue'
+      oneOf:
+        - $ref: '#/components/schemas/ApiConstantReportFieldValue'
+        - $ref: '#/components/schemas/ApiConditionReportFieldValue'
+        - $ref: '#/components/schemas/ApiLogicalExpressionReportFieldValue'
+        - $ref: '#/components/schemas/ApiRefReportFieldValue'
+        - $ref: '#/components/schemas/ApiSelectorReportFieldValue'
+        - $ref: '#/components/schemas/ApiNvlReportFieldValue'
+        - $ref: '#/components/schemas/ApiCastReportFieldValue'
+        - $ref: '#/components/schemas/ApiNumericExpressionReportFieldValue'
+        - $ref: '#/components/schemas/ApiUnaryNumericOperatorReportFieldValue'
+        - $ref: '#/components/schemas/ApiReduceReportFieldValue'
+
+    ApiConstantReportFieldValue:
+      type: object
+      required:
+        - type
+        - dataType
+        - required
+        - fieldValue
+      properties:
+        type:
+          type: string
+          enum:
+            - constant
+        dataType:
+          $ref: '#/components/schemas/ApiMetricDataType'
+        required:
+          type: boolean
+        unit:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        fieldValue:
+          x-go-type: any
+          anyOf:
+            - type: string
+            - type: number
+            - type: boolean
+
+    ApiConditionReportFieldValue:
+      type: object
+      required:
+        - type
+        - operatorType
+        - operand1
+        - operand2
+      properties:
+        type:
+          type: string
+          enum:
+            - condition
+        operatorType:
+          $ref: '#/components/schemas/ApiConditionOperatorType'
+        operand1:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+        operand2:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+
+    ApiLogicalExpressionReportFieldValue:
+      type: object
+      required:
+        - type
+        - logicalOperatorType
+        - operand1
+        - operand2
+      properties:
+        type:
+          type: string
+          enum:
+            - logicalExpression
+        logicalOperatorType:
+          $ref: '#/components/schemas/ApiLogicalOperatorType'
+        operand1:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+        operand2:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+
+    ApiRefReportFieldValue:
+      type: object
+      description: Reference to a field in the report by its URN
+      required:
+        - type
+        - urn
+      properties:
+        type:
+          type: string
+          enum:
+            - ref
+        urn:
+          type: string
+          minLength: 1
+
+    ApiSelectorReportFieldValue:
+      type: object
+      required:
+        - type
+        - selectorBooleanField
+        - trueField
+        - falseField
+      properties:
+        type:
+          type: string
+          enum:
+            - selector
+        selectorBooleanField:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+        trueField:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+        falseField:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+
+    ApiNvlReportFieldValue:
+      type: object
+      required:
+        - type
+        - source
+        - altField
+      properties:
+        type:
+          type: string
+          enum:
+            - nvl
+        source:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+        altField:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+
+    ApiCastReportFieldValue:
+      type: object
+      required:
+        - type
+        - source
+        - targetType
+      properties:
+        type:
+          type: string
+          enum:
+            - cast
+        source:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+        targetType:
+          $ref: '#/components/schemas/ApiMetricDataType'
+
+    ApiNumericExpressionReportFieldValue:
+      type: object
+      required:
+        - type
+        - op1
+        - op
+        - op2
+      properties:
+        type:
+          type: string
+          enum:
+            - numericExpression
+        op1:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+        op:
+          $ref: '#/components/schemas/ApiBinaryNumericOperatorType'
+        op2:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+
+    ApiUnaryNumericOperatorReportFieldValue:
+      type: object
+      required:
+        - type
+        - operand
+        - op
+      properties:
+        type:
+          type: string
+          enum:
+            - unaryNumericOperator
+        operand:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+        op:
+          $ref: '#/components/schemas/ApiUnaryNumericOperatorType'
+
+    ApiReduceReportFieldValue:
+      type: object
+      description: Reduces multiple fields into a single value using a reduction function. If fieldUrns is not specified, all numeric fields are reduced.
+      required:
+        - type
+        - reductionType
+      properties:
+        type:
+          type: string
+          enum:
+            - reduce
+        reductionType:
+          $ref: '#/components/schemas/ApiReductionType'
+        fieldUrns:
+          type: array
+          description: URNs of fields to reduce. If not specified, all numeric fields are reduced.
+          x-go-type-skip-optional-pointer: true
+          items:
+            type: string
+            minLength: 1
