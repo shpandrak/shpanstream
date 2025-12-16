@@ -54,10 +54,12 @@ func (nf NvlFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.FieldM
 	}
 
 	// Create field metadata - NVL field is always required since we have a fallback
+	// Propagate CustomMeta from source only (not from alt)
 	fvm := tsquery.ValueMeta{
-		DataType: sourceType,
-		Unit:     sourceMeta.Unit,
-		Required: true,
+		DataType:   sourceType,
+		Unit:       sourceMeta.Unit,
+		Required:   true,
+		CustomMeta: sourceMeta.CustomMeta,
 	}
 	valueSupplier := func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error) {
 		// If the source is required, it can't be null, so just return its value

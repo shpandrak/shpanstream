@@ -43,9 +43,10 @@ func (cf CastFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.Field
 
 	// Create field value metadata for the cast result
 	fieldValueMeta := tsquery.ValueMeta{
-		DataType: cf.targetType,
-		Unit:     sourceMeta.Unit,
-		Required: sourceMeta.Required,
+		DataType:   cf.targetType,
+		Unit:       sourceMeta.Unit,
+		Required:   sourceMeta.Required,
+		CustomMeta: sourceMeta.CustomMeta,
 	}
 
 	// Wrap cast function to handle nil for optional fields

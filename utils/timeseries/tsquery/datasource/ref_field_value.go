@@ -22,8 +22,9 @@ func (rf RefFieldValue) Execute(ctx context.Context, fieldMeta tsquery.FieldMeta
 	}
 
 	return tsquery.ValueMeta{
-		DataType: fieldMeta.DataType(),
-		Unit:     fieldMeta.Unit(),
-		Required: fieldMeta.Required(),
+		DataType:   fieldMeta.DataType(),
+		Unit:       fieldMeta.Unit(),
+		Required:   fieldMeta.Required(),
+		CustomMeta: fieldMeta.CustomMeta(),
 	}, valueSupplier, nil
 }
