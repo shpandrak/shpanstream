@@ -27,7 +27,7 @@ func PrepareField(
 		valueMeta.DataType,
 		valueMeta.Required,
 		unit,
-		meta.CustomMeta,
+		tsquery.MergeCustomMeta(valueMeta.CustomMeta, meta.CustomMeta),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed creating field meta for %s: %w", meta.Urn, err)

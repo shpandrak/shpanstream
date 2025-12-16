@@ -75,9 +75,10 @@ func NewFieldMetaWithCustomData(
 }
 
 type ValueMeta struct {
-	DataType DataType
-	Unit     string
-	Required bool
+	DataType   DataType
+	Unit       string
+	Required   bool
+	CustomMeta map[string]any
 }
 
 type AddFieldMeta struct {
