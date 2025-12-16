@@ -19,7 +19,7 @@ func NewConstantFieldValue(meta tsquery.ValueMeta, value any) ConstantFieldValue
 	return ConstantFieldValue{meta, value}
 }
 
-func (cf ConstantFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
+func (cf ConstantFieldValue) Execute(_ context.Context, _ []tsquery.FieldMeta) (tsquery.ValueMeta, ValueSupplier, error) {
 	// Validate on execute (lazy validation)
 	valueToUse := cf.value
 	if valueToUse == nil {

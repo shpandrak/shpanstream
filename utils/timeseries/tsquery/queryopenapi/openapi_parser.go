@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
 )
 
 type ParsingContext struct {
@@ -55,6 +56,7 @@ type PluginApiParser interface {
 	ParseMultiDatasource(pCtx *ParsingContext, multiDatasource ApiMultiDatasource) (datasource.MultiDataSource, error)
 	ParseFilter(pCtx *ParsingContext, filter ApiQueryFilter) (datasource.Filter, error)
 	ParseFieldValue(pCtx *ParsingContext, field ApiQueryFieldValue) (datasource.Value, error)
+	ParseReportFieldValue(pCtx *ParsingContext, field ApiReportFieldValue) (report.Value, error)
 }
 
 type noPluginApiParser struct {
@@ -91,4 +93,12 @@ func (n noPluginApiParser) ParseFieldValue(_ *ParsingContext, field ApiQueryFiel
 		return nil, fmt.Errorf("failed to get field discriminator: %w", err)
 	}
 	return nil, fmt.Errorf("unsupported field discriminator %s", discriminator)
+}
+
+func (n noPluginApiParser) ParseReportFieldValue(_ *ParsingContext, field ApiReportFieldValue) (report.Value, error) {
+	discriminator, err := field.Discriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get report field discriminator: %w", err)
+	}
+	return nil, fmt.Errorf("unsupported report field discriminator %s", discriminator)
 }

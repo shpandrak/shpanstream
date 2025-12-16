@@ -46,6 +46,11 @@ const (
 	ApiCastQueryFieldValueTypeCast ApiCastQueryFieldValueType = "cast"
 )
 
+// Defines values for ApiCastReportFieldValueType.
+const (
+	ApiCastReportFieldValueTypeCast ApiCastReportFieldValueType = "cast"
+)
+
 // Defines values for ApiConditionFilterType.
 const (
 	ApiConditionFilterTypeCondition ApiConditionFilterType = "condition"
@@ -56,9 +61,19 @@ const (
 	ApiConditionQueryFieldValueTypeCondition ApiConditionQueryFieldValueType = "condition"
 )
 
+// Defines values for ApiConditionReportFieldValueType.
+const (
+	ApiConditionReportFieldValueTypeCondition ApiConditionReportFieldValueType = "condition"
+)
+
 // Defines values for ApiConstantQueryFieldValueType.
 const (
 	ApiConstantQueryFieldValueTypeConstant ApiConstantQueryFieldValueType = "constant"
+)
+
+// Defines values for ApiConstantReportFieldValueType.
+const (
+	ApiConstantReportFieldValueTypeConstant ApiConstantReportFieldValueType = "constant"
 )
 
 // Defines values for ApiCustomAlignmentPeriodType.
@@ -91,14 +106,29 @@ const (
 	ApiLogicalExpressionQueryFieldValueTypeLogicalExpression ApiLogicalExpressionQueryFieldValueType = "logicalExpression"
 )
 
+// Defines values for ApiLogicalExpressionReportFieldValueType.
+const (
+	ApiLogicalExpressionReportFieldValueTypeLogicalExpression ApiLogicalExpressionReportFieldValueType = "logicalExpression"
+)
+
 // Defines values for ApiNumericExpressionQueryFieldValueType.
 const (
 	ApiNumericExpressionQueryFieldValueTypeNumericExpression ApiNumericExpressionQueryFieldValueType = "numericExpression"
 )
 
+// Defines values for ApiNumericExpressionReportFieldValueType.
+const (
+	ApiNumericExpressionReportFieldValueTypeNumericExpression ApiNumericExpressionReportFieldValueType = "numericExpression"
+)
+
 // Defines values for ApiNvlQueryFieldValueType.
 const (
 	ApiNvlQueryFieldValueTypeNvl ApiNvlQueryFieldValueType = "nvl"
+)
+
+// Defines values for ApiNvlReportFieldValueType.
+const (
+	ApiNvlReportFieldValueTypeNvl ApiNvlReportFieldValueType = "nvl"
 )
 
 // Defines values for ApiOverrideFieldMetadataFilterType.
@@ -111,6 +141,11 @@ const (
 	ApiRateFilterTypeRate ApiRateFilterType = "rate"
 )
 
+// Defines values for ApiReduceReportFieldValueType.
+const (
+	ApiReduceReportFieldValueTypeReduce ApiReduceReportFieldValueType = "reduce"
+)
+
 // Defines values for ApiReductionQueryDatasourceType.
 const (
 	ApiReductionQueryDatasourceTypeReduction ApiReductionQueryDatasourceType = "reduction"
@@ -121,9 +156,19 @@ const (
 	ApiRefQueryFieldValueTypeRef ApiRefQueryFieldValueType = "ref"
 )
 
+// Defines values for ApiRefReportFieldValueType.
+const (
+	ApiRefReportFieldValueTypeRef ApiRefReportFieldValueType = "ref"
+)
+
 // Defines values for ApiSelectorQueryFieldValueType.
 const (
 	ApiSelectorQueryFieldValueTypeSelector ApiSelectorQueryFieldValueType = "selector"
+)
+
+// Defines values for ApiSelectorReportFieldValueType.
+const (
+	ApiSelectorReportFieldValueTypeSelector ApiSelectorReportFieldValueType = "selector"
 )
 
 // Defines values for ApiStaticQueryDatasourceType.
@@ -134,6 +179,11 @@ const (
 // Defines values for ApiUnaryNumericOperatorQueryFieldValueType.
 const (
 	ApiUnaryNumericOperatorQueryFieldValueTypeUnaryNumericOperator ApiUnaryNumericOperatorQueryFieldValueType = "unaryNumericOperator"
+)
+
+// Defines values for ApiUnaryNumericOperatorReportFieldValueType.
+const (
+	ApiUnaryNumericOperatorReportFieldValueTypeUnaryNumericOperator ApiUnaryNumericOperatorReportFieldValueType = "unaryNumericOperator"
 )
 
 // ApiAddFieldMeta defines model for ApiAddFieldMeta.
@@ -187,6 +237,16 @@ type ApiCastQueryFieldValue struct {
 // ApiCastQueryFieldValueType defines model for ApiCastQueryFieldValue.Type.
 type ApiCastQueryFieldValueType string
 
+// ApiCastReportFieldValue defines model for ApiCastReportFieldValue.
+type ApiCastReportFieldValue struct {
+	Source     ApiReportFieldValue         `json:"source"`
+	TargetType ApiMetricDataType           `json:"targetType"`
+	Type       ApiCastReportFieldValueType `json:"type"`
+}
+
+// ApiCastReportFieldValueType defines model for ApiCastReportFieldValue.Type.
+type ApiCastReportFieldValueType string
+
 // ApiConditionFilter defines model for ApiConditionFilter.
 type ApiConditionFilter struct {
 	BooleanField ApiQueryFieldValue     `json:"booleanField"`
@@ -210,6 +270,17 @@ type ApiConditionQueryFieldValue struct {
 // ApiConditionQueryFieldValueType defines model for ApiConditionQueryFieldValue.Type.
 type ApiConditionQueryFieldValueType string
 
+// ApiConditionReportFieldValue defines model for ApiConditionReportFieldValue.
+type ApiConditionReportFieldValue struct {
+	Operand1     ApiReportFieldValue              `json:"operand1"`
+	Operand2     ApiReportFieldValue              `json:"operand2"`
+	OperatorType ApiConditionOperatorType         `json:"operatorType"`
+	Type         ApiConditionReportFieldValueType `json:"type"`
+}
+
+// ApiConditionReportFieldValueType defines model for ApiConditionReportFieldValue.Type.
+type ApiConditionReportFieldValueType string
+
 // ApiConstantQueryFieldValue defines model for ApiConstantQueryFieldValue.
 type ApiConstantQueryFieldValue struct {
 	DataType   ApiMetricDataType              `json:"dataType"`
@@ -221,6 +292,18 @@ type ApiConstantQueryFieldValue struct {
 
 // ApiConstantQueryFieldValueType defines model for ApiConstantQueryFieldValue.Type.
 type ApiConstantQueryFieldValueType string
+
+// ApiConstantReportFieldValue defines model for ApiConstantReportFieldValue.
+type ApiConstantReportFieldValue struct {
+	DataType   ApiMetricDataType               `json:"dataType"`
+	FieldValue any                             `json:"fieldValue"`
+	Required   bool                            `json:"required"`
+	Type       ApiConstantReportFieldValueType `json:"type"`
+	Unit       string                          `json:"unit,omitempty"`
+}
+
+// ApiConstantReportFieldValueType defines model for ApiConstantReportFieldValue.Type.
+type ApiConstantReportFieldValueType string
 
 // ApiCustomAlignmentPeriod defines model for ApiCustomAlignmentPeriod.
 type ApiCustomAlignmentPeriod struct {
@@ -289,6 +372,17 @@ type ApiLogicalExpressionQueryFieldValue struct {
 // ApiLogicalExpressionQueryFieldValueType defines model for ApiLogicalExpressionQueryFieldValue.Type.
 type ApiLogicalExpressionQueryFieldValueType string
 
+// ApiLogicalExpressionReportFieldValue defines model for ApiLogicalExpressionReportFieldValue.
+type ApiLogicalExpressionReportFieldValue struct {
+	LogicalOperatorType ApiLogicalOperatorType                   `json:"logicalOperatorType"`
+	Operand1            ApiReportFieldValue                      `json:"operand1"`
+	Operand2            ApiReportFieldValue                      `json:"operand2"`
+	Type                ApiLogicalExpressionReportFieldValueType `json:"type"`
+}
+
+// ApiLogicalExpressionReportFieldValueType defines model for ApiLogicalExpressionReportFieldValue.Type.
+type ApiLogicalExpressionReportFieldValueType string
+
 // ApiLogicalOperatorType defines model for ApiLogicalOperatorType.
 type ApiLogicalOperatorType = tsquery.LogicalOperatorType
 
@@ -317,6 +411,17 @@ type ApiNumericExpressionQueryFieldValue struct {
 // ApiNumericExpressionQueryFieldValueType defines model for ApiNumericExpressionQueryFieldValue.Type.
 type ApiNumericExpressionQueryFieldValueType string
 
+// ApiNumericExpressionReportFieldValue defines model for ApiNumericExpressionReportFieldValue.
+type ApiNumericExpressionReportFieldValue struct {
+	Op   ApiBinaryNumericOperatorType             `json:"op"`
+	Op1  ApiReportFieldValue                      `json:"op1"`
+	Op2  ApiReportFieldValue                      `json:"op2"`
+	Type ApiNumericExpressionReportFieldValueType `json:"type"`
+}
+
+// ApiNumericExpressionReportFieldValueType defines model for ApiNumericExpressionReportFieldValue.Type.
+type ApiNumericExpressionReportFieldValueType string
+
 // ApiNvlQueryFieldValue defines model for ApiNvlQueryFieldValue.
 type ApiNvlQueryFieldValue struct {
 	AltField ApiQueryFieldValue        `json:"altField"`
@@ -326,6 +431,16 @@ type ApiNvlQueryFieldValue struct {
 
 // ApiNvlQueryFieldValueType defines model for ApiNvlQueryFieldValue.Type.
 type ApiNvlQueryFieldValueType string
+
+// ApiNvlReportFieldValue defines model for ApiNvlReportFieldValue.
+type ApiNvlReportFieldValue struct {
+	AltField ApiReportFieldValue        `json:"altField"`
+	Source   ApiReportFieldValue        `json:"source"`
+	Type     ApiNvlReportFieldValueType `json:"type"`
+}
+
+// ApiNvlReportFieldValueType defines model for ApiNvlReportFieldValue.Type.
+type ApiNvlReportFieldValueType string
 
 // ApiOverrideFieldMetadataFilter defines model for ApiOverrideFieldMetadataFilter.
 type ApiOverrideFieldMetadataFilter struct {
@@ -378,6 +493,17 @@ type ApiRateFilter struct {
 // ApiRateFilterType defines model for ApiRateFilter.Type.
 type ApiRateFilterType string
 
+// ApiReduceReportFieldValue Reduces multiple fields into a single value using a reduction function. If fieldUrns is not specified, all numeric fields are reduced.
+type ApiReduceReportFieldValue struct {
+	// FieldUrns URNs of fields to reduce. If not specified, all numeric fields are reduced.
+	FieldUrns     []string                      `json:"fieldUrns,omitempty"`
+	ReductionType ApiReductionType              `json:"reductionType"`
+	Type          ApiReduceReportFieldValueType `json:"type"`
+}
+
+// ApiReduceReportFieldValueType defines model for ApiReduceReportFieldValue.Type.
+type ApiReduceReportFieldValueType string
+
 // ApiReductionQueryDatasource defines model for ApiReductionQueryDatasource.
 type ApiReductionQueryDatasource struct {
 	AlignmentPeriod ApiAlignmentPeriod `json:"alignmentPeriod"`
@@ -403,6 +529,20 @@ type ApiRefQueryFieldValue struct {
 // ApiRefQueryFieldValueType defines model for ApiRefQueryFieldValue.Type.
 type ApiRefQueryFieldValueType string
 
+// ApiRefReportFieldValue Reference to a field in the report by its URN
+type ApiRefReportFieldValue struct {
+	Type ApiRefReportFieldValueType `json:"type"`
+	Urn  string                     `json:"urn"`
+}
+
+// ApiRefReportFieldValueType defines model for ApiRefReportFieldValue.Type.
+type ApiRefReportFieldValueType string
+
+// ApiReportFieldValue defines model for ApiReportFieldValue.
+type ApiReportFieldValue struct {
+	union json.RawMessage
+}
+
 // ApiSelectorQueryFieldValue defines model for ApiSelectorQueryFieldValue.
 type ApiSelectorQueryFieldValue struct {
 	FalseField           ApiQueryFieldValue             `json:"falseField"`
@@ -413,6 +553,17 @@ type ApiSelectorQueryFieldValue struct {
 
 // ApiSelectorQueryFieldValueType defines model for ApiSelectorQueryFieldValue.Type.
 type ApiSelectorQueryFieldValueType string
+
+// ApiSelectorReportFieldValue defines model for ApiSelectorReportFieldValue.
+type ApiSelectorReportFieldValue struct {
+	FalseField           ApiReportFieldValue             `json:"falseField"`
+	SelectorBooleanField ApiReportFieldValue             `json:"selectorBooleanField"`
+	TrueField            ApiReportFieldValue             `json:"trueField"`
+	Type                 ApiSelectorReportFieldValueType `json:"type"`
+}
+
+// ApiSelectorReportFieldValueType defines model for ApiSelectorReportFieldValue.Type.
+type ApiSelectorReportFieldValueType string
 
 // ApiStaticQueryDatasource defines model for ApiStaticQueryDatasource.
 type ApiStaticQueryDatasource struct {
@@ -433,6 +584,16 @@ type ApiUnaryNumericOperatorQueryFieldValue struct {
 
 // ApiUnaryNumericOperatorQueryFieldValueType defines model for ApiUnaryNumericOperatorQueryFieldValue.Type.
 type ApiUnaryNumericOperatorQueryFieldValueType string
+
+// ApiUnaryNumericOperatorReportFieldValue defines model for ApiUnaryNumericOperatorReportFieldValue.
+type ApiUnaryNumericOperatorReportFieldValue struct {
+	Op      ApiUnaryNumericOperatorType                 `json:"op"`
+	Operand ApiReportFieldValue                         `json:"operand"`
+	Type    ApiUnaryNumericOperatorReportFieldValueType `json:"type"`
+}
+
+// ApiUnaryNumericOperatorReportFieldValueType defines model for ApiUnaryNumericOperatorReportFieldValue.Type.
+type ApiUnaryNumericOperatorReportFieldValueType string
 
 // ApiUnaryNumericOperatorType defines model for ApiUnaryNumericOperatorType.
 type ApiUnaryNumericOperatorType = tsquery.UnaryNumericOperatorType
@@ -959,6 +1120,215 @@ func (t ApiQueryFilter) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ApiQueryFilter) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsApiConstantReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiConstantReportFieldValue
+func (t ApiReportFieldValue) AsApiConstantReportFieldValue() (ApiConstantReportFieldValue, error) {
+	var body ApiConstantReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiConstantReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiConstantReportFieldValue
+func (t *ApiReportFieldValue) FromApiConstantReportFieldValue(v ApiConstantReportFieldValue) error {
+	v.Type = "constant"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiConditionReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiConditionReportFieldValue
+func (t ApiReportFieldValue) AsApiConditionReportFieldValue() (ApiConditionReportFieldValue, error) {
+	var body ApiConditionReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiConditionReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiConditionReportFieldValue
+func (t *ApiReportFieldValue) FromApiConditionReportFieldValue(v ApiConditionReportFieldValue) error {
+	v.Type = "condition"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiLogicalExpressionReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiLogicalExpressionReportFieldValue
+func (t ApiReportFieldValue) AsApiLogicalExpressionReportFieldValue() (ApiLogicalExpressionReportFieldValue, error) {
+	var body ApiLogicalExpressionReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiLogicalExpressionReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiLogicalExpressionReportFieldValue
+func (t *ApiReportFieldValue) FromApiLogicalExpressionReportFieldValue(v ApiLogicalExpressionReportFieldValue) error {
+	v.Type = "logicalExpression"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiRefReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiRefReportFieldValue
+func (t ApiReportFieldValue) AsApiRefReportFieldValue() (ApiRefReportFieldValue, error) {
+	var body ApiRefReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiRefReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiRefReportFieldValue
+func (t *ApiReportFieldValue) FromApiRefReportFieldValue(v ApiRefReportFieldValue) error {
+	v.Type = "ref"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiSelectorReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiSelectorReportFieldValue
+func (t ApiReportFieldValue) AsApiSelectorReportFieldValue() (ApiSelectorReportFieldValue, error) {
+	var body ApiSelectorReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiSelectorReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiSelectorReportFieldValue
+func (t *ApiReportFieldValue) FromApiSelectorReportFieldValue(v ApiSelectorReportFieldValue) error {
+	v.Type = "selector"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiNvlReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiNvlReportFieldValue
+func (t ApiReportFieldValue) AsApiNvlReportFieldValue() (ApiNvlReportFieldValue, error) {
+	var body ApiNvlReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiNvlReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiNvlReportFieldValue
+func (t *ApiReportFieldValue) FromApiNvlReportFieldValue(v ApiNvlReportFieldValue) error {
+	v.Type = "nvl"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiCastReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiCastReportFieldValue
+func (t ApiReportFieldValue) AsApiCastReportFieldValue() (ApiCastReportFieldValue, error) {
+	var body ApiCastReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiCastReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiCastReportFieldValue
+func (t *ApiReportFieldValue) FromApiCastReportFieldValue(v ApiCastReportFieldValue) error {
+	v.Type = "cast"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiNumericExpressionReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiNumericExpressionReportFieldValue
+func (t ApiReportFieldValue) AsApiNumericExpressionReportFieldValue() (ApiNumericExpressionReportFieldValue, error) {
+	var body ApiNumericExpressionReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiNumericExpressionReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiNumericExpressionReportFieldValue
+func (t *ApiReportFieldValue) FromApiNumericExpressionReportFieldValue(v ApiNumericExpressionReportFieldValue) error {
+	v.Type = "numericExpression"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiUnaryNumericOperatorReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiUnaryNumericOperatorReportFieldValue
+func (t ApiReportFieldValue) AsApiUnaryNumericOperatorReportFieldValue() (ApiUnaryNumericOperatorReportFieldValue, error) {
+	var body ApiUnaryNumericOperatorReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiUnaryNumericOperatorReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiUnaryNumericOperatorReportFieldValue
+func (t *ApiReportFieldValue) FromApiUnaryNumericOperatorReportFieldValue(v ApiUnaryNumericOperatorReportFieldValue) error {
+	v.Type = "unaryNumericOperator"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiReduceReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiReduceReportFieldValue
+func (t ApiReportFieldValue) AsApiReduceReportFieldValue() (ApiReduceReportFieldValue, error) {
+	var body ApiReduceReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiReduceReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiReduceReportFieldValue
+func (t *ApiReportFieldValue) FromApiReduceReportFieldValue(v ApiReduceReportFieldValue) error {
+	v.Type = "reduce"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+func (t ApiReportFieldValue) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ApiReportFieldValue) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "cast":
+		return t.AsApiCastReportFieldValue()
+	case "condition":
+		return t.AsApiConditionReportFieldValue()
+	case "constant":
+		return t.AsApiConstantReportFieldValue()
+	case "logicalExpression":
+		return t.AsApiLogicalExpressionReportFieldValue()
+	case "numericExpression":
+		return t.AsApiNumericExpressionReportFieldValue()
+	case "nvl":
+		return t.AsApiNvlReportFieldValue()
+	case "reduce":
+		return t.AsApiReduceReportFieldValue()
+	case "ref":
+		return t.AsApiRefReportFieldValue()
+	case "selector":
+		return t.AsApiSelectorReportFieldValue()
+	case "unaryNumericOperator":
+		return t.AsApiUnaryNumericOperatorReportFieldValue()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ApiReportFieldValue) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ApiReportFieldValue) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
