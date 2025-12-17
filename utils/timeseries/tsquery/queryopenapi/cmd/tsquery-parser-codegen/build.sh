@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 echo "Copying and preparing parser files from parent directory..."
 
 # Copy each parser file and add the build ignore tag
-for file in ../../openapi_parser*.go; do
+for file in ../../openapi_parser*.go ../../report_field_*.go; do
     filename=$(basename "$file")
     echo "  Processing $filename..."
 
@@ -32,7 +32,7 @@ go install
 echo "✓ Tool built and installed successfully"
 echo ""
 echo "Embedded files:"
-ls -1 openapi_parser*.go tsquery-swagger.yaml
+ls -1 openapi_parser*.go report_field_*.go tsquery-swagger.yaml
 
 # Verify you need to tag the tool so it can be installed!
 #git tag utils/timeseries/tsquery/queryopenapi/cmd/tsquery-parser-codegen/v0.4.7

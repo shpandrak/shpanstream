@@ -40,7 +40,9 @@ func (s SelectFieldsFilter) Filter(ctx context.Context, result Result) (Result, 
 		seenUrns[sf.Meta.Urn] = true
 
 		// Prepare field to get metadata and value supplier
-		fieldMeta, valueSupplier, err := PrepareField(ctx, sf.Meta, sf.Value, result.FieldsMeta())
+		// Concatenate original fields with already-processed new fields so refs can resolve
+		availableFields := append(result.FieldsMeta(), newFieldsMeta...)
+		fieldMeta, valueSupplier, err := PrepareField(ctx, sf.Meta, sf.Value, availableFields)
 		if err != nil {
 			return util.DefaultValue[Result](), fmt.Errorf("failed preparing selected field %s: %w", sf.Meta.Urn, err)
 		}

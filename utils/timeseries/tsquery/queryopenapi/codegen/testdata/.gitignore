@@ -5,3 +5,5 @@ openapi_parser_datasource.go
 openapi_parser_filter.go
 openapi_parser_field.go
 openapi_parser_test.go
+openapi_parser_report_field.go
+
