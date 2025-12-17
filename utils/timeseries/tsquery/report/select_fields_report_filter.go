@@ -54,18 +54,18 @@ func (s SelectFieldsFilter) Filter(ctx context.Context, result Result) (Result, 
 	return NewResult(
 		newFieldsMeta,
 		stream.MapWithErrAndCtx(result.Stream(), func(ctx context.Context, record timeseries.TsRecord[[]any]) (timeseries.TsRecord[[]any], error) {
-			newValues := make([]any, len(valueSuppliers))
-			for i, supplier := range valueSuppliers {
-				value, err := supplier(ctx, record)
+			currRecord := record
+			for _, supplier := range valueSuppliers {
+				value, err := supplier(ctx, currRecord)
 				if err != nil {
 					return util.DefaultValue[timeseries.TsRecord[[]any]](), err
 				}
-				newValues[i] = value
+				currRecord.Value = append(currRecord.Value, value)
 			}
 
 			return timeseries.TsRecord[[]any]{
-				Timestamp: record.Timestamp,
-				Value:     newValues,
+				Timestamp: currRecord.Timestamp,
+				Value:     currRecord.Value[len(record.Value):],
 			}, nil
 		})), nil
 }
