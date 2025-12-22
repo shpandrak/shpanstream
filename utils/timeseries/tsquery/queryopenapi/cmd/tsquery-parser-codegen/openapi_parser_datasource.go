@@ -60,7 +60,7 @@ func parseStaticDatasource(ds ApiStaticQueryDatasource) (datasource.DataSource, 
 	return datasource.NewStaticDatasource(*fieldMeta, recordStream)
 }
 
-func parseMultiDatasource(pCtx *ParsingContext, multiDs ApiMultiDatasource) (datasource.MultiDataSource, error) {
+func ParseMultiDatasource(pCtx *ParsingContext, multiDs ApiMultiDatasource) (datasource.MultiDataSource, error) {
 	valueByDiscriminator, err := multiDs.ValueByDiscriminator()
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func parseReductionDatasource(
 	}
 
 	// Parse multi datasource
-	multiDatasource, err := parseMultiDatasource(pCtx, reductionDs.MultiDatasource)
+	multiDatasource, err := ParseMultiDatasource(pCtx, reductionDs.MultiDatasource)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse multi datasource for reduction: %w", err)
 	}
