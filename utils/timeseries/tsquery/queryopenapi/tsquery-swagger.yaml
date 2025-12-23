@@ -894,9 +894,11 @@ components:
         mapping:
           static: '#/components/schemas/ApiStaticReportDatasource'
           join: '#/components/schemas/ApiJoinReportDatasource'
+          fromDatasource: '#/components/schemas/ApiFromDatasourceReportDatasource'
       oneOf:
         - $ref: '#/components/schemas/ApiStaticReportDatasource'
         - $ref: '#/components/schemas/ApiJoinReportDatasource'
+        - $ref: '#/components/schemas/ApiFromDatasourceReportDatasource'
 
     ApiStaticReportDatasource:
       type: object
@@ -972,8 +974,10 @@ components:
         propertyName: type
         mapping:
           list: '#/components/schemas/ApiListReportMultiDatasource'
+          fromMultiDatasource: '#/components/schemas/ApiFromMultiDatasourceReportMultiDatasource'
       oneOf:
         - $ref: '#/components/schemas/ApiListReportMultiDatasource'
+        - $ref: '#/components/schemas/ApiFromMultiDatasourceReportMultiDatasource'
 
     ApiListReportMultiDatasource:
       type: object
@@ -990,3 +994,31 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ApiReportDatasource'
+
+    ApiFromDatasourceReportDatasource:
+      type: object
+      description: Wraps a standard query datasource as a report datasource (single field).
+      required:
+        - type
+        - datasource
+      properties:
+        type:
+          type: string
+          enum:
+            - fromDatasource
+        datasource:
+          $ref: '#/components/schemas/ApiQueryDatasource'
+
+    ApiFromMultiDatasourceReportMultiDatasource:
+      type: object
+      description: Wraps a standard multi datasource as a report multi datasource.
+      required:
+        - type
+        - multiDatasource
+      properties:
+        type:
+          type: string
+          enum:
+            - fromMultiDatasource
+        multiDatasource:
+          $ref: '#/components/schemas/ApiMultiDatasource'

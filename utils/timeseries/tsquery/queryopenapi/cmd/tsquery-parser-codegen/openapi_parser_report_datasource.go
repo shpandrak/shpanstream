@@ -25,6 +25,8 @@ func ParseReportDatasource(
 		return parseStaticReportDatasource(typedDs)
 	case ApiJoinReportDatasource:
 		return parseJoinReportDatasource(pCtx, typedDs)
+	case ApiFromDatasourceReportDatasource:
+		return parseFromDatasourceReportDatasource(pCtx, typedDs)
 	default:
 		return wrapAndReturnReportDatasource(pCtx.ParseReportDatasource(pCtx, ds))("failed parsing report datasource with plugin parser")
 	}
@@ -108,6 +110,8 @@ func ParseReportMultiDatasource(
 	switch typedMds := valueByDiscriminator.(type) {
 	case ApiListReportMultiDatasource:
 		return parseListReportMultiDatasource(pCtx, typedMds)
+	case ApiFromMultiDatasourceReportMultiDatasource:
+		return parseFromMultiDatasourceReportMultiDatasource(pCtx, typedMds)
 	default:
 		return wrapAndReturnReportMultiDatasource(pCtx.ParseReportMultiDatasource(pCtx, multiDs))("failed parsing report multi datasource with plugin parser")
 	}
@@ -126,6 +130,32 @@ func parseListReportMultiDatasource(
 		dsList[i] = parsedDatasource
 	}
 	return report.NewListMultiDatasource(dsList), nil
+}
+
+func parseFromDatasourceReportDatasource(
+	pCtx *ParsingContext,
+	ds ApiFromDatasourceReportDatasource,
+) (report.DataSource, error) {
+	// Parse the underlying query datasource
+	parsedDs, err := ParseDatasource(pCtx, ds.Datasource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse datasource for fromDatasource report datasource: %w", err)
+	}
+	// Wrap it as a report datasource
+	return report.FromDatasource(parsedDs), nil
+}
+
+func parseFromMultiDatasourceReportMultiDatasource(
+	pCtx *ParsingContext,
+	mds ApiFromMultiDatasourceReportMultiDatasource,
+) (report.MultiDataSource, error) {
+	// Parse the underlying multi datasource
+	parsedMultiDs, err := ParseMultiDatasource(pCtx, mds.MultiDatasource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse multi datasource for fromMultiDatasource report multi datasource: %w", err)
+	}
+	// Wrap it as a report multi datasource
+	return report.FromMultiDatasource(parsedMultiDs), nil
 }
 
 // wrapAndReturnReportDatasource is a helper function to wrap errors for report datasources

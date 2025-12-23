@@ -96,6 +96,16 @@ const (
 	ApiFilteredQueryDatasourceTypeFiltered ApiFilteredQueryDatasourceType = "filtered"
 )
 
+// Defines values for ApiFromDatasourceReportDatasourceType.
+const (
+	ApiFromDatasourceReportDatasourceTypeFromDatasource ApiFromDatasourceReportDatasourceType = "fromDatasource"
+)
+
+// Defines values for ApiFromMultiDatasourceReportMultiDatasourceType.
+const (
+	ApiFromMultiDatasourceReportMultiDatasourceTypeFromMultiDatasource ApiFromMultiDatasourceReportMultiDatasourceType = "fromMultiDatasource"
+)
+
 // Defines values for ApiFromReportQueryDatasourceType.
 const (
 	ApiFromReportQueryDatasourceTypeFromReport ApiFromReportQueryDatasourceType = "fromReport"
@@ -378,6 +388,26 @@ type ApiFilteredQueryDatasource struct {
 
 // ApiFilteredQueryDatasourceType defines model for ApiFilteredQueryDatasource.Type.
 type ApiFilteredQueryDatasourceType string
+
+// ApiFromDatasourceReportDatasource Wraps a standard query datasource as a report datasource (single field).
+type ApiFromDatasourceReportDatasource struct {
+	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
+	Datasource ApiQueryDatasource                    `json:"datasource"`
+	Type       ApiFromDatasourceReportDatasourceType `json:"type"`
+}
+
+// ApiFromDatasourceReportDatasourceType defines model for ApiFromDatasourceReportDatasource.Type.
+type ApiFromDatasourceReportDatasourceType string
+
+// ApiFromMultiDatasourceReportMultiDatasource Wraps a standard multi datasource as a report multi datasource.
+type ApiFromMultiDatasourceReportMultiDatasource struct {
+	// MultiDatasource Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
+	MultiDatasource ApiMultiDatasource                              `json:"multiDatasource"`
+	Type            ApiFromMultiDatasourceReportMultiDatasourceType `json:"type"`
+}
+
+// ApiFromMultiDatasourceReportMultiDatasourceType defines model for ApiFromMultiDatasourceReportMultiDatasource.Type.
+type ApiFromMultiDatasourceReportMultiDatasourceType string
 
 // ApiFromReportQueryDatasource Extracts a single field from a report datasource as a standard query datasource.
 type ApiFromReportQueryDatasource struct {
@@ -1268,6 +1298,22 @@ func (t *ApiReportDatasource) FromApiJoinReportDatasource(v ApiJoinReportDatasou
 }
 
 
+// AsApiFromDatasourceReportDatasource returns the union data inside the ApiReportDatasource as a ApiFromDatasourceReportDatasource
+func (t ApiReportDatasource) AsApiFromDatasourceReportDatasource() (ApiFromDatasourceReportDatasource, error) {
+	var body ApiFromDatasourceReportDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiFromDatasourceReportDatasource overwrites any union data inside the ApiReportDatasource as the provided ApiFromDatasourceReportDatasource
+func (t *ApiReportDatasource) FromApiFromDatasourceReportDatasource(v ApiFromDatasourceReportDatasource) error {
+	v.Type = "fromDatasource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiReportDatasource) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1282,6 +1328,8 @@ func (t ApiReportDatasource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "fromDatasource":
+		return t.AsApiFromDatasourceReportDatasource()
 	case "join":
 		return t.AsApiJoinReportDatasource()
 	case "static":
@@ -1526,6 +1574,22 @@ func (t *ApiReportMultiDatasource) FromApiListReportMultiDatasource(v ApiListRep
 }
 
 
+// AsApiFromMultiDatasourceReportMultiDatasource returns the union data inside the ApiReportMultiDatasource as a ApiFromMultiDatasourceReportMultiDatasource
+func (t ApiReportMultiDatasource) AsApiFromMultiDatasourceReportMultiDatasource() (ApiFromMultiDatasourceReportMultiDatasource, error) {
+	var body ApiFromMultiDatasourceReportMultiDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiFromMultiDatasourceReportMultiDatasource overwrites any union data inside the ApiReportMultiDatasource as the provided ApiFromMultiDatasourceReportMultiDatasource
+func (t *ApiReportMultiDatasource) FromApiFromMultiDatasourceReportMultiDatasource(v ApiFromMultiDatasourceReportMultiDatasource) error {
+	v.Type = "fromMultiDatasource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiReportMultiDatasource) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1540,6 +1604,8 @@ func (t ApiReportMultiDatasource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "fromMultiDatasource":
+		return t.AsApiFromMultiDatasourceReportMultiDatasource()
 	case "list":
 		return t.AsApiListReportMultiDatasource()
 	default:
