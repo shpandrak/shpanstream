@@ -96,9 +96,31 @@ const (
 	ApiFilteredQueryDatasourceTypeFiltered ApiFilteredQueryDatasourceType = "filtered"
 )
 
+// Defines values for ApiFromReportQueryDatasourceType.
+const (
+	ApiFromReportQueryDatasourceTypeFromReport ApiFromReportQueryDatasourceType = "fromReport"
+)
+
+// Defines values for ApiJoinReportDatasourceType.
+const (
+	ApiJoinReportDatasourceTypeJoin ApiJoinReportDatasourceType = "join"
+)
+
+// Defines values for ApiJoinType.
+const (
+	ApiJoinTypeFull  ApiJoinType = "full"
+	ApiJoinTypeInner ApiJoinType = "inner"
+	ApiJoinTypeLeft  ApiJoinType = "left"
+)
+
 // Defines values for ApiListMultiDatasourceType.
 const (
 	ApiListMultiDatasourceTypeList ApiListMultiDatasourceType = "list"
+)
+
+// Defines values for ApiListReportMultiDatasourceType.
+const (
+	ApiListReportMultiDatasourceTypeList ApiListReportMultiDatasourceType = "list"
 )
 
 // Defines values for ApiLogicalExpressionQueryFieldValueType.
@@ -174,6 +196,11 @@ const (
 // Defines values for ApiStaticQueryDatasourceType.
 const (
 	ApiStaticQueryDatasourceTypeStatic ApiStaticQueryDatasourceType = "static"
+)
+
+// Defines values for ApiStaticReportDatasourceType.
+const (
+	ApiStaticReportDatasourceTypeStatic ApiStaticReportDatasourceType = "static"
 )
 
 // Defines values for ApiUnaryNumericOperatorQueryFieldValueType.
@@ -352,6 +379,35 @@ type ApiFilteredQueryDatasource struct {
 // ApiFilteredQueryDatasourceType defines model for ApiFilteredQueryDatasource.Type.
 type ApiFilteredQueryDatasourceType string
 
+// ApiFromReportQueryDatasource Extracts a single field from a report datasource as a standard query datasource.
+type ApiFromReportQueryDatasource struct {
+	// FieldUrn URN of the field to extract from the report.
+	FieldUrn string `json:"fieldUrn"`
+
+	// ReportDatasource Report datasource that produces multiple fields per timestamp.
+	ReportDatasource ApiReportDatasource              `json:"reportDatasource"`
+	Type             ApiFromReportQueryDatasourceType `json:"type"`
+}
+
+// ApiFromReportQueryDatasourceType defines model for ApiFromReportQueryDatasource.Type.
+type ApiFromReportQueryDatasourceType string
+
+// ApiJoinReportDatasource Joins multiple report datasources based on timestamp.
+type ApiJoinReportDatasource struct {
+	// JoinType Type of join operation.
+	JoinType ApiJoinType `json:"joinType"`
+
+	// MultiDatasource Multi datasource for reports - a collection of report datasources.
+	MultiDatasource ApiReportMultiDatasource    `json:"multiDatasource"`
+	Type            ApiJoinReportDatasourceType `json:"type"`
+}
+
+// ApiJoinReportDatasourceType defines model for ApiJoinReportDatasource.Type.
+type ApiJoinReportDatasourceType string
+
+// ApiJoinType Type of join operation.
+type ApiJoinType string
+
 // ApiListMultiDatasource List Multi Datasource is a static predefined list of datasources.
 type ApiListMultiDatasource struct {
 	Datasources []ApiQueryDatasource       `json:"datasources"`
@@ -360,6 +416,15 @@ type ApiListMultiDatasource struct {
 
 // ApiListMultiDatasourceType defines model for ApiListMultiDatasource.Type.
 type ApiListMultiDatasourceType string
+
+// ApiListReportMultiDatasource List of report datasources.
+type ApiListReportMultiDatasource struct {
+	Datasources []ApiReportDatasource            `json:"datasources"`
+	Type        ApiListReportMultiDatasourceType `json:"type"`
+}
+
+// ApiListReportMultiDatasourceType defines model for ApiListReportMultiDatasource.Type.
+type ApiListReportMultiDatasourceType string
 
 // ApiLogicalExpressionQueryFieldValue defines model for ApiLogicalExpressionQueryFieldValue.
 type ApiLogicalExpressionQueryFieldValue struct {
@@ -538,8 +603,26 @@ type ApiRefReportFieldValue struct {
 // ApiRefReportFieldValueType defines model for ApiRefReportFieldValue.Type.
 type ApiRefReportFieldValueType string
 
+// ApiReportDatasource Report datasource that produces multiple fields per timestamp.
+type ApiReportDatasource struct {
+	union json.RawMessage
+}
+
 // ApiReportFieldValue defines model for ApiReportFieldValue.
 type ApiReportFieldValue struct {
+	union json.RawMessage
+}
+
+// ApiReportMeasurementRow A single row in a report with timestamp and values for all fields.
+type ApiReportMeasurementRow struct {
+	Timestamp time.Time `json:"timestamp"`
+
+	// Values Values for each field, in the same order as fieldsMeta.
+	Values []any `json:"values"`
+}
+
+// ApiReportMultiDatasource Multi datasource for reports - a collection of report datasources.
+type ApiReportMultiDatasource struct {
 	union json.RawMessage
 }
 
@@ -574,6 +657,17 @@ type ApiStaticQueryDatasource struct {
 
 // ApiStaticQueryDatasourceType defines model for ApiStaticQueryDatasource.Type.
 type ApiStaticQueryDatasourceType string
+
+// ApiStaticReportDatasource Static report datasource with predefined field metadata and data.
+type ApiStaticReportDatasource struct {
+	// Data Array of rows, where each row contains a timestamp and values for each field (in order of fieldsMeta).
+	Data       []ApiReportMeasurementRow     `json:"data"`
+	FieldsMeta []ApiQueryFieldMeta           `json:"fieldsMeta"`
+	Type       ApiStaticReportDatasourceType `json:"type"`
+}
+
+// ApiStaticReportDatasourceType defines model for ApiStaticReportDatasource.Type.
+type ApiStaticReportDatasourceType string
 
 // ApiUnaryNumericOperatorQueryFieldValue defines model for ApiUnaryNumericOperatorQueryFieldValue.
 type ApiUnaryNumericOperatorQueryFieldValue struct {
@@ -761,6 +855,22 @@ func (t *ApiQueryDatasource) FromApiStaticQueryDatasource(v ApiStaticQueryDataso
 }
 
 
+// AsApiFromReportQueryDatasource returns the union data inside the ApiQueryDatasource as a ApiFromReportQueryDatasource
+func (t ApiQueryDatasource) AsApiFromReportQueryDatasource() (ApiFromReportQueryDatasource, error) {
+	var body ApiFromReportQueryDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiFromReportQueryDatasource overwrites any union data inside the ApiQueryDatasource as the provided ApiFromReportQueryDatasource
+func (t *ApiQueryDatasource) FromApiFromReportQueryDatasource(v ApiFromReportQueryDatasource) error {
+	v.Type = "fromReport"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiQueryDatasource) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -777,6 +887,8 @@ func (t ApiQueryDatasource) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "filtered":
 		return t.AsApiFilteredQueryDatasource()
+	case "fromReport":
+		return t.AsApiFromReportQueryDatasource()
 	case "reduction":
 		return t.AsApiReductionQueryDatasource()
 	case "static":
@@ -1124,6 +1236,71 @@ func (t *ApiQueryFilter) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// AsApiStaticReportDatasource returns the union data inside the ApiReportDatasource as a ApiStaticReportDatasource
+func (t ApiReportDatasource) AsApiStaticReportDatasource() (ApiStaticReportDatasource, error) {
+	var body ApiStaticReportDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiStaticReportDatasource overwrites any union data inside the ApiReportDatasource as the provided ApiStaticReportDatasource
+func (t *ApiReportDatasource) FromApiStaticReportDatasource(v ApiStaticReportDatasource) error {
+	v.Type = "static"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiJoinReportDatasource returns the union data inside the ApiReportDatasource as a ApiJoinReportDatasource
+func (t ApiReportDatasource) AsApiJoinReportDatasource() (ApiJoinReportDatasource, error) {
+	var body ApiJoinReportDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiJoinReportDatasource overwrites any union data inside the ApiReportDatasource as the provided ApiJoinReportDatasource
+func (t *ApiReportDatasource) FromApiJoinReportDatasource(v ApiJoinReportDatasource) error {
+	v.Type = "join"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+func (t ApiReportDatasource) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ApiReportDatasource) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "join":
+		return t.AsApiJoinReportDatasource()
+	case "static":
+		return t.AsApiStaticReportDatasource()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ApiReportDatasource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ApiReportDatasource) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // AsApiConstantReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiConstantReportFieldValue
 func (t ApiReportFieldValue) AsApiConstantReportFieldValue() (ApiConstantReportFieldValue, error) {
 	var body ApiConstantReportFieldValue
@@ -1329,6 +1506,53 @@ func (t ApiReportFieldValue) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ApiReportFieldValue) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsApiListReportMultiDatasource returns the union data inside the ApiReportMultiDatasource as a ApiListReportMultiDatasource
+func (t ApiReportMultiDatasource) AsApiListReportMultiDatasource() (ApiListReportMultiDatasource, error) {
+	var body ApiListReportMultiDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiListReportMultiDatasource overwrites any union data inside the ApiReportMultiDatasource as the provided ApiListReportMultiDatasource
+func (t *ApiReportMultiDatasource) FromApiListReportMultiDatasource(v ApiListReportMultiDatasource) error {
+	v.Type = "list"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+func (t ApiReportMultiDatasource) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ApiReportMultiDatasource) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "list":
+		return t.AsApiListReportMultiDatasource()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ApiReportMultiDatasource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ApiReportMultiDatasource) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

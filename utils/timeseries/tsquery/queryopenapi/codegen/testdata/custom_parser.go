@@ -42,6 +42,14 @@ func (p CustomPluginParser) ParseReportFieldValue(_ *ParsingContext, field ApiRe
 	return nil, fmt.Errorf("no custom report field value types supported")
 }
 
+func (p CustomPluginParser) ParseReportDatasource(_ *ParsingContext, reportDatasource ApiReportDatasource) (report.DataSource, error) {
+	return nil, fmt.Errorf("no custom report datasource types supported")
+}
+
+func (p CustomPluginParser) ParseReportMultiDatasource(_ *ParsingContext, reportMultiDatasource ApiReportMultiDatasource) (report.MultiDataSource, error) {
+	return nil, fmt.Errorf("no custom report multi-datasource types supported")
+}
+
 // parsePostgresDatasource creates a Postgres-backed datasource
 // This is a mock implementation for testing purposes
 func parsePostgresDatasource(ds ApiPostgresQueryDatasource) (datasource.DataSource, error) {

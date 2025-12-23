@@ -17,6 +17,8 @@ var baseDiscriminatedTypes = []string{
 	"ApiQueryFilter",
 	"ApiQueryFieldValue",
 	"ApiReportFieldValue",
+	"ApiReportDatasource",
+	"ApiReportMultiDatasource",
 }
 
 func processSwaggerFile(swaggerPath string) error {

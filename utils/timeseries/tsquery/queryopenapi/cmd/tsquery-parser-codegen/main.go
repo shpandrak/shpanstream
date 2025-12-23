@@ -29,6 +29,9 @@ var parserFieldFile string
 //go:embed openapi_parser_report_field.go
 var parserReportFieldFile string
 
+//go:embed openapi_parser_report_datasource.go
+var parserReportDatasourceFile string
+
 //go:embed report_field_refs.go
 var reportFieldRefsFile string
 
@@ -45,15 +48,16 @@ var parserTestFile string
 var baseSwaggerFile string
 
 var embeddedFiles = map[string]string{
-	"openapi_parser.go":              parserFile,
-	"openapi_parser_datasource.go":   parserDatasourceFile,
-	"openapi_parser_filter.go":       parserFilterFile,
-	"openapi_parser_field.go":        parserFieldFile,
-	"openapi_parser_report_field.go": parserReportFieldFile,
-	"report_field_refs.go":           reportFieldRefsFile,
-	"report_field_ordering.go":       reportFieldOrderingFile,
-	"report_field_ordering_test.go":  reportFieldOrderingTestFile,
-	"openapi_parser_test.go":         parserTestFile,
+	"openapi_parser.go":                    parserFile,
+	"openapi_parser_datasource.go":         parserDatasourceFile,
+	"openapi_parser_filter.go":             parserFilterFile,
+	"openapi_parser_field.go":              parserFieldFile,
+	"openapi_parser_report_field.go":       parserReportFieldFile,
+	"openapi_parser_report_datasource.go":  parserReportDatasourceFile,
+	"report_field_refs.go":                 reportFieldRefsFile,
+	"report_field_ordering.go":             reportFieldOrderingFile,
+	"report_field_ordering_test.go":        reportFieldOrderingTestFile,
+	"openapi_parser_test.go":               parserTestFile,
 }
 
 type Config struct {

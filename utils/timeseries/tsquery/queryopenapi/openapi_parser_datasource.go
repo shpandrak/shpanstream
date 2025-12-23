@@ -6,6 +6,7 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
 )
 
 func ParseDatasource(
@@ -24,6 +25,8 @@ func ParseDatasource(
 		return parseFilteredDatasource(pCtx, typedDs)
 	case ApiReductionQueryDatasource:
 		return parseReductionDatasource(pCtx, typedDs)
+	case ApiFromReportQueryDatasource:
+		return parseFromReportDatasource(pCtx, typedDs)
 	default:
 		return wrapAndReturn(pCtx.ParseDatasource(pCtx, ds))("failed parsing datasource with plugin parser")
 	}
@@ -131,6 +134,20 @@ func parseFilteredDatasource(
 		parsedFilters = append(parsedFilters, parsedFilter)
 	}
 	return datasource.NewFilteredDataSource(unfilteredDatasource, parsedFilters...), nil
+}
+
+func parseFromReportDatasource(
+	pCtx *ParsingContext,
+	fromReportDs ApiFromReportQueryDatasource,
+) (datasource.DataSource, error) {
+	// Parse the report datasource
+	reportDs, err := ParseReportDatasource(pCtx, fromReportDs.ReportDatasource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse report datasource for fromReport: %w", err)
+	}
+
+	// Create and return the datasource that extracts a single field from the report
+	return report.ToDatasource(reportDs, fromReportDs.FieldUrn), nil
 }
 
 func wrapAndReturn[T any](v T, err error) func(format string, a ...any) (T, error) {
