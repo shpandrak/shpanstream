@@ -57,6 +57,8 @@ type PluginApiParser interface {
 	ParseFilter(pCtx *ParsingContext, filter ApiQueryFilter) (datasource.Filter, error)
 	ParseFieldValue(pCtx *ParsingContext, field ApiQueryFieldValue) (datasource.Value, error)
 	ParseReportFieldValue(pCtx *ParsingContext, field ApiReportFieldValue) (report.Value, error)
+	ParseReportDatasource(pCtx *ParsingContext, reportDatasource ApiReportDatasource) (report.DataSource, error)
+	ParseReportMultiDatasource(pCtx *ParsingContext, reportMultiDatasource ApiReportMultiDatasource) (report.MultiDataSource, error)
 }
 
 type noPluginApiParser struct {
@@ -101,4 +103,20 @@ func (n noPluginApiParser) ParseReportFieldValue(_ *ParsingContext, field ApiRep
 		return nil, fmt.Errorf("failed to get report field discriminator: %w", err)
 	}
 	return nil, fmt.Errorf("unsupported report field discriminator %s", discriminator)
+}
+
+func (n noPluginApiParser) ParseReportDatasource(_ *ParsingContext, reportDatasource ApiReportDatasource) (report.DataSource, error) {
+	discriminator, err := reportDatasource.Discriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get report datasource discriminator: %w", err)
+	}
+	return nil, fmt.Errorf("unsupported report datasource discriminator %s", discriminator)
+}
+
+func (n noPluginApiParser) ParseReportMultiDatasource(_ *ParsingContext, reportMultiDatasource ApiReportMultiDatasource) (report.MultiDataSource, error) {
+	discriminator, err := reportMultiDatasource.Discriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get report multi datasource discriminator: %w", err)
+	}
+	return nil, fmt.Errorf("unsupported report multi datasource discriminator %s", discriminator)
 }
