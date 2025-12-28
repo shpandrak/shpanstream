@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/shpandrak/shpanstream"
-	"github.com/shpandrak/shpanstream/internal/util"
-	"github.com/shpandrak/shpanstream/lazy"
 	"io"
 	"log/slog"
 	"runtime/debug"
+
+	"github.com/shpandrak/shpanstream"
+	"github.com/shpandrak/shpanstream/internal/util"
+	"github.com/shpandrak/shpanstream/lazy"
 )
 
 type Stream[T any] struct {
@@ -66,11 +67,11 @@ type ProviderFunc[T any] func(ctx context.Context) (T, error)
 // It returns an error if the stream materialization fails in any stage of the pipeline
 // For empty streams, it returns immediately with no error
 // For infinite streams, it will block until the stream either ctx is cancelled, stream is done or an error occurs
-func (s Stream[T]) Consume(ctx context.Context, f func(T)) error {
+func (s Stream[T]) Consume(ctx context.Context, f func(T), options ...ConsumeOption) error {
 	return s.ConsumeWithErr(ctx, func(v T) error {
 		f(v)
 		return nil
-	})
+	}, options...)
 }
 
 // MustConsume is a convenience method that panics if the stream errors
@@ -84,17 +85,24 @@ func (s Stream[T]) MustConsume(f func(T)) {
 // ConsumeWithErr consumes the entire stream and applies the provided function to each element (sometimes named ForEach).
 // Allow returning an error from the function to stop the pipeline
 // It returns an error if the stream materialization fails in any stage of the pipeline
-func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error) error {
+func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error, options ...ConsumeOption) error {
 	return s.ConsumeWithErrAndCtx(ctx, func(_ context.Context, v T) error {
 		return f(v)
-	})
+	}, options...)
 }
 
 // ConsumeWithErrAndCtx consumes the entire stream and applies the provided function to each element (sometimes named ForEach).
 // Allow returning an error from the function to stop the pipeline,
 // passing through the context allowing the function to gracefully cancel
 // It returns an error if the stream materialization fails in any stage of the pipeline
-func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error) (err error) {
+func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error, options ...ConsumeOption) (err error) {
+	// Check for the concurrent option
+	for _, opt := range options {
+		switch cOpt := opt.(type) {
+		case *concurrentConsumeOption:
+			return s.consumeConcurrently(ctx, cOpt.concurrency, f)
+		}
+	}
 	// Adding a panic recovery to avoid leaking resources and allow returning an error via panic instead of returning it
 	defer func() {
 		if rvr := recover(); rvr != nil {
