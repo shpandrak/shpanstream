@@ -1,9 +1,10 @@
 package stream
 
 import (
+	"testing"
+
 	"github.com/shpandrak/shpanstream/lazy"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestStream_FindFirst(t *testing.T) {
