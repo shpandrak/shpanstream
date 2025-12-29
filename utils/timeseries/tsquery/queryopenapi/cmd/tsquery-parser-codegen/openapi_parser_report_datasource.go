@@ -27,6 +27,8 @@ func ParseReportDatasource(
 		return parseJoinReportDatasource(pCtx, typedDs)
 	case ApiFromDatasourceReportDatasource:
 		return parseFromDatasourceReportDatasource(pCtx, typedDs)
+	case ApiFilteredReportDatasource:
+		return parseFilteredReportDatasource(pCtx, typedDs)
 	default:
 		return wrapAndReturnReportDatasource(pCtx.ParseReportDatasource(pCtx, ds))("failed parsing report datasource with plugin parser")
 	}
@@ -143,6 +145,29 @@ func parseFromDatasourceReportDatasource(
 	}
 	// Wrap it as a report datasource
 	return report.FromDatasource(parsedDs), nil
+}
+
+func parseFilteredReportDatasource(
+	pCtx *ParsingContext,
+	ds ApiFilteredReportDatasource,
+) (report.DataSource, error) {
+	// Parse the inner report datasource
+	innerDs, err := ParseReportDatasource(pCtx, ds.ReportDatasource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse inner report datasource for filtered report datasource: %w", err)
+	}
+
+	// Parse all filters
+	filters := make([]report.Filter, 0, len(ds.Filters))
+	for i, f := range ds.Filters {
+		filter, err := ParseReportFilter(pCtx, f)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse report filter %d: %w", i, err)
+		}
+		filters = append(filters, filter)
+	}
+
+	return report.NewFilteredDataSource(innerDs, filters...), nil
 }
 
 func parseFromMultiDatasourceReportMultiDatasource(

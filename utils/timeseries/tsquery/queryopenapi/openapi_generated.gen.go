@@ -24,6 +24,11 @@ const (
 	ApiAlignerFunctionSum   ApiAlignerFunction = "sum"
 )
 
+// Defines values for ApiAppendFieldReportFilterType.
+const (
+	ApiAppendFieldReportFilterTypeAppendField ApiAppendFieldReportFilterType = "appendField"
+)
+
 // Defines values for ApiCalendarAlignmentPeriodType.
 const (
 	ApiCalendarAlignmentPeriodTypeCalendar ApiCalendarAlignmentPeriodType = "calendar"
@@ -66,6 +71,11 @@ const (
 	ApiConditionReportFieldValueTypeCondition ApiConditionReportFieldValueType = "condition"
 )
 
+// Defines values for ApiConditionReportFilterType.
+const (
+	ApiConditionReportFilterTypeCondition ApiConditionReportFilterType = "condition"
+)
+
 // Defines values for ApiConstantQueryFieldValueType.
 const (
 	ApiConstantQueryFieldValueTypeConstant ApiConstantQueryFieldValueType = "constant"
@@ -86,6 +96,11 @@ const (
 	ApiDeltaFilterTypeDelta ApiDeltaFilterType = "delta"
 )
 
+// Defines values for ApiDropFieldsReportFilterType.
+const (
+	ApiDropFieldsReportFilterTypeDropFields ApiDropFieldsReportFilterType = "dropFields"
+)
+
 // Defines values for ApiFieldValueFilterType.
 const (
 	ApiFieldValueFilterTypeFieldValue ApiFieldValueFilterType = "fieldValue"
@@ -94,6 +109,11 @@ const (
 // Defines values for ApiFilteredQueryDatasourceType.
 const (
 	ApiFilteredQueryDatasourceTypeFiltered ApiFilteredQueryDatasourceType = "filtered"
+)
+
+// Defines values for ApiFilteredReportDatasourceType.
+const (
+	ApiFilteredReportDatasourceTypeFiltered ApiFilteredReportDatasourceType = "filtered"
 )
 
 // Defines values for ApiFromDatasourceReportDatasourceType.
@@ -168,6 +188,11 @@ const (
 	ApiOverrideFieldMetadataFilterTypeOverrideFieldMetadata ApiOverrideFieldMetadataFilterType = "overrideFieldMetadata"
 )
 
+// Defines values for ApiProjectionReportFilterType.
+const (
+	ApiProjectionReportFilterTypeProjection ApiProjectionReportFilterType = "projection"
+)
+
 // Defines values for ApiRateFilterType.
 const (
 	ApiRateFilterTypeRate ApiRateFilterType = "rate"
@@ -201,6 +226,11 @@ const (
 // Defines values for ApiSelectorReportFieldValueType.
 const (
 	ApiSelectorReportFieldValueTypeSelector ApiSelectorReportFieldValueType = "selector"
+)
+
+// Defines values for ApiSingleFieldReportFilterType.
+const (
+	ApiSingleFieldReportFilterTypeSingleField ApiSingleFieldReportFilterType = "singleField"
 )
 
 // Defines values for ApiStaticQueryDatasourceType.
@@ -247,6 +277,16 @@ type ApiAlignerFunction string
 type ApiAlignmentPeriod struct {
 	union json.RawMessage
 }
+
+// ApiAppendFieldReportFilter Appends a new computed field to the report. Maps to report.AppendFieldFilter.
+type ApiAppendFieldReportFilter struct {
+	FieldMeta  ApiAddFieldMeta                `json:"fieldMeta"`
+	FieldValue ApiReportFieldValue            `json:"fieldValue"`
+	Type       ApiAppendFieldReportFilterType `json:"type"`
+}
+
+// ApiAppendFieldReportFilterType defines model for ApiAppendFieldReportFilter.Type.
+type ApiAppendFieldReportFilterType string
 
 // ApiBinaryNumericOperatorType defines model for ApiBinaryNumericOperatorType.
 type ApiBinaryNumericOperatorType = tsquery.BinaryNumericOperatorType
@@ -318,6 +358,15 @@ type ApiConditionReportFieldValue struct {
 // ApiConditionReportFieldValueType defines model for ApiConditionReportFieldValue.Type.
 type ApiConditionReportFieldValueType string
 
+// ApiConditionReportFilter Filters report rows based on a boolean expression. Only rows where the condition evaluates to true are kept.
+type ApiConditionReportFilter struct {
+	BooleanField ApiReportFieldValue          `json:"booleanField"`
+	Type         ApiConditionReportFilterType `json:"type"`
+}
+
+// ApiConditionReportFilterType defines model for ApiConditionReportFilter.Type.
+type ApiConditionReportFilterType string
+
 // ApiConstantQueryFieldValue defines model for ApiConstantQueryFieldValue.
 type ApiConstantQueryFieldValue struct {
 	DataType   ApiMetricDataType              `json:"dataType"`
@@ -360,6 +409,15 @@ type ApiDeltaFilter struct {
 // ApiDeltaFilterType defines model for ApiDeltaFilter.Type.
 type ApiDeltaFilterType string
 
+// ApiDropFieldsReportFilter Drops specified fields from the report by URN. Maps to report.DropFieldsFilter.
+type ApiDropFieldsReportFilter struct {
+	FieldUrns []string                      `json:"fieldUrns"`
+	Type      ApiDropFieldsReportFilterType `json:"type"`
+}
+
+// ApiDropFieldsReportFilterType defines model for ApiDropFieldsReportFilter.Type.
+type ApiDropFieldsReportFilterType string
+
 // ApiExecuteQueryCommandArgs defines model for ApiExecuteQueryCommandArgs.
 type ApiExecuteQueryCommandArgs struct {
 	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
@@ -388,6 +446,18 @@ type ApiFilteredQueryDatasource struct {
 
 // ApiFilteredQueryDatasourceType defines model for ApiFilteredQueryDatasource.Type.
 type ApiFilteredQueryDatasourceType string
+
+// ApiFilteredReportDatasource Applies filters to a report datasource.
+type ApiFilteredReportDatasource struct {
+	Filters []ApiReportFilter `json:"filters"`
+
+	// ReportDatasource Report datasource that produces multiple fields per timestamp.
+	ReportDatasource ApiReportDatasource             `json:"reportDatasource"`
+	Type             ApiFilteredReportDatasourceType `json:"type"`
+}
+
+// ApiFilteredReportDatasourceType defines model for ApiFilteredReportDatasource.Type.
+type ApiFilteredReportDatasourceType string
 
 // ApiFromDatasourceReportDatasource Wraps a standard query datasource as a report datasource (single field).
 type ApiFromDatasourceReportDatasource struct {
@@ -548,6 +618,16 @@ type ApiOverrideFieldMetadataFilter struct {
 // ApiOverrideFieldMetadataFilterType defines model for ApiOverrideFieldMetadataFilter.Type.
 type ApiOverrideFieldMetadataFilterType string
 
+// ApiProjectionReportFilter Projects/selects specific fields from the report by URN, dropping all others. Only supports referencing existing fields (no computed values).
+type ApiProjectionReportFilter struct {
+	// FieldUrns URNs of fields to keep. All other fields are dropped.
+	FieldUrns []string                      `json:"fieldUrns"`
+	Type      ApiProjectionReportFilterType `json:"type"`
+}
+
+// ApiProjectionReportFilterType defines model for ApiProjectionReportFilter.Type.
+type ApiProjectionReportFilterType string
+
 // ApiQueryDatasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
 type ApiQueryDatasource struct {
 	union json.RawMessage
@@ -643,6 +723,11 @@ type ApiReportFieldValue struct {
 	union json.RawMessage
 }
 
+// ApiReportFilter Filter for report datasources.
+type ApiReportFilter struct {
+	union json.RawMessage
+}
+
 // ApiReportMeasurementRow A single row in a report with timestamp and values for all fields.
 type ApiReportMeasurementRow struct {
 	Timestamp time.Time `json:"timestamp"`
@@ -677,6 +762,16 @@ type ApiSelectorReportFieldValue struct {
 
 // ApiSelectorReportFieldValueType defines model for ApiSelectorReportFieldValue.Type.
 type ApiSelectorReportFieldValueType string
+
+// ApiSingleFieldReportFilter Replaces all fields with a single computed field. Maps to report.SingleFieldFilter.
+type ApiSingleFieldReportFilter struct {
+	FieldMeta  ApiAddFieldMeta                `json:"fieldMeta"`
+	FieldValue ApiReportFieldValue            `json:"fieldValue"`
+	Type       ApiSingleFieldReportFilterType `json:"type"`
+}
+
+// ApiSingleFieldReportFilterType defines model for ApiSingleFieldReportFilter.Type.
+type ApiSingleFieldReportFilterType string
 
 // ApiStaticQueryDatasource defines model for ApiStaticQueryDatasource.
 type ApiStaticQueryDatasource struct {
@@ -1314,6 +1409,22 @@ func (t *ApiReportDatasource) FromApiFromDatasourceReportDatasource(v ApiFromDat
 }
 
 
+// AsApiFilteredReportDatasource returns the union data inside the ApiReportDatasource as a ApiFilteredReportDatasource
+func (t ApiReportDatasource) AsApiFilteredReportDatasource() (ApiFilteredReportDatasource, error) {
+	var body ApiFilteredReportDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiFilteredReportDatasource overwrites any union data inside the ApiReportDatasource as the provided ApiFilteredReportDatasource
+func (t *ApiReportDatasource) FromApiFilteredReportDatasource(v ApiFilteredReportDatasource) error {
+	v.Type = "filtered"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiReportDatasource) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1328,6 +1439,8 @@ func (t ApiReportDatasource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "filtered":
+		return t.AsApiFilteredReportDatasource()
 	case "fromDatasource":
 		return t.AsApiFromDatasourceReportDatasource()
 	case "join":
@@ -1554,6 +1667,125 @@ func (t ApiReportFieldValue) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ApiReportFieldValue) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsApiConditionReportFilter returns the union data inside the ApiReportFilter as a ApiConditionReportFilter
+func (t ApiReportFilter) AsApiConditionReportFilter() (ApiConditionReportFilter, error) {
+	var body ApiConditionReportFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiConditionReportFilter overwrites any union data inside the ApiReportFilter as the provided ApiConditionReportFilter
+func (t *ApiReportFilter) FromApiConditionReportFilter(v ApiConditionReportFilter) error {
+	v.Type = "condition"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiAppendFieldReportFilter returns the union data inside the ApiReportFilter as a ApiAppendFieldReportFilter
+func (t ApiReportFilter) AsApiAppendFieldReportFilter() (ApiAppendFieldReportFilter, error) {
+	var body ApiAppendFieldReportFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiAppendFieldReportFilter overwrites any union data inside the ApiReportFilter as the provided ApiAppendFieldReportFilter
+func (t *ApiReportFilter) FromApiAppendFieldReportFilter(v ApiAppendFieldReportFilter) error {
+	v.Type = "appendField"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiDropFieldsReportFilter returns the union data inside the ApiReportFilter as a ApiDropFieldsReportFilter
+func (t ApiReportFilter) AsApiDropFieldsReportFilter() (ApiDropFieldsReportFilter, error) {
+	var body ApiDropFieldsReportFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiDropFieldsReportFilter overwrites any union data inside the ApiReportFilter as the provided ApiDropFieldsReportFilter
+func (t *ApiReportFilter) FromApiDropFieldsReportFilter(v ApiDropFieldsReportFilter) error {
+	v.Type = "dropFields"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiSingleFieldReportFilter returns the union data inside the ApiReportFilter as a ApiSingleFieldReportFilter
+func (t ApiReportFilter) AsApiSingleFieldReportFilter() (ApiSingleFieldReportFilter, error) {
+	var body ApiSingleFieldReportFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiSingleFieldReportFilter overwrites any union data inside the ApiReportFilter as the provided ApiSingleFieldReportFilter
+func (t *ApiReportFilter) FromApiSingleFieldReportFilter(v ApiSingleFieldReportFilter) error {
+	v.Type = "singleField"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiProjectionReportFilter returns the union data inside the ApiReportFilter as a ApiProjectionReportFilter
+func (t ApiReportFilter) AsApiProjectionReportFilter() (ApiProjectionReportFilter, error) {
+	var body ApiProjectionReportFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiProjectionReportFilter overwrites any union data inside the ApiReportFilter as the provided ApiProjectionReportFilter
+func (t *ApiReportFilter) FromApiProjectionReportFilter(v ApiProjectionReportFilter) error {
+	v.Type = "projection"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+func (t ApiReportFilter) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ApiReportFilter) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "appendField":
+		return t.AsApiAppendFieldReportFilter()
+	case "condition":
+		return t.AsApiConditionReportFilter()
+	case "dropFields":
+		return t.AsApiDropFieldsReportFilter()
+	case "projection":
+		return t.AsApiProjectionReportFilter()
+	case "singleField":
+		return t.AsApiSingleFieldReportFilter()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ApiReportFilter) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ApiReportFilter) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

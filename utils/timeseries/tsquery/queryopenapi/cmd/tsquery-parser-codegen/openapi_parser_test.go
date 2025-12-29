@@ -1593,3 +1593,339 @@ func TestParseFilter_DeltaFilter_NegativeDelta(t *testing.T) {
 func testContext() context.Context {
 	return context.Background()
 }
+
+// =====================
+// Report Filter Tests
+// =====================
+
+func TestParseReportFilter_Condition(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create static report datasource with 2 fields
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "value", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "include", DataType: tsquery.DataTypeBoolean, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{10.0, true}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{20.0, false}},
+			{Timestamp: baseTime.Add(2 * time.Hour), Values: []any{30.0, true}},
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	// Create condition filter that filters by the "include" field
+	var refInclude ApiReportFieldValue
+	require.NoError(t, refInclude.FromApiRefReportFieldValue(ApiRefReportFieldValue{
+		Urn: "include",
+	}))
+
+	conditionFilter := ApiConditionReportFilter{
+		Type:         "condition",
+		BooleanField: refInclude,
+	}
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiConditionReportFilter(conditionFilter))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(3*time.Hour))
+	require.NoError(t, err)
+
+	// Verify data - only rows where include=true should remain
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 2)
+	assert.Equal(t, 10.0, records[0].Value[0])
+	assert.Equal(t, 30.0, records[1].Value[0])
+}
+
+func TestParseReportFilter_AppendField(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create static report datasource with 2 fields
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "fieldA", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "fieldB", DataType: tsquery.DataTypeDecimal, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{10.0, 5.0}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{20.0, 8.0}},
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	// Create appendField filter that adds a computed field (fieldA + fieldB)
+	var refFieldA ApiReportFieldValue
+	require.NoError(t, refFieldA.FromApiRefReportFieldValue(ApiRefReportFieldValue{
+		Urn: "fieldA",
+	}))
+
+	var refFieldB ApiReportFieldValue
+	require.NoError(t, refFieldB.FromApiRefReportFieldValue(ApiRefReportFieldValue{
+		Urn: "fieldB",
+	}))
+
+	var sumExpr ApiReportFieldValue
+	require.NoError(t, sumExpr.FromApiNumericExpressionReportFieldValue(ApiNumericExpressionReportFieldValue{
+		Op1: refFieldA,
+		Op:  "+",
+		Op2: refFieldB,
+	}))
+
+	appendFilter := ApiAppendFieldReportFilter{
+		Type:       "appendField",
+		FieldValue: sumExpr,
+		FieldMeta: ApiAddFieldMeta{
+			Uri: "sum",
+		},
+	}
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiAppendFieldReportFilter(appendFilter))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	// Verify 3 fields now (original 2 + appended 1)
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 3)
+	assert.Equal(t, "fieldA", fieldsMeta[0].Urn())
+	assert.Equal(t, "fieldB", fieldsMeta[1].Urn())
+	assert.Equal(t, "sum", fieldsMeta[2].Urn())
+
+	// Verify data
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 2)
+	assert.Equal(t, 10.0, records[0].Value[0])
+	assert.Equal(t, 5.0, records[0].Value[1])
+	assert.Equal(t, 15.0, records[0].Value[2]) // 10 + 5
+	assert.Equal(t, 20.0, records[1].Value[0])
+	assert.Equal(t, 8.0, records[1].Value[1])
+	assert.Equal(t, 28.0, records[1].Value[2]) // 20 + 8
+}
+
+func TestParseReportFilter_DropFields(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create static report datasource with 3 fields
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "fieldA", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "fieldB", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "fieldC", DataType: tsquery.DataTypeDecimal, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{10.0, 20.0, 30.0}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{15.0, 25.0, 35.0}},
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	// Create dropFields filter that removes fieldB
+	dropFilter := ApiDropFieldsReportFilter{
+		Type:      "dropFields",
+		FieldUrns: []string{"fieldB"},
+	}
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiDropFieldsReportFilter(dropFilter))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	// Verify only 2 fields now (fieldA and fieldC)
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 2)
+	assert.Equal(t, "fieldA", fieldsMeta[0].Urn())
+	assert.Equal(t, "fieldC", fieldsMeta[1].Urn())
+
+	// Verify data
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 2)
+	assert.Equal(t, 10.0, records[0].Value[0])
+	assert.Equal(t, 30.0, records[0].Value[1])
+	assert.Equal(t, 15.0, records[1].Value[0])
+	assert.Equal(t, 35.0, records[1].Value[1])
+}
+
+func TestParseReportFilter_SingleField(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create static report datasource with 2 fields
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "fieldA", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "fieldB", DataType: tsquery.DataTypeDecimal, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{10.0, 5.0}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{20.0, 8.0}},
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	// Create singleField filter that extracts only fieldA with a new name
+	var refFieldA ApiReportFieldValue
+	require.NoError(t, refFieldA.FromApiRefReportFieldValue(ApiRefReportFieldValue{
+		Urn: "fieldA",
+	}))
+
+	singleFieldFilter := ApiSingleFieldReportFilter{
+		Type:       "singleField",
+		FieldValue: refFieldA,
+		FieldMeta: ApiAddFieldMeta{
+			Uri: "renamedA",
+		},
+	}
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiSingleFieldReportFilter(singleFieldFilter))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	// Verify only 1 field now
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 1)
+	assert.Equal(t, "renamedA", fieldsMeta[0].Urn())
+
+	// Verify data
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 2)
+	assert.Equal(t, 10.0, records[0].Value[0])
+	assert.Equal(t, 20.0, records[1].Value[0])
+}
+
+func TestParseReportFilter_Projection(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create static report datasource with 3 fields
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "fieldA", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "fieldB", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "fieldC", DataType: tsquery.DataTypeDecimal, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{10.0, 20.0, 30.0}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{11.0, 21.0, 31.0}},
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	// Create projection filter that selects only fieldA and fieldC (dropping fieldB)
+	projectionFilter := ApiProjectionReportFilter{
+		Type:      "projection",
+		FieldUrns: []string{"fieldA", "fieldC"},
+	}
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiProjectionReportFilter(projectionFilter))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	// Verify only 2 fields now (fieldA and fieldC, keeping original URNs)
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 2)
+	assert.Equal(t, "fieldA", fieldsMeta[0].Urn())
+	assert.Equal(t, "fieldC", fieldsMeta[1].Urn())
+
+	// Verify data - should have values for fieldA and fieldC only
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 2)
+
+	// First row: fieldA=10.0, fieldC=30.0
+	assert.Equal(t, 10.0, records[0].Value[0])
+	assert.Equal(t, 30.0, records[0].Value[1])
+
+	// Second row: fieldA=11.0, fieldC=31.0
+	assert.Equal(t, 11.0, records[1].Value[0])
+	assert.Equal(t, 31.0, records[1].Value[1])
+}
