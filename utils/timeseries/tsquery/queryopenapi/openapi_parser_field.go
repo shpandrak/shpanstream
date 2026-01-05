@@ -6,7 +6,7 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
 )
 
-func parseQueryField(pCtx *ParsingContext, queryField ApiQueryFieldValue) (datasource.Value, error) {
+func ParseQueryField(pCtx *ParsingContext, queryField ApiQueryFieldValue) (datasource.Value, error) {
 	queryFieldValue, err := queryField.ValueByDiscriminator()
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func parseQueryField(pCtx *ParsingContext, queryField ApiQueryFieldValue) (datas
 	case ApiNilQueryFieldValue:
 		return parseNilQueryFieldValue(typedField)
 	default:
-		return wrapAndReturn(pCtx.ParseFieldValue(pCtx, queryField))("failed parsing query field with plugin parser")
+		return wrapAndReturn(pCtx.plugin.ParseFieldValue(pCtx, queryField))("failed parsing query field with plugin parser")
 
 	}
 
@@ -52,11 +52,11 @@ func parseConditionQueryFieldValue(
 	pCtx *ParsingContext,
 	cqf ApiConditionQueryFieldValue,
 ) (datasource.Value, error) {
-	operand1, err := parseQueryField(pCtx, cqf.Operand1)
+	operand1, err := ParseQueryField(pCtx, cqf.Operand1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand1 for condition query field: %w", err)
 	}
-	operand2, err := parseQueryField(pCtx, cqf.Operand2)
+	operand2, err := ParseQueryField(pCtx, cqf.Operand2)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand2 for condition query field: %w", err)
 	}
@@ -67,11 +67,11 @@ func parseLogicalExpressionQueryFieldValue(
 	pCtx *ParsingContext,
 	lef ApiLogicalExpressionQueryFieldValue,
 ) (datasource.Value, error) {
-	operand1, err := parseQueryField(pCtx, lef.Operand1)
+	operand1, err := ParseQueryField(pCtx, lef.Operand1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand1 for logical expression query field: %w", err)
 	}
-	operand2, err := parseQueryField(pCtx, lef.Operand2)
+	operand2, err := ParseQueryField(pCtx, lef.Operand2)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand2 for logical expression query field: %w", err)
 	}
@@ -86,15 +86,15 @@ func parseSelectorQueryFieldValue(
 	pCtx *ParsingContext,
 	sqf ApiSelectorQueryFieldValue,
 ) (datasource.Value, error) {
-	selectorField, err := parseQueryField(pCtx, sqf.SelectorBooleanField)
+	selectorField, err := ParseQueryField(pCtx, sqf.SelectorBooleanField)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse selector boolean field: %w", err)
 	}
-	trueField, err := parseQueryField(pCtx, sqf.TrueField)
+	trueField, err := ParseQueryField(pCtx, sqf.TrueField)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse true field: %w", err)
 	}
-	falseField, err := parseQueryField(pCtx, sqf.FalseField)
+	falseField, err := ParseQueryField(pCtx, sqf.FalseField)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse false field: %w", err)
 	}
@@ -102,11 +102,11 @@ func parseSelectorQueryFieldValue(
 }
 
 func parseNvlQueryFieldValue(pCtx *ParsingContext, nvl ApiNvlQueryFieldValue) (datasource.Value, error) {
-	source, err := parseQueryField(pCtx, nvl.Source)
+	source, err := ParseQueryField(pCtx, nvl.Source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse source field for nvl: %w", err)
 	}
-	altField, err := parseQueryField(pCtx, nvl.AltField)
+	altField, err := ParseQueryField(pCtx, nvl.AltField)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse alt field for nvl: %w", err)
 	}
@@ -114,7 +114,7 @@ func parseNvlQueryFieldValue(pCtx *ParsingContext, nvl ApiNvlQueryFieldValue) (d
 }
 
 func parseCastQueryFieldValue(pCtx *ParsingContext, cast ApiCastQueryFieldValue) (datasource.Value, error) {
-	source, err := parseQueryField(pCtx, cast.Source)
+	source, err := ParseQueryField(pCtx, cast.Source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse source field for cast: %w", err)
 	}
@@ -125,11 +125,11 @@ func parseNumericExpressionQueryFieldValue(
 	pCtx *ParsingContext,
 	nef ApiNumericExpressionQueryFieldValue,
 ) (datasource.Value, error) {
-	op1, err := parseQueryField(pCtx, nef.Op1)
+	op1, err := ParseQueryField(pCtx, nef.Op1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse op1 field for numeric expression: %w", err)
 	}
-	op2, err := parseQueryField(pCtx, nef.Op2)
+	op2, err := ParseQueryField(pCtx, nef.Op2)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse op2 field for numeric expression: %w", err)
 	}
@@ -140,7 +140,7 @@ func parseUnaryNumericOperatorQueryFieldValue(
 	pCtx *ParsingContext,
 	ufv ApiUnaryNumericOperatorQueryFieldValue,
 ) (datasource.Value, error) {
-	operand, err := parseQueryField(pCtx, ufv.Operand)
+	operand, err := ParseQueryField(pCtx, ufv.Operand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand field for unary numeric operator: %w", err)
 	}

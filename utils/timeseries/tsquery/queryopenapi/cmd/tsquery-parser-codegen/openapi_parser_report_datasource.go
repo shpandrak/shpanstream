@@ -30,7 +30,7 @@ func ParseReportDatasource(
 	case ApiFilteredReportDatasource:
 		return parseFilteredReportDatasource(pCtx, typedDs)
 	default:
-		return wrapAndReturnReportDatasource(pCtx.ParseReportDatasource(pCtx, ds))("failed parsing report datasource with plugin parser")
+		return wrapAndReturnReportDatasource(pCtx.plugin.ParseReportDatasource(pCtx, ds))("failed parsing report datasource with plugin parser")
 	}
 }
 
@@ -115,7 +115,7 @@ func ParseReportMultiDatasource(
 	case ApiFromMultiDatasourceReportMultiDatasource:
 		return parseFromMultiDatasourceReportMultiDatasource(pCtx, typedMds)
 	default:
-		return wrapAndReturnReportMultiDatasource(pCtx.ParseReportMultiDatasource(pCtx, multiDs))("failed parsing report multi datasource with plugin parser")
+		return wrapAndReturnReportMultiDatasource(pCtx.plugin.ParseReportMultiDatasource(pCtx, multiDs))("failed parsing report multi datasource with plugin parser")
 	}
 }
 

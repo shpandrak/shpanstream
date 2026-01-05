@@ -11,14 +11,19 @@ import (
 
 type ParsingContext struct {
 	context.Context
-	PluginApiParser
+	plugin PluginApiParser
 }
 
 func NewParsingContext(ctx context.Context, pp PluginApiParser) *ParsingContext {
 	if pp == nil {
 		pp = noPluginApiParser{}
 	}
-	return &ParsingContext{ctx, pp}
+	return &ParsingContext{Context: ctx, plugin: pp}
+}
+
+// Plugin returns the plugin parser for testing purposes
+func (pCtx *ParsingContext) Plugin() PluginApiParser {
+	return pCtx.plugin
 }
 
 type invalidQueryError struct {

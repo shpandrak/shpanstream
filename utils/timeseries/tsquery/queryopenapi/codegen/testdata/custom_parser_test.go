@@ -53,19 +53,19 @@ func TestCustomPluginParser_UnsupportedTypes(t *testing.T) {
 
 	// Test unsupported filter type
 	var filter ApiQueryFilter
-	_, err := pCtx.ParseFilter(pCtx, filter)
+	_, err := pCtx.Plugin().ParseFilter(pCtx, filter)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no custom filter types supported")
 
 	// Test unsupported field value type
 	var field ApiQueryFieldValue
-	_, err = pCtx.ParseFieldValue(pCtx, field)
+	_, err = pCtx.Plugin().ParseFieldValue(pCtx, field)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no custom field value types supported")
 
 	// Test unsupported multi-datasource type
 	var multiDs ApiMultiDatasource
-	_, err = pCtx.ParseMultiDatasource(pCtx, multiDs)
+	_, err = pCtx.Plugin().ParseMultiDatasource(pCtx, multiDs)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no custom multi-datasource types supported")
 }
@@ -79,5 +79,5 @@ func TestCodegen_PackageTransformation(t *testing.T) {
 
 	pCtx := NewParsingContext(context.Background(), nil)
 	require.NotNil(t, pCtx)
-	require.NotNil(t, pCtx.PluginApiParser)
+	require.NotNil(t, pCtx.Plugin())
 }
