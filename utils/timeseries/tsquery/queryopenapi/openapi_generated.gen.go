@@ -163,6 +163,16 @@ const (
 	ApiLogicalExpressionReportFieldValueTypeLogicalExpression ApiLogicalExpressionReportFieldValueType = "logicalExpression"
 )
 
+// Defines values for ApiNilQueryFieldValueType.
+const (
+	ApiNilQueryFieldValueTypeNil ApiNilQueryFieldValueType = "nil"
+)
+
+// Defines values for ApiNilReportFieldValueType.
+const (
+	ApiNilReportFieldValueTypeNil ApiNilReportFieldValueType = "nil"
+)
+
 // Defines values for ApiNumericExpressionQueryFieldValueType.
 const (
 	ApiNumericExpressionQueryFieldValueTypeNumericExpression ApiNumericExpressionQueryFieldValueType = "numericExpression"
@@ -565,6 +575,26 @@ type ApiMultiDatasource struct {
 	union json.RawMessage
 }
 
+// ApiNilQueryFieldValue Represents a nil/null value with a specified data type. Always has required=false.
+type ApiNilQueryFieldValue struct {
+	DataType ApiMetricDataType         `json:"dataType"`
+	Type     ApiNilQueryFieldValueType `json:"type"`
+	Unit     string                    `json:"unit,omitempty"`
+}
+
+// ApiNilQueryFieldValueType defines model for ApiNilQueryFieldValue.Type.
+type ApiNilQueryFieldValueType string
+
+// ApiNilReportFieldValue Represents a nil/null value with a specified data type. Always has required=false.
+type ApiNilReportFieldValue struct {
+	DataType ApiMetricDataType          `json:"dataType"`
+	Type     ApiNilReportFieldValueType `json:"type"`
+	Unit     string                     `json:"unit,omitempty"`
+}
+
+// ApiNilReportFieldValueType defines model for ApiNilReportFieldValue.Type.
+type ApiNilReportFieldValueType string
+
 // ApiNumericExpressionQueryFieldValue defines model for ApiNumericExpressionQueryFieldValue.
 type ApiNumericExpressionQueryFieldValue struct {
 	Op   ApiBinaryNumericOperatorType            `json:"op"`
@@ -681,8 +711,9 @@ type ApiReduceReportFieldValueType string
 
 // ApiReductionQueryDatasource defines model for ApiReductionQueryDatasource.
 type ApiReductionQueryDatasource struct {
-	AlignmentPeriod ApiAlignmentPeriod `json:"alignmentPeriod"`
-	FieldMeta       ApiAddFieldMeta    `json:"fieldMeta"`
+	AlignmentPeriod      ApiAlignmentPeriod  `json:"alignmentPeriod"`
+	EmptyDatasourceValue *ApiQueryFieldValue `json:"emptyDatasourceValue,omitempty"`
+	FieldMeta            ApiAddFieldMeta     `json:"fieldMeta"`
 
 	// MultiDatasource Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
 	MultiDatasource ApiMultiDatasource              `json:"multiDatasource"`
@@ -1177,6 +1208,22 @@ func (t *ApiQueryFieldValue) FromApiUnaryNumericOperatorQueryFieldValue(v ApiUna
 }
 
 
+// AsApiNilQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiNilQueryFieldValue
+func (t ApiQueryFieldValue) AsApiNilQueryFieldValue() (ApiNilQueryFieldValue, error) {
+	var body ApiNilQueryFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiNilQueryFieldValue overwrites any union data inside the ApiQueryFieldValue as the provided ApiNilQueryFieldValue
+func (t *ApiQueryFieldValue) FromApiNilQueryFieldValue(v ApiNilQueryFieldValue) error {
+	v.Type = "nil"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiQueryFieldValue) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1199,6 +1246,8 @@ func (t ApiQueryFieldValue) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiConstantQueryFieldValue()
 	case "logicalExpression":
 		return t.AsApiLogicalExpressionQueryFieldValue()
+	case "nil":
+		return t.AsApiNilQueryFieldValue()
 	case "numericExpression":
 		return t.AsApiNumericExpressionQueryFieldValue()
 	case "nvl":
@@ -1622,6 +1671,22 @@ func (t *ApiReportFieldValue) FromApiReduceReportFieldValue(v ApiReduceReportFie
 }
 
 
+// AsApiNilReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiNilReportFieldValue
+func (t ApiReportFieldValue) AsApiNilReportFieldValue() (ApiNilReportFieldValue, error) {
+	var body ApiNilReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiNilReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiNilReportFieldValue
+func (t *ApiReportFieldValue) FromApiNilReportFieldValue(v ApiNilReportFieldValue) error {
+	v.Type = "nil"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiReportFieldValue) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1644,6 +1709,8 @@ func (t ApiReportFieldValue) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiConstantReportFieldValue()
 	case "logicalExpression":
 		return t.AsApiLogicalExpressionReportFieldValue()
+	case "nil":
+		return t.AsApiNilReportFieldValue()
 	case "numericExpression":
 		return t.AsApiNumericExpressionReportFieldValue()
 	case "nvl":

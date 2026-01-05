@@ -33,6 +33,8 @@ func ParseReportField(pCtx *ParsingContext, reportField ApiReportFieldValue) (re
 		return parseUnaryNumericOperatorReportFieldValue(pCtx, typedField)
 	case ApiReduceReportFieldValue:
 		return parseReduceReportFieldValue(typedField)
+	case ApiNilReportFieldValue:
+		return parseNilReportFieldValue(typedField)
 	default:
 		return wrapAndReturnReportField(pCtx.ParseReportFieldValue(pCtx, reportField))("failed parsing report field with plugin parser")
 	}
@@ -151,6 +153,16 @@ func parseReduceReportFieldValue(rrf ApiReduceReportFieldValue) (report.Value, e
 		return report.NewReduceAllFieldValues(rrf.ReductionType), nil
 	}
 	return report.NewReduceFieldValues(rrf.FieldUrns, rrf.ReductionType), nil
+}
+
+func parseNilReportFieldValue(nrf ApiNilReportFieldValue) (report.Value, error) {
+	// Nil field value is implemented as a constant with nil value and Required=false
+	valueMeta := tsquery.ValueMeta{
+		DataType: nrf.DataType,
+		Required: false, // Nil values are always non-required
+		Unit:     nrf.Unit,
+	}
+	return report.NewConstantFieldValue(valueMeta, nil), nil
 }
 
 // wrapAndReturnReportField is a helper function to wrap errors for report field values

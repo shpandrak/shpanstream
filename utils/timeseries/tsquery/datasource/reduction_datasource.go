@@ -13,10 +13,11 @@ import (
 var _ DataSource = ReductionDatasource{}
 
 type ReductionDatasource struct {
-	reductionType   tsquery.ReductionType
-	alignmentPeriod timeseries.AlignmentPeriod
-	multiDataSource MultiDataSource
-	addFieldMeta    tsquery.AddFieldMeta
+	reductionType        tsquery.ReductionType
+	alignmentPeriod      timeseries.AlignmentPeriod
+	multiDataSource      MultiDataSource
+	addFieldMeta         tsquery.AddFieldMeta
+	emptyDatasourceValue Value // Optional fallback when multiDataSource yields zero datasources
 }
 
 func NewReductionDatasource(
@@ -30,6 +31,24 @@ func NewReductionDatasource(
 		alignmentPeriod: alignmentPeriod,
 		multiDataSource: multiDataSource,
 		addFieldMeta:    addFieldMeta,
+	}
+}
+
+// NewReductionDatasourceWithEmptyFallback creates a ReductionDatasource with an optional
+// fallback value to use when the multiDataSource yields zero datasources.
+func NewReductionDatasourceWithEmptyFallback(
+	reductionType tsquery.ReductionType,
+	alignmentPeriod timeseries.AlignmentPeriod,
+	multiDataSource MultiDataSource,
+	addFieldMeta tsquery.AddFieldMeta,
+	emptyDatasourceValue Value,
+) *ReductionDatasource {
+	return &ReductionDatasource{
+		reductionType:        reductionType,
+		alignmentPeriod:      alignmentPeriod,
+		multiDataSource:      multiDataSource,
+		addFieldMeta:         addFieldMeta,
+		emptyDatasourceValue: emptyDatasourceValue,
 	}
 }
 
@@ -53,9 +72,13 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 		return util.DefaultValue[Result](), fmt.Errorf("reduction datasource failed to downstream datasources: %w", err)
 	}
 
-	// Verify we have at least one datasource to reduce
+	// Handle zero datasources case
 	if len(datasourceResultsToToReduce) == 0 {
-		return util.DefaultValue[Result](), fmt.Errorf("no datasources to reduce")
+		if r.emptyDatasourceValue == nil {
+			return util.DefaultValue[Result](), fmt.Errorf("no datasources to reduce")
+		}
+		// Use the fallback value for empty datasource case
+		return r.executeEmptyDatasourceFallback(ctx)
 	}
 
 	// Extract metadata from all datasources and validate
@@ -156,5 +179,55 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 	return Result{
 		meta: *resultFieldMeta,
 		data: outputDataStream,
+	}, nil
+}
+
+// executeEmptyDatasourceFallback handles the case when there are zero datasources
+// by executing the emptyDatasourceValue to get metadata and returning an empty stream.
+func (r ReductionDatasource) executeEmptyDatasourceFallback(ctx context.Context) (Result, error) {
+	if r.addFieldMeta.Urn == "" {
+		return util.DefaultValue[Result](), fmt.Errorf("URN in addFieldMeta is required for reduction datasource")
+	}
+
+	// Create a placeholder FieldMeta to pass to the field value execution.
+	// Most field values (constant, nil) don't use the input FieldMeta,
+	// but we need to provide one for the interface.
+	placeholderMeta, err := tsquery.NewFieldMeta(
+		r.addFieldMeta.Urn,
+		tsquery.DataTypeDecimal, // placeholder type, not used
+		true,
+	)
+	if err != nil {
+		return util.DefaultValue[Result](), fmt.Errorf("failed to create placeholder metadata: %w", err)
+	}
+
+	// Execute the empty datasource value to get its metadata
+	valueMeta, _, err := r.emptyDatasourceValue.Execute(ctx, *placeholderMeta)
+	if err != nil {
+		return util.DefaultValue[Result](), fmt.Errorf("failed to execute emptyDatasourceValue: %w", err)
+	}
+
+	// Determine the final unit: use OverrideUnit if not empty, otherwise use value's unit
+	finalUnit := valueMeta.Unit
+	if r.addFieldMeta.OverrideUnit != "" {
+		finalUnit = r.addFieldMeta.OverrideUnit
+	}
+
+	// Create result field metadata from the emptyDatasourceValue's metadata
+	resultFieldMeta, err := tsquery.NewFieldMetaWithCustomData(
+		r.addFieldMeta.Urn,
+		valueMeta.DataType,
+		valueMeta.Required,
+		finalUnit,
+		r.addFieldMeta.CustomMeta,
+	)
+	if err != nil {
+		return util.DefaultValue[Result](), fmt.Errorf("failed to create result field metadata for empty datasource: %w", err)
+	}
+
+	// Return result with empty stream
+	return Result{
+		meta: *resultFieldMeta,
+		data: stream.Empty[timeseries.TsRecord[any]](),
 	}, nil
 }
