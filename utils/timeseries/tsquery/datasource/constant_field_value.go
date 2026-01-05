@@ -9,6 +9,7 @@ import (
 )
 
 var _ Value = ConstantFieldValue{}
+var _ StaticValue = ConstantFieldValue{}
 
 type ConstantFieldValue struct {
 	meta  tsquery.ValueMeta
@@ -41,4 +42,8 @@ func (cf ConstantFieldValue) Execute(
 		return valueToUse, nil
 	}
 	return cf.meta, valueSupplier, nil
+}
+
+func (cf ConstantFieldValue) ExecuteStatic(ctx context.Context) (tsquery.ValueMeta, ValueSupplier, error) {
+	return cf.Execute(ctx, tsquery.FieldMeta{})
 }
