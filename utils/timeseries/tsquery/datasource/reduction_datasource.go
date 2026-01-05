@@ -59,6 +59,16 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 		return util.DefaultValue[Result](), fmt.Errorf("alignment period is required for reduction datasource")
 	}
 
+	// Early validation: if emptyDatasourceValue is set, it must be a StaticValue
+	var emptyFallbackStaticValue StaticValue
+	if r.emptyDatasourceValue != nil {
+		var ok bool
+		emptyFallbackStaticValue, ok = r.emptyDatasourceValue.(StaticValue)
+		if !ok {
+			return util.DefaultValue[Result](), fmt.Errorf("emptyDatasourceValue must be a static value (e.g., constant), got %T", r.emptyDatasourceValue)
+		}
+	}
+
 	// Execute datasources and apply alignment
 	datasourceResultsToToReduce, err :=
 		stream.MapWithErrAndCtx(
@@ -74,11 +84,11 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 
 	// Handle zero datasources case
 	if len(datasourceResultsToToReduce) == 0 {
-		if r.emptyDatasourceValue == nil {
+		if emptyFallbackStaticValue == nil {
 			return util.DefaultValue[Result](), fmt.Errorf("no datasources to reduce")
 		}
 		// Use the fallback value for empty datasource case
-		return r.executeEmptyDatasourceFallback(ctx)
+		return r.executeEmptyDatasourceFallback(ctx, from, to, emptyFallbackStaticValue)
 	}
 
 	// Extract metadata from all datasources and validate
@@ -183,26 +193,14 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 }
 
 // executeEmptyDatasourceFallback handles the case when there are zero datasources
-// by executing the emptyDatasourceValue to get metadata and returning an empty stream.
-func (r ReductionDatasource) executeEmptyDatasourceFallback(ctx context.Context) (Result, error) {
+// by executing the static value and generating an aligned timestamp stream.
+func (r ReductionDatasource) executeEmptyDatasourceFallback(ctx context.Context, from, to time.Time, staticValue StaticValue) (Result, error) {
 	if r.addFieldMeta.Urn == "" {
 		return util.DefaultValue[Result](), fmt.Errorf("URN in addFieldMeta is required for reduction datasource")
 	}
 
-	// Create a placeholder FieldMeta to pass to the field value execution.
-	// Most field values (constant, nil) don't use the input FieldMeta,
-	// but we need to provide one for the interface.
-	placeholderMeta, err := tsquery.NewFieldMeta(
-		r.addFieldMeta.Urn,
-		tsquery.DataTypeDecimal, // placeholder type, not used
-		true,
-	)
-	if err != nil {
-		return util.DefaultValue[Result](), fmt.Errorf("failed to create placeholder metadata: %w", err)
-	}
-
-	// Execute the empty datasource value to get its metadata
-	valueMeta, _, err := r.emptyDatasourceValue.Execute(ctx, *placeholderMeta)
+	// Execute the static value to get its metadata and value supplier
+	valueMeta, valueSupplier, err := staticValue.ExecuteStatic(ctx)
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed to execute emptyDatasourceValue: %w", err)
 	}
@@ -225,9 +223,23 @@ func (r ReductionDatasource) executeEmptyDatasourceFallback(ctx context.Context)
 		return util.DefaultValue[Result](), fmt.Errorf("failed to create result field metadata for empty datasource: %w", err)
 	}
 
-	// Return result with empty stream
+	// Generate aligned timestamps stream and map to TsRecords with the fallback value
+	timestampStream := timeseries.AlignedTimestampsStream(r.alignmentPeriod, from, to)
+
+	dataStream := stream.MapWithErrAndCtx(
+		timestampStream,
+		func(ctx context.Context, ts time.Time) (timeseries.TsRecord[any], error) {
+			// Create a placeholder row for the ValueSupplier (most values like constants ignore it)
+			value, err := valueSupplier(ctx, timeseries.TsRecord[any]{Timestamp: ts})
+			if err != nil {
+				return timeseries.TsRecord[any]{}, err
+			}
+			return timeseries.TsRecord[any]{Timestamp: ts, Value: value}, nil
+		},
+	)
+
 	return Result{
 		meta: *resultFieldMeta,
-		data: stream.Empty[timeseries.TsRecord[any]](),
+		data: dataStream,
 	}, nil
 }

@@ -1,6 +1,11 @@
 package timeseries
 
-import "time"
+import (
+	"context"
+	"github.com/shpandrak/shpanstream/stream"
+	"io"
+	"time"
+)
 
 type CalendarPeriod string
 
@@ -13,6 +18,28 @@ type AlignmentPeriod interface {
 
 func AlignmentPeriodClassifierFunc[T any](ap AlignmentPeriod) func(a TsRecord[T]) time.Time {
 	return func(a TsRecord[T]) time.Time { return ap.GetStartTime(a.Timestamp) }
+}
+
+// AlignedTimestampsStream generates a lazy stream of aligned period start timestamps
+// from 'from' to 'to' (exclusive). The stream generates timestamps on-the-fly without
+// materializing them in memory.
+func AlignedTimestampsStream(ap AlignmentPeriod, from, to time.Time) stream.Stream[time.Time] {
+	// Align 'from' to the start of its period
+	current := ap.GetStartTime(from)
+
+	return stream.NewSimpleStream(
+		func(ctx context.Context) (time.Time, error) {
+			if ctx.Err() != nil {
+				return time.Time{}, ctx.Err()
+			}
+			if !current.Before(to) {
+				return time.Time{}, io.EOF
+			}
+			result := current
+			current = ap.GetEndTime(current) // advance to next period
+			return result, nil
+		},
+	)
 }
 
 //clusterClassifierFunc
