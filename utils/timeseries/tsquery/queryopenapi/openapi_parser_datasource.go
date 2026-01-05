@@ -28,7 +28,7 @@ func ParseDatasource(
 	case ApiFromReportQueryDatasource:
 		return parseFromReportDatasource(pCtx, typedDs)
 	default:
-		return wrapAndReturn(pCtx.ParseDatasource(pCtx, ds))("failed parsing datasource with plugin parser")
+		return wrapAndReturn(pCtx.plugin.ParseDatasource(pCtx, ds))("failed parsing datasource with plugin parser")
 	}
 }
 
@@ -70,7 +70,7 @@ func ParseMultiDatasource(pCtx *ParsingContext, multiDs ApiMultiDatasource) (dat
 	case ApiListMultiDatasource:
 		return parseListMultiDatasource(pCtx, typedMds)
 	default:
-		return wrapAndReturn(pCtx.ParseMultiDatasource(pCtx, multiDs))("failed parsing multi datasource with plugin parser")
+		return wrapAndReturn(pCtx.plugin.ParseMultiDatasource(pCtx, multiDs))("failed parsing multi datasource with plugin parser")
 	}
 }
 
@@ -91,7 +91,7 @@ func parseReductionDatasource(
 	reductionDs ApiReductionQueryDatasource,
 ) (datasource.DataSource, error) {
 	// Parse alignment period
-	alignmentPeriod, err := parseAlignmentPeriod(reductionDs.AlignmentPeriod)
+	alignmentPeriod, err := ParseAlignmentPeriod(reductionDs.AlignmentPeriod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse alignment period for reduction datasource: %w", err)
 	}
@@ -103,11 +103,11 @@ func parseReductionDatasource(
 	}
 
 	// Parse field metadata
-	addFieldMeta := parseAddFieldMeta(reductionDs.FieldMeta)
+	addFieldMeta := ParseAddFieldMeta(reductionDs.FieldMeta)
 
 	// Parse optional emptyDatasourceValue
 	if reductionDs.EmptyDatasourceValue != nil {
-		emptyValue, err := parseQueryField(pCtx, *reductionDs.EmptyDatasourceValue)
+		emptyValue, err := ParseQueryField(pCtx, *reductionDs.EmptyDatasourceValue)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse emptyDatasourceValue for reduction: %w", err)
 		}

@@ -29,11 +29,11 @@ func ParseFilter(pCtx *ParsingContext, rawFilter ApiQueryFilter) (datasource.Fil
 	case ApiRateFilter:
 		return parseRateFilter(typedFilter)
 	}
-	return wrapAndReturn(pCtx.ParseFilter(pCtx, rawFilter))("failed parsing filter with plugin parser")
+	return wrapAndReturn(pCtx.plugin.ParseFilter(pCtx, rawFilter))("failed parsing filter with plugin parser")
 }
 
 func parseConditionFilter(pCtx *ParsingContext, conditionFilter ApiConditionFilter) (datasource.Filter, error) {
-	booleanField, err := parseQueryField(pCtx, conditionFilter.BooleanField)
+	booleanField, err := ParseQueryField(pCtx, conditionFilter.BooleanField)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse boolean field for condition filter: %w", err)
 	}
@@ -41,11 +41,11 @@ func parseConditionFilter(pCtx *ParsingContext, conditionFilter ApiConditionFilt
 }
 
 func parseFieldValueFilter(pCtx *ParsingContext, fieldValueFilter ApiFieldValueFilter) (datasource.Filter, error) {
-	f, err := parseQueryField(pCtx, fieldValueFilter.FieldValue)
+	f, err := ParseQueryField(pCtx, fieldValueFilter.FieldValue)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse field for field value filter: %w", err)
 	}
-	addFieldMeta := parseAddFieldMeta(fieldValueFilter.FieldMeta)
+	addFieldMeta := ParseAddFieldMeta(fieldValueFilter.FieldMeta)
 	return datasource.NewFieldValueFilter(f, addFieldMeta), nil
 }
 
@@ -76,7 +76,7 @@ func parseRateFilter(rateFilter ApiRateFilter) (datasource.Filter, error) {
 }
 
 func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.Filter, error) {
-	alignerPeriod, err := parseAlignmentPeriod(apiAlignerFilter.AlignerPeriod)
+	alignerPeriod, err := ParseAlignmentPeriod(apiAlignerFilter.AlignerPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.Filter, e
 	return datasource.NewAlignerFilter(alignerPeriod), nil
 }
 
-func parseAlignmentPeriod(ap ApiAlignmentPeriod) (timeseries.AlignmentPeriod, error) {
+func ParseAlignmentPeriod(ap ApiAlignmentPeriod) (timeseries.AlignmentPeriod, error) {
 	periodValue, err := ap.ValueByDiscriminator()
 	if err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func parseCustomAlignmentPeriod(period ApiCustomAlignmentPeriod) (timeseries.Ali
 	return timeseries.NewFixedAlignmentPeriod(time.Duration(period.DurationInMillis)*time.Millisecond, loc), nil
 }
 
-func parseAddFieldMeta(apiMeta ApiAddFieldMeta) tsquery.AddFieldMeta {
+func ParseAddFieldMeta(apiMeta ApiAddFieldMeta) tsquery.AddFieldMeta {
 	return tsquery.AddFieldMeta{
 		Urn:          apiMeta.Uri,
 		CustomMeta:   apiMeta.CustomMetadata,

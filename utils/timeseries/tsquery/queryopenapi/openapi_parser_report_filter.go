@@ -23,7 +23,7 @@ func ParseReportFilter(pCtx *ParsingContext, rawFilter ApiReportFilter) (report.
 	case ApiProjectionReportFilter:
 		return parseProjectionReportFilter(typedFilter)
 	}
-	return wrapAndReturnReportFilter(pCtx.ParseReportFilter(pCtx, rawFilter))("failed parsing report filter with plugin parser")
+	return wrapAndReturnReportFilter(pCtx.plugin.ParseReportFilter(pCtx, rawFilter))("failed parsing report filter with plugin parser")
 }
 
 func parseConditionReportFilter(pCtx *ParsingContext, filter ApiConditionReportFilter) (report.Filter, error) {
@@ -39,7 +39,7 @@ func parseAppendFieldReportFilter(pCtx *ParsingContext, filter ApiAppendFieldRep
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse field value for append field report filter: %w", err)
 	}
-	return report.NewAppendFieldFilter(fieldValue, parseAddFieldMeta(filter.FieldMeta)), nil
+	return report.NewAppendFieldFilter(fieldValue, ParseAddFieldMeta(filter.FieldMeta)), nil
 }
 
 func parseDropFieldsReportFilter(filter ApiDropFieldsReportFilter) (report.Filter, error) {
@@ -54,7 +54,7 @@ func parseSingleFieldReportFilter(pCtx *ParsingContext, filter ApiSingleFieldRep
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse field value for single field report filter: %w", err)
 	}
-	return report.NewSingleFieldFilter(fieldValue, parseAddFieldMeta(filter.FieldMeta)), nil
+	return report.NewSingleFieldFilter(fieldValue, ParseAddFieldMeta(filter.FieldMeta)), nil
 }
 
 func parseProjectionReportFilter(filter ApiProjectionReportFilter) (report.Filter, error) {

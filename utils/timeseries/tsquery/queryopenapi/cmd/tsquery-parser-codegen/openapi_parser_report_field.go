@@ -38,7 +38,7 @@ func ParseReportField(pCtx *ParsingContext, reportField ApiReportFieldValue) (re
 	case ApiNilReportFieldValue:
 		return parseNilReportFieldValue(typedField)
 	default:
-		return wrapAndReturnReportField(pCtx.ParseReportFieldValue(pCtx, reportField))("failed parsing report field with plugin parser")
+		return wrapAndReturnReportField(pCtx.plugin.ParseReportFieldValue(pCtx, reportField))("failed parsing report field with plugin parser")
 	}
 }
 
