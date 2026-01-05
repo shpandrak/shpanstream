@@ -140,6 +140,13 @@ components:
           $ref: '#/components/schemas/ApiMultiDatasource'
         fieldMeta:
           $ref: '#/components/schemas/ApiAddFieldMeta'
+        emptyDatasourceValue:
+          description: |
+            Optional fallback value to use when the multiDatasource yields zero datasources.
+            If not provided and zero datasources are found, an error is returned (current behavior).
+            If provided, this field value is executed and its result is used as the reduction output.
+            Common use cases: constant(0, integer) for sum, nil(decimal) for nullable result.
+          $ref: '#/components/schemas/ApiQueryFieldValue'
 
     ApiStaticQueryDatasource:
       type: object
@@ -316,6 +323,7 @@ components:
           cast: '#/components/schemas/ApiCastQueryFieldValue'
           numericExpression: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
           unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
+          nil: '#/components/schemas/ApiNilQueryFieldValue'
       oneOf:
         - $ref: '#/components/schemas/ApiConstantQueryFieldValue'
         - $ref: '#/components/schemas/ApiConditionQueryFieldValue'
@@ -326,6 +334,7 @@ components:
         - $ref: '#/components/schemas/ApiCastQueryFieldValue'
         - $ref: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
         - $ref: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
+        - $ref: '#/components/schemas/ApiNilQueryFieldValue'
 
     ApiConstantQueryFieldValue:
       type: object
@@ -536,6 +545,23 @@ components:
         op:
           $ref: '#/components/schemas/ApiUnaryNumericOperatorType'
 
+    ApiNilQueryFieldValue:
+      type: object
+      description: Represents a nil/null value with a specified data type. Always has required=false.
+      required:
+        - type
+        - dataType
+      properties:
+        type:
+          type: string
+          enum:
+            - nil
+        dataType:
+          $ref: '#/components/schemas/ApiMetricDataType'
+        unit:
+          type: string
+          x-go-type-skip-optional-pointer: true
+
     ApiReductionType:
       type: string
       x-go-type: tsquery.ReductionType
@@ -667,6 +693,7 @@ components:
           numericExpression: '#/components/schemas/ApiNumericExpressionReportFieldValue'
           unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorReportFieldValue'
           reduce: '#/components/schemas/ApiReduceReportFieldValue'
+          nil: '#/components/schemas/ApiNilReportFieldValue'
       oneOf:
         - $ref: '#/components/schemas/ApiConstantReportFieldValue'
         - $ref: '#/components/schemas/ApiConditionReportFieldValue'
@@ -678,6 +705,7 @@ components:
         - $ref: '#/components/schemas/ApiNumericExpressionReportFieldValue'
         - $ref: '#/components/schemas/ApiUnaryNumericOperatorReportFieldValue'
         - $ref: '#/components/schemas/ApiReduceReportFieldValue'
+        - $ref: '#/components/schemas/ApiNilReportFieldValue'
 
     ApiConstantReportFieldValue:
       type: object
@@ -864,6 +892,23 @@ components:
           items:
             type: string
             minLength: 1
+
+    ApiNilReportFieldValue:
+      type: object
+      description: Represents a nil/null value with a specified data type. Always has required=false.
+      required:
+        - type
+        - dataType
+      properties:
+        type:
+          type: string
+          enum:
+            - nil
+        dataType:
+          $ref: '#/components/schemas/ApiMetricDataType'
+        unit:
+          type: string
+          x-go-type-skip-optional-pointer: true
 
     # FromReport Query Datasource - extracts a single field from a report datasource
     ApiFromReportQueryDatasource:

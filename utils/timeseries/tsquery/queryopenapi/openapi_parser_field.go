@@ -30,6 +30,8 @@ func parseQueryField(pCtx *ParsingContext, queryField ApiQueryFieldValue) (datas
 		return parseNumericExpressionQueryFieldValue(pCtx, typedField)
 	case ApiUnaryNumericOperatorQueryFieldValue:
 		return parseUnaryNumericOperatorQueryFieldValue(pCtx, typedField)
+	case ApiNilQueryFieldValue:
+		return parseNilQueryFieldValue(typedField)
 	default:
 		return wrapAndReturn(pCtx.ParseFieldValue(pCtx, queryField))("failed parsing query field with plugin parser")
 
@@ -143,4 +145,14 @@ func parseUnaryNumericOperatorQueryFieldValue(
 		return nil, fmt.Errorf("failed to parse operand field for unary numeric operator: %w", err)
 	}
 	return datasource.NewUnaryNumericOperatorFieldValue(operand, ufv.Op), nil
+}
+
+func parseNilQueryFieldValue(nqf ApiNilQueryFieldValue) (datasource.Value, error) {
+	// Nil field value is implemented as a constant with nil value and Required=false
+	valueMeta := tsquery.ValueMeta{
+		DataType: nqf.DataType,
+		Required: false, // Nil values are always non-required
+		Unit:     nqf.Unit,
+	}
+	return datasource.NewConstantFieldValue(valueMeta, nil), nil
 }

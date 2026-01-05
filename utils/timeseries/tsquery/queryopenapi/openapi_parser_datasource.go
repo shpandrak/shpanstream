@@ -105,7 +105,22 @@ func parseReductionDatasource(
 	// Parse field metadata
 	addFieldMeta := parseAddFieldMeta(reductionDs.FieldMeta)
 
-	// Create and return the reduction datasource
+	// Parse optional emptyDatasourceValue
+	if reductionDs.EmptyDatasourceValue != nil {
+		emptyValue, err := parseQueryField(pCtx, *reductionDs.EmptyDatasourceValue)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse emptyDatasourceValue for reduction: %w", err)
+		}
+		return datasource.NewReductionDatasourceWithEmptyFallback(
+			reductionDs.ReductionType,
+			alignmentPeriod,
+			multiDatasource,
+			addFieldMeta,
+			emptyValue,
+		), nil
+	}
+
+	// Create and return the reduction datasource (without empty fallback)
 	return datasource.NewReductionDatasource(
 		reductionDs.ReductionType,
 		alignmentPeriod,
