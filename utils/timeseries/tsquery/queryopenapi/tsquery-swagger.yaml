@@ -618,7 +618,17 @@ components:
           $ref: '#/components/schemas/ApiAlignmentPeriod'
         alignmentFunction:
           $ref: '#/components/schemas/ApiAlignerFunction'
+        fillMode:
+          $ref: '#/components/schemas/ApiFillMode'
+          x-go-type-skip-optional-pointer: true
 
+    ApiFillMode:
+      type: string
+      x-go-type: timeseries.FillMode
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries"
+      enum:
+        - linear
+        - forwardFill
 
     ApiAlignerFunction:
       type: string

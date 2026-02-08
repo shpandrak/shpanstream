@@ -80,6 +80,15 @@ func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.Filter, e
 	}
 	// Note: AlignmentFunction is present in the API, but datasource.AlignerFilter doesn't use it
 	// as it always uses time-weighted interpolation
+	if apiAlignerFilter.FillMode != nil {
+		switch *apiAlignerFilter.FillMode {
+		case timeseries.FillModeLinear, timeseries.FillModeForwardFill:
+			// valid
+		default:
+			return nil, fmt.Errorf("unsupported fill mode: %q", *apiAlignerFilter.FillMode)
+		}
+		return datasource.NewInterpolatingAlignerFilter(alignerPeriod, *apiAlignerFilter.FillMode), nil
+	}
 	return datasource.NewAlignerFilter(alignerPeriod), nil
 }
 
