@@ -14,10 +14,15 @@ var _ Filter = AlignerFilter{}
 
 type AlignerFilter struct {
 	alignmentPeriod timeseries.AlignmentPeriod
+	fillMode        *timeseries.FillMode
 }
 
 func NewAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod) AlignerFilter {
 	return AlignerFilter{alignmentPeriod: alignmentPeriod}
+}
+
+func NewInterpolatingAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod, fillMode timeseries.FillMode) AlignerFilter {
+	return AlignerFilter{alignmentPeriod: alignmentPeriod, fillMode: &fillMode}
 }
 
 func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error) {
@@ -28,59 +33,75 @@ func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error)
 		)
 	}
 	// Using ClusterSortedStreamComparable to group the items by the duration slot
-	return Result{
-		meta: result.meta,
-		data: stream.ClusterSortedStreamComparable[timeseries.TsRecord[any], timeseries.TsRecord[any], time.Time](
-			func(
-				ctx context.Context,
-				clusterTimestampClassifier time.Time,
-				clusterStream stream.Stream[timeseries.TsRecord[any]],
-				lastItemOnPreviousCluster *timeseries.TsRecord[any],
-			) (timeseries.TsRecord[any], error) {
+	alignedStream := stream.ClusterSortedStreamComparable[timeseries.TsRecord[any], timeseries.TsRecord[any], time.Time](
+		func(
+			ctx context.Context,
+			clusterTimestampClassifier time.Time,
+			clusterStream stream.Stream[timeseries.TsRecord[any]],
+			lastItemOnPreviousCluster *timeseries.TsRecord[any],
+		) (timeseries.TsRecord[any], error) {
 
-				firstItem, err := clusterStream.FindFirst().Get(ctx)
-				if err != nil {
-					return util.DefaultValue[timeseries.TsRecord[any]](), err
-				}
+			firstItem, err := clusterStream.FindFirst().Get(ctx)
+			if err != nil {
+				return util.DefaultValue[timeseries.TsRecord[any]](), err
+			}
 
-				// If this is the first cluster, smudge the first item to the start of the cluster
-				if lastItemOnPreviousCluster == nil {
+			// If this is the first cluster, smudge the first item to the start of the cluster
+			if lastItemOnPreviousCluster == nil {
+				return timeseries.TsRecord[any]{
+					Value:     firstItem.Value,
+					Timestamp: clusterTimestampClassifier,
+				}, nil
+			} else {
+				// If this is not the first cluster
+
+				// Check if the first item is magically aligned to the slot, return it
+				if firstItem.Timestamp == clusterTimestampClassifier {
 					return timeseries.TsRecord[any]{
 						Value:     firstItem.Value,
 						Timestamp: clusterTimestampClassifier,
 					}, nil
 				} else {
-					// If this is not the first cluster
-
-					// Check if the first item is magically aligned to the slot, return it
-					if firstItem.Timestamp == clusterTimestampClassifier {
-						return timeseries.TsRecord[any]{
-							Value:     firstItem.Value,
-							Timestamp: clusterTimestampClassifier,
-						}, nil
-					} else {
-						// If not, we need to calculate the time-weighted average
-						avgItem, err := timeWeightedAverage(
-							result.meta,
-							clusterTimestampClassifier,
-							lastItemOnPreviousCluster.Timestamp,
-							lastItemOnPreviousCluster.Value,
-							firstItem.Timestamp,
-							firstItem.Value,
-						)
-						if err != nil {
-							return util.DefaultValue[timeseries.TsRecord[any]](), fmt.Errorf("error calculating time weighted average while aliging streams: %w", err)
-						}
-						return timeseries.TsRecord[any]{
-							Value:     avgItem,
-							Timestamp: clusterTimestampClassifier,
-						}, nil
+					// If not, we need to calculate the time-weighted average
+					avgItem, err := timeWeightedAverage(
+						result.meta,
+						clusterTimestampClassifier,
+						lastItemOnPreviousCluster.Timestamp,
+						lastItemOnPreviousCluster.Value,
+						firstItem.Timestamp,
+						firstItem.Value,
+					)
+					if err != nil {
+						return util.DefaultValue[timeseries.TsRecord[any]](), fmt.Errorf("error calculating time weighted average while aliging streams: %w", err)
 					}
+					return timeseries.TsRecord[any]{
+						Value:     avgItem,
+						Timestamp: clusterTimestampClassifier,
+					}, nil
 				}
+			}
+		},
+		alignmentPeriodClassifierFunc[any](af.alignmentPeriod),
+		result.data,
+	)
+
+	// If fillMode is set, wrap the sparse aligned stream with a gap-filler
+	if af.fillMode != nil {
+		fieldMeta := result.meta
+		alignedStream = timeseries.NewTsGapFillerStream[any](
+			alignedStream,
+			af.alignmentPeriod,
+			*af.fillMode,
+			func(targetTime, v1Time time.Time, v1 any, v2Time time.Time, v2 any) (any, error) {
+				return timeWeightedAverage(fieldMeta, targetTime, v1Time, v1, v2Time, v2)
 			},
-			alignmentPeriodClassifierFunc[any](af.alignmentPeriod),
-			result.data,
-		),
+			func(v any) any { return v },
+		)
+	}
+
+	return Result{
+		meta: result.meta,
+		data: alignedStream,
 	}, nil
 
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 )
 
@@ -274,6 +275,7 @@ type ApiAddFieldMeta struct {
 type ApiAlignerFilter struct {
 	AlignerPeriod     ApiAlignmentPeriod   `json:"alignerPeriod"`
 	AlignmentFunction ApiAlignerFunction   `json:"alignmentFunction"`
+	FillMode          *ApiFillMode         `json:"fillMode,omitempty"`
 	Type              ApiAlignerFilterType `json:"type"`
 }
 
@@ -445,6 +447,9 @@ type ApiFieldValueFilter struct {
 
 // ApiFieldValueFilterType defines model for ApiFieldValueFilter.Type.
 type ApiFieldValueFilterType string
+
+// ApiFillMode defines model for ApiFillMode.
+type ApiFillMode = timeseries.FillMode
 
 // ApiFilteredQueryDatasource defines model for ApiFilteredQueryDatasource.
 type ApiFilteredQueryDatasource struct {

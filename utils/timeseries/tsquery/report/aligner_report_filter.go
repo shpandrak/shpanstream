@@ -14,10 +14,15 @@ var _ Filter = AlignerFilter{}
 
 type AlignerFilter struct {
 	alignmentPeriod timeseries.AlignmentPeriod
+	fillMode        *timeseries.FillMode
 }
 
 func NewAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod) AlignerFilter {
 	return AlignerFilter{alignmentPeriod: alignmentPeriod}
+}
+
+func NewInterpolatingAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod, fillMode timeseries.FillMode) AlignerFilter {
+	return AlignerFilter{alignmentPeriod: alignmentPeriod, fillMode: &fillMode}
 }
 
 func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error) {
@@ -83,6 +88,20 @@ func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error)
 		recordAlignmentPeriodClassifierFunc(af.alignmentPeriod),
 		result.Stream(),
 	)
+
+	// If fillMode is set, wrap the sparse aligned stream with a gap-filler
+	if af.fillMode != nil {
+		fm := fieldsMeta
+		s = timeseries.NewTsGapFillerStream[[]any](
+			s,
+			af.alignmentPeriod,
+			*af.fillMode,
+			func(targetTime, v1Time time.Time, v1 []any, v2Time time.Time, v2 []any) ([]any, error) {
+				return timeWeightedAverageArr(fm, targetTime, v1Time, v1, v2Time, v2)
+			},
+			func(v []any) []any { c := make([]any, len(v)); copy(c, v); return c },
+		)
+	}
 
 	return NewResult(
 		fieldsMeta,
