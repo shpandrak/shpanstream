@@ -43,8 +43,7 @@ func TestParseFilter_AlignerFilter_WithFillMode(t *testing.T) {
 	var alignerFilter ApiQueryFilter
 	require.NoError(t, alignerFilter.FromApiAlignerFilter(ApiAlignerFilter{
 		AlignerPeriod:     alignmentPeriod,
-		AlignmentFunction: ApiAlignerFunctionAvg,
-		FillMode:          &fillMode,
+		FillMode: &fillMode,
 	}))
 
 	filteredDs := ApiFilteredQueryDatasource{
@@ -116,7 +115,6 @@ func TestParseFilter_AlignerFilter_WithoutFillMode(t *testing.T) {
 	var alignerFilter ApiQueryFilter
 	require.NoError(t, alignerFilter.FromApiAlignerFilter(ApiAlignerFilter{
 		AlignerPeriod:     alignmentPeriod,
-		AlignmentFunction: ApiAlignerFunctionAvg,
 		// FillMode is nil - no gap filling, backward compatible sparse behavior
 	}))
 
@@ -182,8 +180,7 @@ func TestParseFilter_AlignerFilter_ForwardFill(t *testing.T) {
 	var alignerFilter ApiQueryFilter
 	require.NoError(t, alignerFilter.FromApiAlignerFilter(ApiAlignerFilter{
 		AlignerPeriod:     alignmentPeriod,
-		AlignmentFunction: ApiAlignerFunctionAvg,
-		FillMode:          &fillMode,
+		FillMode: &fillMode,
 	}))
 
 	filteredDs := ApiFilteredQueryDatasource{

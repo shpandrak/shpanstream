@@ -552,7 +552,6 @@ components:
       required:
         - type
         - alignerPeriod
-        - alignmentFunction
       properties:
         type:
           type: string
@@ -560,18 +559,6 @@ components:
             - aligner
         alignerPeriod:
           $ref: '#/components/schemas/ApiAlignmentPeriod'
-        alignmentFunction:
-          $ref: '#/components/schemas/ApiAlignerFunction'
-
-
-    ApiAlignerFunction:
-      type: string
-      enum:
-        - avg
-        - sum
-        - max
-        - min
-        - count
 
     ApiQueryResult:
       type: object
