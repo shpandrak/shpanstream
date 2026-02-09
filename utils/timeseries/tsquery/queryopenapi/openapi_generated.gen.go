@@ -16,15 +16,6 @@ const (
 	ApiAlignerFilterTypeAligner ApiAlignerFilterType = "aligner"
 )
 
-// Defines values for ApiAlignerFunction.
-const (
-	ApiAlignerFunctionAvg   ApiAlignerFunction = "avg"
-	ApiAlignerFunctionCount ApiAlignerFunction = "count"
-	ApiAlignerFunctionMax   ApiAlignerFunction = "max"
-	ApiAlignerFunctionMin   ApiAlignerFunction = "min"
-	ApiAlignerFunctionSum   ApiAlignerFunction = "sum"
-)
-
 // Defines values for ApiAppendFieldReportFilterType.
 const (
 	ApiAppendFieldReportFilterTypeAppendField ApiAppendFieldReportFilterType = "appendField"
@@ -273,17 +264,13 @@ type ApiAddFieldMeta struct {
 
 // ApiAlignerFilter defines model for ApiAlignerFilter.
 type ApiAlignerFilter struct {
-	AlignerPeriod     ApiAlignmentPeriod   `json:"alignerPeriod"`
-	AlignmentFunction ApiAlignerFunction   `json:"alignmentFunction"`
-	FillMode          *ApiFillMode         `json:"fillMode,omitempty"`
-	Type              ApiAlignerFilterType `json:"type"`
+	AlignerPeriod ApiAlignmentPeriod   `json:"alignerPeriod"`
+	FillMode      *ApiFillMode         `json:"fillMode,omitempty"`
+	Type          ApiAlignerFilterType `json:"type"`
 }
 
 // ApiAlignerFilterType defines model for ApiAlignerFilter.Type.
 type ApiAlignerFilterType string
-
-// ApiAlignerFunction defines model for ApiAlignerFunction.
-type ApiAlignerFunction string
 
 // ApiAlignmentPeriod defines model for ApiAlignmentPeriod.
 type ApiAlignmentPeriod struct {

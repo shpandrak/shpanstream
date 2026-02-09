@@ -426,8 +426,7 @@ func TestParseFilter_AlignerFilter(t *testing.T) {
 
 	var alignerFilter ApiQueryFilter
 	require.NoError(t, alignerFilter.FromApiAlignerFilter(ApiAlignerFilter{
-		AlignerPeriod:     alignmentPeriod,
-		AlignmentFunction: ApiAlignerFunctionAvg,
+		AlignerPeriod: alignmentPeriod,
 	}))
 
 	filteredDs := ApiFilteredQueryDatasource{
