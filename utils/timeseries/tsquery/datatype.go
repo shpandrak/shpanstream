@@ -77,7 +77,14 @@ func (dt DataType) IsNumeric() bool {
 func (dt DataType) ToFloat64(val any) (float64, error) {
 	switch dt {
 	case DataTypeInteger:
-		return float64(val.(int64)), nil
+		switch v := val.(type) {
+		case int64:
+			return float64(v), nil
+		case float64:
+			return v, nil
+		default:
+			return 0, fmt.Errorf("unsupported type %T for integer-to-float64 conversion", val)
+		}
 	case DataTypeDecimal:
 		return val.(float64), nil
 	default:

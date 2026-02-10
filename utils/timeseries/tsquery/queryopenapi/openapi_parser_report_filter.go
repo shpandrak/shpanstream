@@ -2,6 +2,7 @@ package queryopenapi
 
 import (
 	"fmt"
+	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
 )
@@ -12,6 +13,8 @@ func ParseReportFilter(pCtx *ParsingContext, rawFilter ApiReportFilter) (report.
 		return nil, err
 	}
 	switch typedFilter := rawFilterType.(type) {
+	case ApiAlignerFilter:
+		return parseAlignerReportFilter(typedFilter)
 	case ApiConditionReportFilter:
 		return parseConditionReportFilter(pCtx, typedFilter)
 	case ApiAppendFieldReportFilter:
@@ -70,6 +73,23 @@ func parseProjectionReportFilter(filter ApiProjectionReportFilter) (report.Filte
 		})
 	}
 	return report.NewSelectFieldsFilter(selectedFields), nil
+}
+
+func parseAlignerReportFilter(apiAlignerFilter ApiAlignerFilter) (report.Filter, error) {
+	alignerPeriod, err := ParseAlignmentPeriod(apiAlignerFilter.AlignerPeriod)
+	if err != nil {
+		return nil, err
+	}
+	if apiAlignerFilter.FillMode != nil {
+		switch *apiAlignerFilter.FillMode {
+		case timeseries.FillModeLinear, timeseries.FillModeForwardFill:
+			// valid
+		default:
+			return nil, fmt.Errorf("unsupported fill mode: %q", *apiAlignerFilter.FillMode)
+		}
+		return report.NewInterpolatingAlignerFilter(alignerPeriod, *apiAlignerFilter.FillMode), nil
+	}
+	return report.NewAlignerFilter(alignerPeriod), nil
 }
 
 func wrapAndReturnReportFilter(v report.Filter, err error) func(format string, a ...any) (report.Filter, error) {

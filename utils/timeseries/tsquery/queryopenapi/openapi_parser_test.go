@@ -2,11 +2,13 @@ package queryopenapi
 
 import (
 	"context"
+	"testing"
+	"time"
+
+	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestParseStaticDatasource_Valid(t *testing.T) {
@@ -1925,4 +1927,172 @@ func TestParseReportFilter_Projection(t *testing.T) {
 	// Second row: fieldA=11.0, fieldC=31.0
 	assert.Equal(t, 11.0, records[1].Value[0])
 	assert.Equal(t, 31.0, records[1].Value[1])
+}
+
+// =====================
+// Report Aligner Filter Tests
+// =====================
+
+func TestParseReportFilter_Aligner_LinearFill(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Two data points, 1 hour apart, with both integer and decimal fields.
+	// 30-minute alignment with linear fill should produce 3 points:
+	//   t=0:00  price=100  count=10
+	//   t=0:30  price=150  count=15   (midpoint interpolation)
+	//   t=1:00  price=200  count=20
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "price", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "count", DataType: tsquery.DataTypeInteger, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{100.0, int64(10)}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{200.0, int64(20)}},
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	// 30-minute alignment period
+	var alignmentPeriod ApiAlignmentPeriod
+	require.NoError(t, alignmentPeriod.FromApiCustomAlignmentPeriod(ApiCustomAlignmentPeriod{
+		ZoneId:           "UTC",
+		DurationInMillis: 30 * 60 * 1000, // 30 minutes
+	}))
+
+	fillMode := timeseries.FillModeLinear
+	alignerFilter := ApiAlignerFilter{
+		AlignerPeriod: alignmentPeriod,
+		FillMode:      &fillMode,
+	}
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiAlignerFilter(alignerFilter))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	// Verify field metadata preserved
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 2)
+	assert.Equal(t, "price", fieldsMeta[0].Urn())
+	assert.Equal(t, tsquery.DataTypeDecimal, fieldsMeta[0].DataType())
+	assert.Equal(t, "count", fieldsMeta[1].Urn())
+	assert.Equal(t, tsquery.DataTypeInteger, fieldsMeta[1].DataType())
+
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 3, "Linear fill with 30-min alignment over 1 hour should produce 3 points")
+
+	// t=0:00 — original first point
+	assert.Equal(t, baseTime, records[0].Timestamp)
+	assert.InDelta(t, 100.0, records[0].Value[0], 0.01) // decimal: 100.0
+	assert.InDelta(t, 10, records[0].Value[1], 0.01)    // integer: 10
+
+	// t=0:30 — linearly interpolated midpoint
+	assert.Equal(t, baseTime.Add(30*time.Minute), records[1].Timestamp)
+	assert.InDelta(t, 150.0, records[1].Value[0], 0.01) // decimal: 150.0
+	assert.InDelta(t, 15, records[1].Value[1], 0.01)    // integer: 15 (interpolated)
+
+	// t=1:00 — original second point
+	assert.Equal(t, baseTime.Add(1*time.Hour), records[2].Timestamp)
+	assert.InDelta(t, 200.0, records[2].Value[0], 0.01) // decimal: 200.0
+	assert.InDelta(t, 20, records[2].Value[1], 0.01)    // integer: 20
+}
+
+func TestParseReportFilter_Aligner_ForwardFill(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Two data points, 1 hour apart, with both integer and decimal fields.
+	// 30-minute alignment with forward fill should produce 3 points:
+	//   t=0:00  price=100  count=10   (original)
+	//   t=0:30  price=100  count=10   (forward-filled from previous)
+	//   t=1:00  price=200  count=20   (original)
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "price", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "count", DataType: tsquery.DataTypeInteger, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{100.0, int64(10)}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{200.0, int64(20)}},
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	// 30-minute alignment period
+	var alignmentPeriod ApiAlignmentPeriod
+	require.NoError(t, alignmentPeriod.FromApiCustomAlignmentPeriod(ApiCustomAlignmentPeriod{
+		ZoneId:           "UTC",
+		DurationInMillis: 30 * 60 * 1000, // 30 minutes
+	}))
+
+	fillMode := timeseries.FillModeForwardFill
+	alignerFilter := ApiAlignerFilter{
+		AlignerPeriod: alignmentPeriod,
+		FillMode:      &fillMode,
+	}
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiAlignerFilter(alignerFilter))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	// Verify field metadata preserved
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 2)
+	assert.Equal(t, "price", fieldsMeta[0].Urn())
+	assert.Equal(t, "count", fieldsMeta[1].Urn())
+
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 3, "Forward fill with 30-min alignment over 1 hour should produce 3 points")
+
+	// t=0:00 — original first point
+	assert.Equal(t, baseTime, records[0].Timestamp)
+	assert.InDelta(t, 100.0, records[0].Value[0], 0.01) // decimal: 100.0
+	assert.InDelta(t, 10, records[0].Value[1], 0.01)    // integer: 10
+
+	// t=0:30 — forward-filled: carries previous values
+	assert.Equal(t, baseTime.Add(30*time.Minute), records[1].Timestamp)
+	assert.InDelta(t, 100.0, records[1].Value[0], 0.01) // decimal: 100.0 (held)
+	assert.InDelta(t, 10, records[1].Value[1], 0.01)    // integer: 10 (held)
+
+	// t=1:00 — original second point
+	assert.Equal(t, baseTime.Add(1*time.Hour), records[2].Timestamp)
+	assert.InDelta(t, 200.0, records[2].Value[0], 0.01) // decimal: 200.0
+	assert.InDelta(t, 20, records[2].Value[1], 0.01)    // integer: 20
 }

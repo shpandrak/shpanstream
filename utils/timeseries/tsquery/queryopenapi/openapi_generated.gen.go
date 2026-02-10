@@ -1730,6 +1730,22 @@ func (t *ApiReportFieldValue) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// AsApiAlignerFilter returns the union data inside the ApiReportFilter as a ApiAlignerFilter
+func (t ApiReportFilter) AsApiAlignerFilter() (ApiAlignerFilter, error) {
+	var body ApiAlignerFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiAlignerFilter overwrites any union data inside the ApiReportFilter as the provided ApiAlignerFilter
+func (t *ApiReportFilter) FromApiAlignerFilter(v ApiAlignerFilter) error {
+	v.Type = "aligner"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 // AsApiConditionReportFilter returns the union data inside the ApiReportFilter as a ApiConditionReportFilter
 func (t ApiReportFilter) AsApiConditionReportFilter() (ApiConditionReportFilter, error) {
 	var body ApiConditionReportFilter
@@ -1824,6 +1840,8 @@ func (t ApiReportFilter) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "aligner":
+		return t.AsApiAlignerFilter()
 	case "appendField":
 		return t.AsApiAppendFieldReportFilter()
 	case "condition":

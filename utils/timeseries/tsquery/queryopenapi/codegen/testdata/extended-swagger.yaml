@@ -1077,12 +1077,14 @@ components:
             discriminator:
                 propertyName: type
                 mapping:
+                    aligner: '#/components/schemas/ApiAlignerFilter'
                     condition: '#/components/schemas/ApiConditionReportFilter'
                     appendField: '#/components/schemas/ApiAppendFieldReportFilter'
                     dropFields: '#/components/schemas/ApiDropFieldsReportFilter'
                     singleField: '#/components/schemas/ApiSingleFieldReportFilter'
                     projection: '#/components/schemas/ApiProjectionReportFilter'
             oneOf:
+                - $ref: '#/components/schemas/ApiAlignerFilter'
                 - $ref: '#/components/schemas/ApiConditionReportFilter'
                 - $ref: '#/components/schemas/ApiAppendFieldReportFilter'
                 - $ref: '#/components/schemas/ApiDropFieldsReportFilter'
