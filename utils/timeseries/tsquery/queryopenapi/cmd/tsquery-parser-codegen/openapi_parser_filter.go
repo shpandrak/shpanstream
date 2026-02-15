@@ -25,7 +25,7 @@ func ParseFilter(pCtx *ParsingContext, rawFilter ApiQueryFilter) (datasource.Fil
 	case ApiOverrideFieldMetadataFilter:
 		return parseOverrideFieldMetadataFilter(typedFilter)
 	case ApiDeltaFilter:
-		return parseDeltaFilter()
+		return parseDeltaFilter(typedFilter)
 	case ApiRateFilter:
 		return parseRateFilter(typedFilter)
 	}
@@ -67,8 +67,11 @@ func parseOverrideFieldMetadataFilter(overrideFilter ApiOverrideFieldMetadataFil
 	), nil
 }
 
-func parseDeltaFilter() (datasource.Filter, error) {
-	return datasource.NewDeltaFilter(), nil
+func parseDeltaFilter(deltaFilter ApiDeltaFilter) (datasource.Filter, error) {
+	if deltaFilter.MaxCounterValue > 0 && !deltaFilter.NonNegative {
+		return nil, badInputErrorf(deltaFilter, "maxCounterValue can only be used when nonNegative is true")
+	}
+	return datasource.NewDeltaFilter(deltaFilter.NonNegative, deltaFilter.MaxCounterValue), nil
 }
 
 func parseRateFilter(rateFilter ApiRateFilter) (datasource.Filter, error) {
