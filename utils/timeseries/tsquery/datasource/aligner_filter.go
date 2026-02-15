@@ -25,6 +25,14 @@ func NewInterpolatingAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod, f
 	return AlignerFilter{alignmentPeriod: alignmentPeriod, fillMode: &fillMode}
 }
 
+func (af AlignerFilter) AlignmentPeriod() timeseries.AlignmentPeriod {
+	return af.alignmentPeriod
+}
+
+func (af AlignerFilter) FillMode() *timeseries.FillMode {
+	return af.fillMode
+}
+
 func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error) {
 	if !result.meta.DataType().IsNumeric() {
 		return util.DefaultValue[Result](), fmt.Errorf(
