@@ -401,8 +401,16 @@ type ApiCustomAlignmentPeriod struct {
 type ApiCustomAlignmentPeriodType string
 
 // ApiDeltaFilter Delta filter computes the difference between consecutive values (current - previous). Requires numeric, required field.
+// When nonNegative is true, the filter handles counter resets: if the current value is negative, the point is dropped;
+// if the current value is less than the previous (reset detected), the delta is the current value (assuming reset from zero),
+// or if maxCounterValue is set, the delta is (maxCounterValue - previous + current) to handle counter wraparound.
 type ApiDeltaFilter struct {
-	Type ApiDeltaFilterType `json:"type"`
+	// MaxCounterValue Maximum counter value for wraparound detection. Only used when nonNegative is true. When set, counter resets compute delta as (maxCounterValue - previous + current).
+	MaxCounterValue float64 `json:"maxCounterValue,omitempty"`
+
+	// NonNegative When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets.
+	NonNegative bool               `json:"nonNegative,omitempty"`
+	Type        ApiDeltaFilterType `json:"type"`
 }
 
 // ApiDeltaFilterType defines model for ApiDeltaFilter.Type.

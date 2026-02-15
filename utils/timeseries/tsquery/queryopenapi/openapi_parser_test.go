@@ -1430,6 +1430,163 @@ func TestParseFilter_DeltaFilter(t *testing.T) {
 	assert.Equal(t, 70.0, records[2].Value) // 250 - 180
 }
 
+func TestParseFilter_DeltaFilter_NonNegative(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "LifetimeEnergy",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+			Unit:     "kWh",
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 150.0},
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 50.0},  // reset
+			{Timestamp: baseTime.Add(3 * time.Hour), Value: 80.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	var deltaFilter ApiQueryFilter
+	require.NoError(t, deltaFilter.FromApiDeltaFilter(ApiDeltaFilter{
+		Type:        ApiDeltaFilterTypeDelta,
+		NonNegative: true,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{deltaFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+	require.NotNil(t, ds)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(4*time.Hour))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 3)
+
+	assert.Equal(t, 50.0, records[0].Value) // 150 - 100
+	assert.Equal(t, 50.0, records[1].Value) // reset: current value = 50
+	assert.Equal(t, 30.0, records[2].Value) // 80 - 50 = 30
+}
+
+func TestParseFilter_DeltaFilter_MaxCounterValue(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "Counter",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+			Unit:     "kWh",
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 900.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 950.0},
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 100.0}, // wraparound
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	var deltaFilter ApiQueryFilter
+	require.NoError(t, deltaFilter.FromApiDeltaFilter(ApiDeltaFilter{
+		Type:            ApiDeltaFilterTypeDelta,
+		NonNegative:     true,
+		MaxCounterValue: 1000,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{deltaFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+	require.NotNil(t, ds)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(3*time.Hour))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2)
+
+	assert.Equal(t, 50.0, records[0].Value)  // 950 - 900 = 50
+	assert.Equal(t, 150.0, records[1].Value) // wrap: (1000 - 950) + 100 = 150
+}
+
+func TestParseFilter_DeltaFilter_BackwardCompatible(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "Temperature",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+			Unit:     "celsius",
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 80.0},
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 50.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// No new fields — backward compatible
+	var deltaFilter ApiQueryFilter
+	require.NoError(t, deltaFilter.FromApiDeltaFilter(ApiDeltaFilter{
+		Type: ApiDeltaFilterTypeDelta,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{deltaFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+	require.NotNil(t, ds)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(3*time.Hour))
+	require.NoError(t, err)
+
+	// Negative deltas preserved (old behavior)
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2)
+
+	assert.Equal(t, -20.0, records[0].Value) // 80 - 100 = -20
+	assert.Equal(t, -30.0, records[1].Value) // 50 - 80 = -30
+}
+
 func TestParseFilter_RateFilter(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
