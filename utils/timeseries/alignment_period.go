@@ -45,27 +45,27 @@ func AlignedTimestampsStream(ap AlignmentPeriod, from, to time.Time) stream.Stre
 //clusterClassifierFunc
 
 func NewDayAlignmentPeriod(location *time.Location) AlignmentPeriod {
-	return dayAlignmentPeriod{Location: location}
+	return DayAlignmentPeriod{Location: location}
 }
 
 func NewWeekAlignmentPeriod(location *time.Location) AlignmentPeriod {
-	return weekAlignmentPeriod{Location: location}
+	return WeekAlignmentPeriod{Location: location}
 }
 
 func NewMonthAlignmentPeriod(location *time.Location) AlignmentPeriod {
-	return monthAlignmentPeriod{Location: location}
+	return MonthAlignmentPeriod{Location: location}
 }
 
 func NewQuarterAlignmentPeriod(location *time.Location) AlignmentPeriod {
-	return quarterAlignmentPeriod{Location: location}
+	return QuarterAlignmentPeriod{Location: location}
 }
 
 func NewYearAlignmentPeriod(location *time.Location) AlignmentPeriod {
-	return yearAlignmentPeriod{Location: location}
+	return YearAlignmentPeriod{Location: location}
 }
 
 func NewHalfYearAlignmentPeriod(location *time.Location) AlignmentPeriod {
-	return halfYearAlignmentPeriod{Location: location}
+	return HalfYearAlignmentPeriod{Location: location}
 }
 
 func NewFixedAlignmentPeriod(duration time.Duration, location *time.Location) AlignmentPeriod {
@@ -75,34 +75,34 @@ func NewFixedAlignmentPeriod(duration time.Duration, location *time.Location) Al
 	if location == nil {
 		location = time.UTC
 	}
-	return fixedAlignmentPeriod{Duration: duration, Location: location}
+	return FixedAlignmentPeriod{Duration: duration, Location: location}
 }
 
-type dayAlignmentPeriod struct {
+type DayAlignmentPeriod struct {
 	*time.Location
 }
-type weekAlignmentPeriod struct {
+type WeekAlignmentPeriod struct {
 	*time.Location
 }
-type monthAlignmentPeriod struct {
+type MonthAlignmentPeriod struct {
 	*time.Location
 }
-type quarterAlignmentPeriod struct {
+type QuarterAlignmentPeriod struct {
 	*time.Location
 }
-type yearAlignmentPeriod struct {
+type YearAlignmentPeriod struct {
 	*time.Location
 }
-type halfYearAlignmentPeriod struct {
+type HalfYearAlignmentPeriod struct {
 	*time.Location
 }
 
-type fixedAlignmentPeriod struct {
+type FixedAlignmentPeriod struct {
 	Duration time.Duration
 	Location *time.Location
 }
 
-func (f fixedAlignmentPeriod) GetStartTime(t time.Time) time.Time {
+func (f FixedAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	t = t.In(f.Location)
 	epoch := time.Date(1970, 1, 1, 0, 0, 0, 0, f.Location)
 	since := t.Sub(epoch)
@@ -110,19 +110,19 @@ func (f fixedAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	return epoch.Add(aligned)
 }
 
-func (f fixedAlignmentPeriod) GetEndTime(t time.Time) time.Time {
+func (f FixedAlignmentPeriod) GetEndTime(t time.Time) time.Time {
 	return f.GetStartTime(t).Add(f.Duration)
 }
-func (d dayAlignmentPeriod) GetStartTime(t time.Time) time.Time {
+func (d DayAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	t = t.In(d.Location)
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, d.Location)
 }
 
-func (d dayAlignmentPeriod) GetEndTime(t time.Time) time.Time {
+func (d DayAlignmentPeriod) GetEndTime(t time.Time) time.Time {
 	return d.GetStartTime(t).Add(24 * time.Hour)
 }
 
-func (w weekAlignmentPeriod) GetStartTime(t time.Time) time.Time {
+func (w WeekAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	t = t.In(w.Location)
 	weekday := int(t.Weekday())
 	if weekday == 0 {
@@ -132,30 +132,30 @@ func (w weekAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	return time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, w.Location)
 }
 
-func (w weekAlignmentPeriod) GetEndTime(t time.Time) time.Time {
+func (w WeekAlignmentPeriod) GetEndTime(t time.Time) time.Time {
 	return w.GetStartTime(t).AddDate(0, 0, 7)
 }
 
-func (m monthAlignmentPeriod) GetStartTime(t time.Time) time.Time {
+func (m MonthAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	t = t.In(m.Location)
 	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, m.Location)
 }
 
-func (m monthAlignmentPeriod) GetEndTime(t time.Time) time.Time {
+func (m MonthAlignmentPeriod) GetEndTime(t time.Time) time.Time {
 	return m.GetStartTime(t).AddDate(0, 1, 0)
 }
 
-func (q quarterAlignmentPeriod) GetStartTime(t time.Time) time.Time {
+func (q QuarterAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	t = t.In(q.Location)
 	month := ((int(t.Month())-1)/3)*3 + 1
 	return time.Date(t.Year(), time.Month(month), 1, 0, 0, 0, 0, q.Location)
 }
 
-func (q quarterAlignmentPeriod) GetEndTime(t time.Time) time.Time {
+func (q QuarterAlignmentPeriod) GetEndTime(t time.Time) time.Time {
 	return q.GetStartTime(t).AddDate(0, 3, 0)
 }
 
-func (h halfYearAlignmentPeriod) GetStartTime(t time.Time) time.Time {
+func (h HalfYearAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	t = t.In(h.Location)
 	month := 1
 	if t.Month() >= 7 {
@@ -164,15 +164,15 @@ func (h halfYearAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	return time.Date(t.Year(), time.Month(month), 1, 0, 0, 0, 0, h.Location)
 }
 
-func (h halfYearAlignmentPeriod) GetEndTime(t time.Time) time.Time {
+func (h HalfYearAlignmentPeriod) GetEndTime(t time.Time) time.Time {
 	return h.GetStartTime(t).AddDate(0, 6, 0)
 }
 
-func (y yearAlignmentPeriod) GetStartTime(t time.Time) time.Time {
+func (y YearAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	t = t.In(y.Location)
 	return time.Date(t.Year(), 1, 1, 0, 0, 0, 0, y.Location)
 }
 
-func (y yearAlignmentPeriod) GetEndTime(t time.Time) time.Time {
+func (y YearAlignmentPeriod) GetEndTime(t time.Time) time.Time {
 	return y.GetStartTime(t).AddDate(1, 0, 0)
 }

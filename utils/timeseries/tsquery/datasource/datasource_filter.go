@@ -64,9 +64,32 @@ func (f filteredDataSource) Execute(ctx context.Context, from time.Time, to time
 	return ApplyFilters(ctx, result, f.filters...)
 }
 
+// FilterAwareDataSource is an optional interface that DataSources can implement
+// to intercept and handle filters internally (e.g., pushing alignment to a database query).
+type FilterAwareDataSource interface {
+	DataSource
+	// TryApplyFilter attempts to apply the filter internally.
+	// Returns (modified DataSource, true) if the datasource handles the filter,
+	// or (self, false) if the filter should be applied externally.
+	TryApplyFilter(filter Filter) (DataSource, bool)
+}
+
 func NewFilteredDataSource(dataSource DataSource, filters ...Filter) DataSource {
+	var externalFilters []Filter
+	for _, f := range filters {
+		if aware, ok := dataSource.(FilterAwareDataSource); ok {
+			if newDS, handled := aware.TryApplyFilter(f); handled {
+				dataSource = newDS
+				continue
+			}
+		}
+		externalFilters = append(externalFilters, f)
+	}
+	if len(externalFilters) == 0 {
+		return dataSource
+	}
 	return &filteredDataSource{
 		dataSource: dataSource,
-		filters:    filters,
+		filters:    externalFilters,
 	}
 }
