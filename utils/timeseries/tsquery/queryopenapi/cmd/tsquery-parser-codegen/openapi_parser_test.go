@@ -303,7 +303,7 @@ func TestParseReductionDatasource_WithPipeline(t *testing.T) {
 	// Create a reduction datasource (sum)
 	reductionDs := ApiReductionQueryDatasource{
 		ReductionType:   tsquery.ReductionTypeSum,
-		AlignmentPeriod: alignmentPeriod,
+		Aligner: ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 		MultiDatasource: multiDs,
 		FieldMeta: ApiAddFieldMeta{
 			Uri: "summed",
@@ -1271,7 +1271,7 @@ func TestParseDatasource_Reduction_AllTypes(t *testing.T) {
 
 			reductionDs := ApiReductionQueryDatasource{
 				ReductionType:   tt.reductionType,
-				AlignmentPeriod: alignmentPeriod,
+				Aligner: ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 				MultiDatasource: multiDs,
 				FieldMeta: ApiAddFieldMeta{
 					Uri: "reduced",
@@ -1345,7 +1345,7 @@ func TestParseDatasource_CustomAlignmentPeriod(t *testing.T) {
 
 	reductionDs := ApiReductionQueryDatasource{
 		ReductionType:   tsquery.ReductionTypeSum,
-		AlignmentPeriod: alignmentPeriod,
+		Aligner: ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 		MultiDatasource: multiDs,
 		FieldMeta: ApiAddFieldMeta{
 			Uri: "summed",
@@ -2254,4 +2254,228 @@ func TestParseReportFilter_Aligner_ForwardFill(t *testing.T) {
 	assert.Equal(t, baseTime.Add(1*time.Hour), records[2].Timestamp)
 	assert.InDelta(t, 200.0, records[2].Value[0], 0.01) // decimal: 200.0
 	assert.InDelta(t, 20, records[2].Value[1], 0.01)    // integer: 20
+}
+
+// ========================================
+// FilteredMultiDatasource Tests
+// ========================================
+
+func TestParseFilteredMultiDatasource(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create two static datasources (cumulative counters) using decimal (JSON round-trips int64 → float64)
+	staticDs1 := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "counter1",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 200.0},
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 300.0},
+		},
+	}
+	staticDs2 := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "counter2",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 10.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 30.0},
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 60.0},
+		},
+	}
+
+	var apiDs1, apiDs2 ApiQueryDatasource
+	require.NoError(t, apiDs1.FromApiStaticQueryDatasource(staticDs1))
+	require.NoError(t, apiDs2.FromApiStaticQueryDatasource(staticDs2))
+
+	// Create inner list multi datasource
+	var innerMultiDs ApiMultiDatasource
+	require.NoError(t, innerMultiDs.FromApiListMultiDatasource(ApiListMultiDatasource{
+		Datasources: []ApiQueryDatasource{apiDs1, apiDs2},
+	}))
+
+	// Create delta filter (nonNegative=true)
+	var deltaFilter ApiQueryFilter
+	require.NoError(t, deltaFilter.FromApiDeltaFilter(ApiDeltaFilter{
+		NonNegative: true,
+	}))
+
+	// Wrap in filtered multi datasource
+	var filteredMultiDs ApiMultiDatasource
+	require.NoError(t, filteredMultiDs.FromApiFilteredMultiDatasource(ApiFilteredMultiDatasource{
+		MultiDatasource: innerMultiDs,
+		Filters:         []ApiQueryFilter{deltaFilter},
+	}))
+
+	// Create reduction with aligner
+	var alignmentPeriod ApiAlignmentPeriod
+	require.NoError(t, alignmentPeriod.FromApiCalendarAlignmentPeriod(ApiCalendarAlignmentPeriod{
+		AlignmentPeriodType: ApiCalendarPeriodTypeHour,
+		ZoneId:              "UTC",
+	}))
+
+	reductionDs := ApiReductionQueryDatasource{
+		ReductionType:   tsquery.ReductionTypeSum,
+		Aligner:         ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
+		MultiDatasource: filteredMultiDs,
+		FieldMeta:       ApiAddFieldMeta{Uri: "total_delta"},
+	}
+
+	var reductionApiDs ApiQueryDatasource
+	require.NoError(t, reductionApiDs.FromApiReductionQueryDatasource(reductionDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, reductionApiDs)
+	require.NoError(t, err)
+
+	result, err := ds.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	// Delta of counter1: 100.0, 100.0
+	// Delta of counter2: 20.0, 30.0
+	// Sum: 120.0, 130.0
+	require.Len(t, records, 2)
+	assert.Equal(t, 120.0, records[0].Value)
+	assert.Equal(t, 130.0, records[1].Value)
+	assert.Equal(t, "total_delta", result.Meta().Urn())
+}
+
+func TestParseFilteredReportMultiDatasource(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create two static report datasources
+	staticReportDs1 := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "val", DataType: tsquery.DataTypeDecimal, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{10.0}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{20.0}},
+		},
+	}
+	staticReportDs2 := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "val", DataType: tsquery.DataTypeDecimal, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{100.0}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{200.0}},
+		},
+	}
+
+	var apiReportDs1, apiReportDs2 ApiReportDatasource
+	require.NoError(t, apiReportDs1.FromApiStaticReportDatasource(staticReportDs1))
+	require.NoError(t, apiReportDs2.FromApiStaticReportDatasource(staticReportDs2))
+
+	// Create inner list report multi datasource
+	var innerMultiDs ApiReportMultiDatasource
+	require.NoError(t, innerMultiDs.FromApiListReportMultiDatasource(ApiListReportMultiDatasource{
+		Datasources: []ApiReportDatasource{apiReportDs1, apiReportDs2},
+	}))
+
+	// Create an aligner filter with 1h alignment
+	var alignmentPeriod ApiAlignmentPeriod
+	require.NoError(t, alignmentPeriod.FromApiCalendarAlignmentPeriod(ApiCalendarAlignmentPeriod{
+		AlignmentPeriodType: ApiCalendarPeriodTypeHour,
+		ZoneId:              "UTC",
+	}))
+	var alignerFilter ApiReportFilter
+	require.NoError(t, alignerFilter.FromApiAlignerFilter(ApiAlignerFilter{
+		AlignerPeriod: alignmentPeriod,
+	}))
+
+	// Wrap in filtered report multi datasource
+	var filteredMultiDs ApiReportMultiDatasource
+	require.NoError(t, filteredMultiDs.FromApiFilteredReportMultiDatasource(ApiFilteredReportMultiDatasource{
+		ReportMultiDatasource: innerMultiDs,
+		Filters:               []ApiReportFilter{alignerFilter},
+	}))
+
+	// Parse
+	pCtx := NewParsingContext(context.Background(), nil)
+	multiDs, err := ParseReportMultiDatasource(pCtx, filteredMultiDs)
+	require.NoError(t, err)
+	require.NotNil(t, multiDs)
+
+	// Collect datasources
+	datasources := multiDs.GetDatasources(testContext()).MustCollect()
+	require.Len(t, datasources, 2)
+
+	// Execute each and verify they work
+	for _, ds := range datasources {
+		result, err := ds.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+		require.NoError(t, err)
+		records := result.Stream().MustCollect()
+		require.NotEmpty(t, records)
+	}
+}
+
+func TestParseReductionDatasource_WithAlignerFillMode(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Static datasource with a gap
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "metric",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 10.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 20.0},
+			{Timestamp: baseTime.Add(3 * time.Hour), Value: 40.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	var multiDs ApiMultiDatasource
+	require.NoError(t, multiDs.FromApiListMultiDatasource(ApiListMultiDatasource{
+		Datasources: []ApiQueryDatasource{apiDs},
+	}))
+
+	// Create aligner with linear fill
+	var alignmentPeriod ApiAlignmentPeriod
+	require.NoError(t, alignmentPeriod.FromApiCalendarAlignmentPeriod(ApiCalendarAlignmentPeriod{
+		AlignmentPeriodType: ApiCalendarPeriodTypeHour,
+		ZoneId:              "UTC",
+	}))
+
+	fillMode := timeseries.FillModeLinear
+	reductionDs := ApiReductionQueryDatasource{
+		ReductionType:   tsquery.ReductionTypeSum,
+		Aligner:         ApiAlignerFilter{AlignerPeriod: alignmentPeriod, FillMode: &fillMode},
+		MultiDatasource: multiDs,
+		FieldMeta:       ApiAddFieldMeta{Uri: "filled"},
+	}
+
+	var reductionApiDs ApiQueryDatasource
+	require.NoError(t, reductionApiDs.FromApiReductionQueryDatasource(reductionDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, reductionApiDs)
+	require.NoError(t, err)
+
+	result, err := ds.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	// With linear fill: 10, 20, 30 (interpolated), 40
+	require.Len(t, records, 4)
+	assert.Equal(t, 10.0, records[0].Value)
+	assert.Equal(t, 20.0, records[1].Value)
+	assert.InDelta(t, 30.0, records[2].Value.(float64), 0.01)
+	assert.Equal(t, 40.0, records[3].Value)
 }

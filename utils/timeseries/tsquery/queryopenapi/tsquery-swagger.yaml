@@ -81,8 +81,10 @@ components:
         propertyName: type
         mapping:
           list: '#/components/schemas/ApiListMultiDatasource'
+          filtered: '#/components/schemas/ApiFilteredMultiDatasource'
       oneOf:
         - $ref: '#/components/schemas/ApiListMultiDatasource'
+        - $ref: '#/components/schemas/ApiFilteredMultiDatasource'
 
     ApiListMultiDatasource:
       type: object
@@ -99,6 +101,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ApiQueryDatasource'
+
+    ApiFilteredMultiDatasource:
+      type: object
+      description: Wraps another multi-datasource and applies filters to each datasource it yields.
+      required:
+        - type
+        - multiDatasource
+        - filters
+      properties:
+        type:
+          type: string
+          enum:
+            - filtered
+        multiDatasource:
+          $ref: '#/components/schemas/ApiMultiDatasource'
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiQueryFilter'
 
     ApiFilteredQueryDatasource:
       type: object
@@ -124,7 +145,7 @@ components:
       required:
         - type
         - reductionType
-        - alignmentPeriod
+        - aligner
         - multiDatasource
         - fieldMeta
       properties:
@@ -134,8 +155,8 @@ components:
             - reduction
         reductionType:
           $ref: '#/components/schemas/ApiReductionType'
-        alignmentPeriod:
-          $ref: '#/components/schemas/ApiAlignmentPeriod'
+        aligner:
+          $ref: '#/components/schemas/ApiAlignerFilter'
         multiDatasource:
           $ref: '#/components/schemas/ApiMultiDatasource'
         fieldMeta:
@@ -1033,9 +1054,11 @@ components:
         mapping:
           list: '#/components/schemas/ApiListReportMultiDatasource'
           fromMultiDatasource: '#/components/schemas/ApiFromMultiDatasourceReportMultiDatasource'
+          filtered: '#/components/schemas/ApiFilteredReportMultiDatasource'
       oneOf:
         - $ref: '#/components/schemas/ApiListReportMultiDatasource'
         - $ref: '#/components/schemas/ApiFromMultiDatasourceReportMultiDatasource'
+        - $ref: '#/components/schemas/ApiFilteredReportMultiDatasource'
 
     ApiListReportMultiDatasource:
       type: object
@@ -1080,6 +1103,25 @@ components:
             - fromMultiDatasource
         multiDatasource:
           $ref: '#/components/schemas/ApiMultiDatasource'
+
+    ApiFilteredReportMultiDatasource:
+      type: object
+      description: Wraps another report multi-datasource and applies report filters to each datasource it yields.
+      required:
+        - type
+        - reportMultiDatasource
+        - filters
+      properties:
+        type:
+          type: string
+          enum:
+            - filtered
+        reportMultiDatasource:
+          $ref: '#/components/schemas/ApiReportMultiDatasource'
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiReportFilter'
 
     # Filtered Report Datasource - applies filters to a report datasource
     ApiFilteredReportDatasource:

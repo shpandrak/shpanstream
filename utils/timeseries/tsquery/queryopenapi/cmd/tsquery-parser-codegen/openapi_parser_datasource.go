@@ -71,9 +71,27 @@ func ParseMultiDatasource(pCtx *ParsingContext, multiDs ApiMultiDatasource) (dat
 	switch typedMds := valueByDiscriminator.(type) {
 	case ApiListMultiDatasource:
 		return parseListMultiDatasource(pCtx, typedMds)
+	case ApiFilteredMultiDatasource:
+		return parseFilteredMultiDatasource(pCtx, typedMds)
 	default:
 		return wrapAndReturn(pCtx.plugin.ParseMultiDatasource(pCtx, multiDs))("failed parsing multi datasource with plugin parser")
 	}
+}
+
+func parseFilteredMultiDatasource(pCtx *ParsingContext, typedMds ApiFilteredMultiDatasource) (datasource.MultiDataSource, error) {
+	inner, err := ParseMultiDatasource(pCtx, typedMds.MultiDatasource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse inner multi datasource for filtered multi datasource: %w", err)
+	}
+	var parsedFilters []datasource.Filter
+	for i, rawFilter := range typedMds.Filters {
+		parsedFilter, err := ParseFilter(pCtx, rawFilter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse filter %d in filtered multi datasource: %w", i, err)
+		}
+		parsedFilters = append(parsedFilters, parsedFilter)
+	}
+	return datasource.NewFilteredMultiDatasource(inner, parsedFilters), nil
 }
 
 func parseListMultiDatasource(pCtx *ParsingContext, typedMds ApiListMultiDatasource) (datasource.MultiDataSource, error) {
@@ -92,10 +110,10 @@ func parseReductionDatasource(
 	pCtx *ParsingContext,
 	reductionDs ApiReductionQueryDatasource,
 ) (datasource.DataSource, error) {
-	// Parse alignment period
-	alignmentPeriod, err := ParseAlignmentPeriod(reductionDs.AlignmentPeriod)
+	// Parse aligner filter
+	alignerFilter, err := parseAlignerFilter(reductionDs.Aligner)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse alignment period for reduction datasource: %w", err)
+		return nil, fmt.Errorf("failed to parse aligner for reduction datasource: %w", err)
 	}
 
 	// Parse multi datasource
@@ -115,7 +133,7 @@ func parseReductionDatasource(
 		}
 		return datasource.NewReductionDatasourceWithEmptyFallback(
 			reductionDs.ReductionType,
-			alignmentPeriod,
+			alignerFilter,
 			multiDatasource,
 			addFieldMeta,
 			emptyValue,
@@ -125,7 +143,7 @@ func parseReductionDatasource(
 	// Create and return the reduction datasource (without empty fallback)
 	return datasource.NewReductionDatasource(
 		reductionDs.ReductionType,
-		alignmentPeriod,
+		alignerFilter,
 		multiDatasource,
 		addFieldMeta,
 	), nil

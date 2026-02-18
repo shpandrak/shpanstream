@@ -98,6 +98,11 @@ const (
 	ApiFieldValueFilterTypeFieldValue ApiFieldValueFilterType = "fieldValue"
 )
 
+// Defines values for ApiFilteredMultiDatasourceType.
+const (
+	ApiFilteredMultiDatasourceTypeFiltered ApiFilteredMultiDatasourceType = "filtered"
+)
+
 // Defines values for ApiFilteredQueryDatasourceType.
 const (
 	ApiFilteredQueryDatasourceTypeFiltered ApiFilteredQueryDatasourceType = "filtered"
@@ -106,6 +111,11 @@ const (
 // Defines values for ApiFilteredReportDatasourceType.
 const (
 	ApiFilteredReportDatasourceTypeFiltered ApiFilteredReportDatasourceType = "filtered"
+)
+
+// Defines values for ApiFilteredReportMultiDatasourceType.
+const (
+	ApiFilteredReportMultiDatasourceTypeFiltered ApiFilteredReportMultiDatasourceType = "filtered"
 )
 
 // Defines values for ApiFromDatasourceReportDatasourceType.
@@ -446,6 +456,18 @@ type ApiFieldValueFilterType string
 // ApiFillMode defines model for ApiFillMode.
 type ApiFillMode = timeseries.FillMode
 
+// ApiFilteredMultiDatasource Wraps another multi-datasource and applies filters to each datasource it yields.
+type ApiFilteredMultiDatasource struct {
+	Filters []ApiQueryFilter `json:"filters"`
+
+	// MultiDatasource Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
+	MultiDatasource ApiMultiDatasource             `json:"multiDatasource"`
+	Type            ApiFilteredMultiDatasourceType `json:"type"`
+}
+
+// ApiFilteredMultiDatasourceType defines model for ApiFilteredMultiDatasource.Type.
+type ApiFilteredMultiDatasourceType string
+
 // ApiFilteredQueryDatasource defines model for ApiFilteredQueryDatasource.
 type ApiFilteredQueryDatasource struct {
 	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
@@ -468,6 +490,18 @@ type ApiFilteredReportDatasource struct {
 
 // ApiFilteredReportDatasourceType defines model for ApiFilteredReportDatasource.Type.
 type ApiFilteredReportDatasourceType string
+
+// ApiFilteredReportMultiDatasource Wraps another report multi-datasource and applies report filters to each datasource it yields.
+type ApiFilteredReportMultiDatasource struct {
+	Filters []ApiReportFilter `json:"filters"`
+
+	// ReportMultiDatasource Multi datasource for reports - a collection of report datasources.
+	ReportMultiDatasource ApiReportMultiDatasource             `json:"reportMultiDatasource"`
+	Type                  ApiFilteredReportMultiDatasourceType `json:"type"`
+}
+
+// ApiFilteredReportMultiDatasourceType defines model for ApiFilteredReportMultiDatasource.Type.
+type ApiFilteredReportMultiDatasourceType string
 
 // ApiFromDatasourceReportDatasource Wraps a standard query datasource as a report datasource (single field).
 type ApiFromDatasourceReportDatasource struct {
@@ -711,7 +745,7 @@ type ApiReduceReportFieldValueType string
 
 // ApiReductionQueryDatasource defines model for ApiReductionQueryDatasource.
 type ApiReductionQueryDatasource struct {
-	AlignmentPeriod      ApiAlignmentPeriod  `json:"alignmentPeriod"`
+	Aligner              ApiAlignerFilter    `json:"aligner"`
 	EmptyDatasourceValue *ApiQueryFieldValue `json:"emptyDatasourceValue,omitempty"`
 	FieldMeta            ApiAddFieldMeta     `json:"fieldMeta"`
 
@@ -932,6 +966,22 @@ func (t *ApiMultiDatasource) FromApiListMultiDatasource(v ApiListMultiDatasource
 }
 
 
+// AsApiFilteredMultiDatasource returns the union data inside the ApiMultiDatasource as a ApiFilteredMultiDatasource
+func (t ApiMultiDatasource) AsApiFilteredMultiDatasource() (ApiFilteredMultiDatasource, error) {
+	var body ApiFilteredMultiDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiFilteredMultiDatasource overwrites any union data inside the ApiMultiDatasource as the provided ApiFilteredMultiDatasource
+func (t *ApiMultiDatasource) FromApiFilteredMultiDatasource(v ApiFilteredMultiDatasource) error {
+	v.Type = "filtered"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiMultiDatasource) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -946,6 +996,8 @@ func (t ApiMultiDatasource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "filtered":
+		return t.AsApiFilteredMultiDatasource()
 	case "list":
 		return t.AsApiListMultiDatasource()
 	default:
@@ -1907,6 +1959,22 @@ func (t *ApiReportMultiDatasource) FromApiFromMultiDatasourceReportMultiDatasour
 }
 
 
+// AsApiFilteredReportMultiDatasource returns the union data inside the ApiReportMultiDatasource as a ApiFilteredReportMultiDatasource
+func (t ApiReportMultiDatasource) AsApiFilteredReportMultiDatasource() (ApiFilteredReportMultiDatasource, error) {
+	var body ApiFilteredReportMultiDatasource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiFilteredReportMultiDatasource overwrites any union data inside the ApiReportMultiDatasource as the provided ApiFilteredReportMultiDatasource
+func (t *ApiReportMultiDatasource) FromApiFilteredReportMultiDatasource(v ApiFilteredReportMultiDatasource) error {
+	v.Type = "filtered"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiReportMultiDatasource) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1921,6 +1989,8 @@ func (t ApiReportMultiDatasource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "filtered":
+		return t.AsApiFilteredReportMultiDatasource()
 	case "fromMultiDatasource":
 		return t.AsApiFromMultiDatasourceReportMultiDatasource()
 	case "list":
