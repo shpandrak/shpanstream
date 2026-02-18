@@ -14,7 +14,7 @@ var _ DataSource = ReductionDatasource{}
 
 type ReductionDatasource struct {
 	reductionType        tsquery.ReductionType
-	alignmentPeriod      timeseries.AlignmentPeriod
+	alignerFilter        AlignerFilter
 	multiDataSource      MultiDataSource
 	addFieldMeta         tsquery.AddFieldMeta
 	emptyDatasourceValue Value // Optional fallback when multiDataSource yields zero datasources
@@ -22,13 +22,13 @@ type ReductionDatasource struct {
 
 func NewReductionDatasource(
 	reductionType tsquery.ReductionType,
-	alignmentPeriod timeseries.AlignmentPeriod,
+	alignerFilter AlignerFilter,
 	multiDataSource MultiDataSource,
 	addFieldMeta tsquery.AddFieldMeta,
 ) *ReductionDatasource {
 	return &ReductionDatasource{
 		reductionType:   reductionType,
-		alignmentPeriod: alignmentPeriod,
+		alignerFilter:   alignerFilter,
 		multiDataSource: multiDataSource,
 		addFieldMeta:    addFieldMeta,
 	}
@@ -38,14 +38,14 @@ func NewReductionDatasource(
 // fallback value to use when the multiDataSource yields zero datasources.
 func NewReductionDatasourceWithEmptyFallback(
 	reductionType tsquery.ReductionType,
-	alignmentPeriod timeseries.AlignmentPeriod,
+	alignerFilter AlignerFilter,
 	multiDataSource MultiDataSource,
 	addFieldMeta tsquery.AddFieldMeta,
 	emptyDatasourceValue Value,
 ) *ReductionDatasource {
 	return &ReductionDatasource{
 		reductionType:        reductionType,
-		alignmentPeriod:      alignmentPeriod,
+		alignerFilter:        alignerFilter,
 		multiDataSource:      multiDataSource,
 		addFieldMeta:         addFieldMeta,
 		emptyDatasourceValue: emptyDatasourceValue,
@@ -55,7 +55,7 @@ func NewReductionDatasourceWithEmptyFallback(
 func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to time.Time) (Result, error) {
 
 	// Validate alignment period is provided
-	if r.alignmentPeriod == nil {
+	if r.alignerFilter.AlignmentPeriod() == nil {
 		return util.DefaultValue[Result](), fmt.Errorf("alignment period is required for reduction datasource")
 	}
 
@@ -74,7 +74,7 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 		stream.MapWithErrAndCtx(
 			r.multiDataSource.GetDatasources(ctx),
 			func(ctx context.Context, ds DataSource) (Result, error) {
-				return NewFilteredDataSource(ds, NewAlignerFilter(r.alignmentPeriod)).Execute(ctx, from, to)
+				return NewFilteredDataSource(ds, r.alignerFilter).Execute(ctx, from, to)
 			},
 		).Collect(ctx)
 
@@ -224,7 +224,7 @@ func (r ReductionDatasource) executeEmptyDatasourceFallback(ctx context.Context,
 	}
 
 	// Generate aligned timestamps stream and map to TsRecords with the fallback value
-	timestampStream := timeseries.AlignedTimestampsStream(r.alignmentPeriod, from, to)
+	timestampStream := timeseries.AlignedTimestampsStream(r.alignerFilter.AlignmentPeriod(), from, to)
 
 	dataStream := stream.MapWithErrAndCtx(
 		timestampStream,

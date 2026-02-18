@@ -76,17 +76,17 @@ func parseRateFilter(rateFilter ApiRateFilter) (datasource.Filter, error) {
 	return datasource.NewRateFilter(rateFilter.OverrideUnit), nil
 }
 
-func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.Filter, error) {
+func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.AlignerFilter, error) {
 	alignerPeriod, err := ParseAlignmentPeriod(apiAlignerFilter.AlignerPeriod)
 	if err != nil {
-		return nil, err
+		return datasource.AlignerFilter{}, err
 	}
 	if apiAlignerFilter.FillMode != nil {
 		switch *apiAlignerFilter.FillMode {
 		case timeseries.FillModeLinear, timeseries.FillModeForwardFill:
 			// valid
 		default:
-			return nil, fmt.Errorf("unsupported fill mode: %q", *apiAlignerFilter.FillMode)
+			return datasource.AlignerFilter{}, fmt.Errorf("unsupported fill mode: %q", *apiAlignerFilter.FillMode)
 		}
 		return datasource.NewInterpolatingAlignerFilter(alignerPeriod, *apiAlignerFilter.FillMode), nil
 	}

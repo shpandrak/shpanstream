@@ -114,6 +114,8 @@ func ParseReportMultiDatasource(
 		return parseListReportMultiDatasource(pCtx, typedMds)
 	case ApiFromMultiDatasourceReportMultiDatasource:
 		return parseFromMultiDatasourceReportMultiDatasource(pCtx, typedMds)
+	case ApiFilteredReportMultiDatasource:
+		return parseFilteredReportMultiDatasource(pCtx, typedMds)
 	default:
 		return wrapAndReturnReportMultiDatasource(pCtx.plugin.ParseReportMultiDatasource(pCtx, multiDs))("failed parsing report multi datasource with plugin parser")
 	}
@@ -181,6 +183,25 @@ func parseFromMultiDatasourceReportMultiDatasource(
 	}
 	// Wrap it as a report multi datasource
 	return report.FromMultiDatasource(parsedMultiDs), nil
+}
+
+func parseFilteredReportMultiDatasource(
+	pCtx *ParsingContext,
+	typedMds ApiFilteredReportMultiDatasource,
+) (report.MultiDataSource, error) {
+	inner, err := ParseReportMultiDatasource(pCtx, typedMds.ReportMultiDatasource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse inner report multi datasource for filtered report multi datasource: %w", err)
+	}
+	var parsedFilters []report.Filter
+	for i, rawFilter := range typedMds.Filters {
+		parsedFilter, err := ParseReportFilter(pCtx, rawFilter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse report filter %d in filtered report multi datasource: %w", i, err)
+		}
+		parsedFilters = append(parsedFilters, parsedFilter)
+	}
+	return report.NewFilteredMultiDatasource(inner, parsedFilters), nil
 }
 
 // wrapAndReturnReportDatasource is a helper function to wrap errors for report datasources
