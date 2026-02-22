@@ -724,9 +724,18 @@ type ApiQueryResult struct {
 
 // ApiRateFilter Rate filter computes the rate of change (delta / time_diff_in_seconds). Requires numeric, required field. Output is always decimal.
 type ApiRateFilter struct {
+	// MaxCounterValue Maximum counter value for wraparound detection. Only used when nonNegative is true. When set, counter resets compute delta as (maxCounterValue - previous + current).
+	MaxCounterValue float64 `json:"maxCounterValue,omitempty"`
+
+	// NonNegative When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets.
+	NonNegative bool `json:"nonNegative,omitempty"`
+
 	// OverrideUnit Unit for the rate output. If not specified, unit will be empty.
-	OverrideUnit string            `json:"overrideUnit,omitempty"`
-	Type         ApiRateFilterType `json:"type"`
+	OverrideUnit string `json:"overrideUnit,omitempty"`
+
+	// PerSeconds Time period in seconds for rate calculation. Rate is computed as (delta / time_diff_seconds) * perSeconds. Default is 1 (per-second). Use 3600 for per-hour rate.
+	PerSeconds *int              `json:"perSeconds,omitempty"`
+	Type       ApiRateFilterType `json:"type"`
 }
 
 // ApiRateFilterType defines model for ApiRateFilter.Type.

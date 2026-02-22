@@ -1699,6 +1699,16 @@ func TestParseFilter_RateFilter_NoUnitOverride(t *testing.T) {
 	assert.Equal(t, "", result.Meta().Unit())
 }
 
+func TestParseFilter_RateFilter_MaxCounterValueWithoutNonNegative_Error(t *testing.T) {
+	_, err := parseRateFilter(ApiRateFilter{
+		Type:            ApiRateFilterTypeRate,
+		MaxCounterValue: 1000.0,
+		NonNegative:     false,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "maxCounterValue can only be used when nonNegative is true")
+}
+
 func TestParseFilter_DeltaFilter_NegativeDelta(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
