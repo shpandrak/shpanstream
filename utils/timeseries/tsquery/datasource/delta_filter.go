@@ -40,18 +40,20 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 	}
 
 	var prevItem *timeseries.TsRecord[any]
-	return Result{
-		meta: result.meta,
-		data: stream.MapWhileFilteringWithErr(
-			result.data,
-			func(item timeseries.TsRecord[any]) (*timeseries.TsRecord[any], error) {
-				// Skipping the first item, just storing the reference
-				if prevItem == nil {
-					prevItem = &item
-					return nil, nil
-				}
 
-				if df.nonNegative {
+	if df.nonNegative {
+		computeDelta := newNonNegativeCounterDeltaFunc(df.maxCounterValue)
+		return Result{
+			meta: result.meta,
+			data: stream.MapWhileFilteringWithErr(
+				result.data,
+				func(item timeseries.TsRecord[any]) (*timeseries.TsRecord[any], error) {
+					// Skipping the first item, just storing the reference
+					if prevItem == nil {
+						prevItem = &item
+						return nil, nil
+					}
+
 					currVal, err := dataType.ToFloat64(item.Value)
 					if err != nil {
 						return nil, fmt.Errorf("failed to convert current value to float64: %w", err)
@@ -61,20 +63,14 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 						return nil, fmt.Errorf("failed to convert previous value to float64: %w", err)
 					}
 
-					// Negative current value: drop the point entirely (don't update prevItem)
-					if currVal < 0 {
+					delta, emit := computeDelta(currVal, prevVal)
+					if !emit {
 						return nil, nil
 					}
 
-					// Reset detected: current < previous
+					// Reset detected: need FromFloat64 conversion to preserve original type
 					if currVal < prevVal {
 						prevItem = &item
-						var delta float64
-						if df.maxCounterValue > 0 {
-							delta = (df.maxCounterValue - prevVal) + currVal
-						} else {
-							delta = currVal
-						}
 						converted, err := dataType.FromFloat64(delta)
 						if err != nil {
 							return nil, fmt.Errorf("failed to convert delta from float64: %w", err)
@@ -84,6 +80,28 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 							Timestamp: item.Timestamp,
 						}, nil
 					}
+
+					// Normal increase: use type-preserving subtraction
+					typedDelta := subFunc(item.Value, prevItem.Value)
+					prevItem = &item
+					return &timeseries.TsRecord[any]{
+						Value:     typedDelta,
+						Timestamp: item.Timestamp,
+					}, nil
+				},
+			),
+		}, nil
+	}
+
+	return Result{
+		meta: result.meta,
+		data: stream.MapWhileFilteringWithErr(
+			result.data,
+			func(item timeseries.TsRecord[any]) (*timeseries.TsRecord[any], error) {
+				// Skipping the first item, just storing the reference
+				if prevItem == nil {
+					prevItem = &item
+					return nil, nil
 				}
 
 				delta := subFunc(item.Value, prevItem.Value)

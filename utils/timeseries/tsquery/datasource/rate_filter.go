@@ -12,11 +12,19 @@ import (
 var _ Filter = RateFilter{}
 
 type RateFilter struct {
-	overrideUnit string
+	overrideUnit    string
+	perSeconds      int
+	nonNegative     bool
+	maxCounterValue float64
 }
 
-func NewRateFilter(overrideUnit string) RateFilter {
-	return RateFilter{overrideUnit: overrideUnit}
+func NewRateFilter(overrideUnit string, perSeconds int, nonNegative bool, maxCounterValue float64) RateFilter {
+	return RateFilter{
+		overrideUnit:    overrideUnit,
+		perSeconds:      perSeconds,
+		nonNegative:     nonNegative,
+		maxCounterValue: maxCounterValue,
+	}
 }
 
 func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
@@ -44,6 +52,20 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 		return util.DefaultValue[Result](), fmt.Errorf("failed to create new field meta: %w", err)
 	}
 
+	perSeconds := rf.perSeconds
+	if perSeconds <= 0 {
+		perSeconds = 1
+	}
+
+	var computeDelta counterDeltaFunc
+	if rf.nonNegative {
+		computeDelta = newNonNegativeCounterDeltaFunc(rf.maxCounterValue)
+	} else {
+		computeDelta = func(currVal, prevVal float64) (float64, bool) {
+			return currVal - prevVal, true
+		}
+	}
+
 	var prevItem *timeseries.TsRecord[any]
 	return Result{
 		meta: *newMeta,
@@ -65,6 +87,11 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 					return nil, fmt.Errorf("failed to convert previous value to float64: %w", err)
 				}
 
+				delta, emit := computeDelta(currVal, prevVal)
+				if !emit {
+					return nil, nil
+				}
+
 				timeDiff := item.Timestamp.Sub(prevItem.Timestamp).Seconds()
 				if timeDiff == 0 {
 					return nil, fmt.Errorf("time difference is zero between %s and %s", prevItem.Timestamp, item.Timestamp)
@@ -72,7 +99,7 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 
 				prevItem = &item
 				return &timeseries.TsRecord[any]{
-					Value:     (currVal - prevVal) / timeDiff,
+					Value:     (delta / timeDiff) * float64(perSeconds),
 					Timestamp: item.Timestamp,
 				}, nil
 			},

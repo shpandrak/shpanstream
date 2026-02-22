@@ -75,7 +75,14 @@ func parseDeltaFilter(deltaFilter ApiDeltaFilter) (datasource.Filter, error) {
 }
 
 func parseRateFilter(rateFilter ApiRateFilter) (datasource.Filter, error) {
-	return datasource.NewRateFilter(rateFilter.OverrideUnit), nil
+	if rateFilter.MaxCounterValue > 0 && !rateFilter.NonNegative {
+		return nil, badInputErrorf(rateFilter, "maxCounterValue can only be used when nonNegative is true")
+	}
+	var perSeconds int
+	if rateFilter.PerSeconds != nil {
+		perSeconds = *rateFilter.PerSeconds
+	}
+	return datasource.NewRateFilter(rateFilter.OverrideUnit, perSeconds, rateFilter.NonNegative, rateFilter.MaxCounterValue), nil
 }
 
 func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.AlignerFilter, error) {
