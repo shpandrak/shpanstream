@@ -355,6 +355,21 @@ components:
           description: Maximum counter value for wraparound detection. Only used when nonNegative is true. When set, counter resets compute delta as (maxCounterValue - previous + current).
           x-go-type-skip-optional-pointer: true
 
+    ApiTimestampExtractComponent:
+      type: string
+      x-go-type: tsquery.TimestampExtractComponent
+      x-go-import: "github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
+      enum:
+        - year
+        - quarter
+        - month
+        - dayOfYear
+        - dayOfMonth
+        - dayOfWeek
+        - hour
+        - minute
+        - epochMillis
+
     ApiQueryFieldValue:
       type: object
       discriminator:
@@ -370,6 +385,8 @@ components:
           numericExpression: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
           unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
           nil: '#/components/schemas/ApiNilQueryFieldValue'
+          rowTimestamp: '#/components/schemas/ApiRowTimestampQueryFieldValue'
+          timestampExtract: '#/components/schemas/ApiTimestampExtractQueryFieldValue'
       oneOf:
         - $ref: '#/components/schemas/ApiConstantQueryFieldValue'
         - $ref: '#/components/schemas/ApiConditionQueryFieldValue'
@@ -381,6 +398,8 @@ components:
         - $ref: '#/components/schemas/ApiNumericExpressionQueryFieldValue'
         - $ref: '#/components/schemas/ApiUnaryNumericOperatorQueryFieldValue'
         - $ref: '#/components/schemas/ApiNilQueryFieldValue'
+        - $ref: '#/components/schemas/ApiRowTimestampQueryFieldValue'
+        - $ref: '#/components/schemas/ApiTimestampExtractQueryFieldValue'
 
     ApiConstantQueryFieldValue:
       type: object
@@ -608,6 +627,38 @@ components:
           type: string
           x-go-type-skip-optional-pointer: true
 
+    ApiRowTimestampQueryFieldValue:
+      type: object
+      description: Returns the record's timestamp as a timestamp-typed value.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - rowTimestamp
+
+    ApiTimestampExtractQueryFieldValue:
+      type: object
+      description: Extracts a calendar component from a timestamp-typed source field.
+      required:
+        - type
+        - source
+        - component
+        - zoneId
+      properties:
+        type:
+          type: string
+          enum:
+            - timestampExtract
+        source:
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+        component:
+          $ref: '#/components/schemas/ApiTimestampExtractComponent'
+        zoneId:
+          type: string
+          format: zone-id
+
     ApiReductionType:
       type: string
       x-go-type: tsquery.ReductionType
@@ -738,6 +789,8 @@ components:
           unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorReportFieldValue'
           reduce: '#/components/schemas/ApiReduceReportFieldValue'
           nil: '#/components/schemas/ApiNilReportFieldValue'
+          rowTimestamp: '#/components/schemas/ApiRowTimestampReportFieldValue'
+          timestampExtract: '#/components/schemas/ApiTimestampExtractReportFieldValue'
       oneOf:
         - $ref: '#/components/schemas/ApiConstantReportFieldValue'
         - $ref: '#/components/schemas/ApiConditionReportFieldValue'
@@ -750,6 +803,8 @@ components:
         - $ref: '#/components/schemas/ApiUnaryNumericOperatorReportFieldValue'
         - $ref: '#/components/schemas/ApiReduceReportFieldValue'
         - $ref: '#/components/schemas/ApiNilReportFieldValue'
+        - $ref: '#/components/schemas/ApiRowTimestampReportFieldValue'
+        - $ref: '#/components/schemas/ApiTimestampExtractReportFieldValue'
 
     ApiConstantReportFieldValue:
       type: object
@@ -953,6 +1008,38 @@ components:
         unit:
           type: string
           x-go-type-skip-optional-pointer: true
+
+    ApiRowTimestampReportFieldValue:
+      type: object
+      description: Returns the record's timestamp as a timestamp-typed value.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - rowTimestamp
+
+    ApiTimestampExtractReportFieldValue:
+      type: object
+      description: Extracts a calendar component from a timestamp-typed source field.
+      required:
+        - type
+        - source
+        - component
+        - zoneId
+      properties:
+        type:
+          type: string
+          enum:
+            - timestampExtract
+        source:
+          $ref: '#/components/schemas/ApiReportFieldValue'
+        component:
+          $ref: '#/components/schemas/ApiTimestampExtractComponent'
+        zoneId:
+          type: string
+          format: zone-id
 
     # FromReport Query Datasource - extracts a single field from a report datasource
     ApiFromReportQueryDatasource:

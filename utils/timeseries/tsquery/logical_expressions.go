@@ -1,6 +1,9 @@
 package tsquery
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type ConditionOperatorType string
 
@@ -81,6 +84,31 @@ func notEqualsBoolean(v1, v2 any) bool {
 	return v1.(bool) != v2.(bool)
 }
 
+// Timestamp comparison operations
+func equalsTimestamp(v1, v2 any) bool {
+	return v1.(time.Time).Equal(v2.(time.Time))
+}
+
+func notEqualsTimestamp(v1, v2 any) bool {
+	return !v1.(time.Time).Equal(v2.(time.Time))
+}
+
+func greaterThanTimestamp(v1, v2 any) bool {
+	return v1.(time.Time).After(v2.(time.Time))
+}
+
+func lessThanTimestamp(v1, v2 any) bool {
+	return v1.(time.Time).Before(v2.(time.Time))
+}
+
+func greaterEqualTimestamp(v1, v2 any) bool {
+	return !v1.(time.Time).Before(v2.(time.Time))
+}
+
+func lessEqualTimestamp(v1, v2 any) bool {
+	return !v1.(time.Time).After(v2.(time.Time))
+}
+
 func (co ConditionOperatorType) GetFuncImpl(forDataType DataType) (func(v1, v2 any) bool, error) {
 	switch forDataType {
 	case DataTypeInteger:
@@ -134,6 +162,23 @@ func (co ConditionOperatorType) GetFuncImpl(forDataType DataType) (func(v1, v2 a
 			return notEqualsBoolean, nil
 		default:
 			return nil, fmt.Errorf("operator %s is not supported for non-numeric type %s. Only equals and not_equals are supported", co, forDataType)
+		}
+	case DataTypeTimestamp:
+		switch co {
+		case ConditionOperatorEquals:
+			return equalsTimestamp, nil
+		case ConditionOperatorNotEquals:
+			return notEqualsTimestamp, nil
+		case ConditionOperatorGreaterThan:
+			return greaterThanTimestamp, nil
+		case ConditionOperatorLessThan:
+			return lessThanTimestamp, nil
+		case ConditionOperatorGreaterEqual:
+			return greaterEqualTimestamp, nil
+		case ConditionOperatorLessEqual:
+			return lessEqualTimestamp, nil
+		default:
+			return nil, fmt.Errorf("unsupported condition operator %s for data type %s", co, forDataType)
 		}
 	}
 	return nil, fmt.Errorf("unsupported data type %s for condition operations", forDataType)

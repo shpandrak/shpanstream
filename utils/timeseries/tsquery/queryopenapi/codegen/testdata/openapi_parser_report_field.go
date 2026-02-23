@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
+	"time"
 )
 
 // ParseReportField parses an ApiReportFieldValue into a report.Value
@@ -35,6 +36,10 @@ func ParseReportField(pCtx *ParsingContext, reportField ApiReportFieldValue) (re
 		return parseReduceReportFieldValue(typedField)
 	case ApiNilReportFieldValue:
 		return parseNilReportFieldValue(typedField)
+	case ApiRowTimestampReportFieldValue:
+		return report.NewRowTimestampFieldValue(), nil
+	case ApiTimestampExtractReportFieldValue:
+		return parseTimestampExtractReportFieldValue(pCtx, typedField)
 	default:
 		return wrapAndReturnReportField(pCtx.plugin.ParseReportFieldValue(pCtx, reportField))("failed parsing report field with plugin parser")
 	}
@@ -163,6 +168,21 @@ func parseNilReportFieldValue(nrf ApiNilReportFieldValue) (report.Value, error) 
 		Unit:     nrf.Unit,
 	}
 	return report.NewConstantFieldValue(valueMeta, nil), nil
+}
+
+func parseTimestampExtractReportFieldValue(
+	pCtx *ParsingContext,
+	tef ApiTimestampExtractReportFieldValue,
+) (report.Value, error) {
+	source, err := ParseReportField(pCtx, tef.Source)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse source field for timestampExtract: %w", err)
+	}
+	location, err := time.LoadLocation(tef.ZoneId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load timezone %q for timestampExtract: %w", tef.ZoneId, err)
+	}
+	return report.NewTimestampExtractFieldValue(source, tef.Component, location), nil
 }
 
 // wrapAndReturnReportField is a helper function to wrap errors for report field values

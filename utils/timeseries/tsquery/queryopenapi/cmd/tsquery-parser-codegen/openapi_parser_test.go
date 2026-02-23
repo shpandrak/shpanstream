@@ -2489,3 +2489,153 @@ func TestParseReductionDatasource_WithAlignerFillMode(t *testing.T) {
 	assert.InDelta(t, 30.0, records[2].Value.(float64), 0.01)
 	assert.Equal(t, 40.0, records[3].Value)
 }
+
+// =====================
+// Timestamp Field Value Tests
+// =====================
+
+func TestParseRowTimestampFieldValue(t *testing.T) {
+	baseTime := time.Date(2025, 6, 16, 14, 30, 0, 0, time.UTC)
+
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeInteger,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 200},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Create rowTimestamp field value
+	var rowTsField ApiQueryFieldValue
+	require.NoError(t, rowTsField.FromApiRowTimestampQueryFieldValue(ApiRowTimestampQueryFieldValue{}))
+
+	// Create a condition: rowTimestamp equals the baseTime (as constant)
+	var constantTsField ApiQueryFieldValue
+	require.NoError(t, constantTsField.FromApiConstantQueryFieldValue(ApiConstantQueryFieldValue{
+		DataType:   tsquery.DataTypeTimestamp,
+		Required:   true,
+		FieldValue: baseTime.Format(time.RFC3339),
+	}))
+
+	var conditionField ApiQueryFieldValue
+	require.NoError(t, conditionField.FromApiConditionQueryFieldValue(ApiConditionQueryFieldValue{
+		OperatorType: tsquery.ConditionOperatorEquals,
+		Operand1:     rowTsField,
+		Operand2:     constantTsField,
+	}))
+
+	var conditionFilter ApiQueryFilter
+	require.NoError(t, conditionFilter.FromApiConditionFilter(ApiConditionFilter{
+		BooleanField: conditionField,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{conditionFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	// Only the first record matches the exact timestamp
+	require.Len(t, records, 1)
+	assert.Equal(t, baseTime, records[0].Timestamp)
+}
+
+func TestParseTimestampExtractFieldValue(t *testing.T) {
+	// Create data with known timestamps: Mon-Sun
+	baseTime := time.Date(2025, 6, 16, 10, 0, 0, 0, time.UTC) // Monday
+
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeInteger,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 1},                          // Mon
+			{Timestamp: baseTime.Add(24 * time.Hour), Value: 2},      // Tue
+			{Timestamp: baseTime.Add(48 * time.Hour), Value: 3},      // Wed
+			{Timestamp: baseTime.Add(72 * time.Hour), Value: 4},      // Thu
+			{Timestamp: baseTime.Add(96 * time.Hour), Value: 5},      // Fri
+			{Timestamp: baseTime.Add(120 * time.Hour), Value: 6},     // Sat
+			{Timestamp: baseTime.Add(144 * time.Hour), Value: 7},     // Sun
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Build timestampExtract(rowTimestamp, dayOfWeek, UTC) <= 5  (weekdays only)
+	var rowTsField ApiQueryFieldValue
+	require.NoError(t, rowTsField.FromApiRowTimestampQueryFieldValue(ApiRowTimestampQueryFieldValue{}))
+
+	var extractField ApiQueryFieldValue
+	require.NoError(t, extractField.FromApiTimestampExtractQueryFieldValue(ApiTimestampExtractQueryFieldValue{
+		Source:    rowTsField,
+		Component: tsquery.TimestampExtractDayOfWeek,
+		ZoneId:    "UTC",
+	}))
+
+	var constantField ApiQueryFieldValue
+	require.NoError(t, constantField.FromApiConstantQueryFieldValue(ApiConstantQueryFieldValue{
+		DataType:   tsquery.DataTypeInteger,
+		Required:   true,
+		FieldValue: 5,
+	}))
+
+	var conditionField ApiQueryFieldValue
+	require.NoError(t, conditionField.FromApiConditionQueryFieldValue(ApiConditionQueryFieldValue{
+		OperatorType: tsquery.ConditionOperatorLessEqual,
+		Operand1:     extractField,
+		Operand2:     constantField,
+	}))
+
+	var conditionFilter ApiQueryFilter
+	require.NoError(t, conditionFilter.FromApiConditionFilter(ApiConditionFilter{
+		BooleanField: conditionField,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{conditionFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(168*time.Hour))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	// Only weekdays (Mon-Fri) should pass
+	require.Len(t, records, 5)
+	for _, rec := range records {
+		day := rec.Timestamp.Weekday()
+		assert.NotEqual(t, time.Saturday, day)
+		assert.NotEqual(t, time.Sunday, day)
+	}
+}

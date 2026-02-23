@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
+	"time"
 )
 
 func ParseQueryField(pCtx *ParsingContext, queryField ApiQueryFieldValue) (datasource.Value, error) {
@@ -34,6 +35,10 @@ func ParseQueryField(pCtx *ParsingContext, queryField ApiQueryFieldValue) (datas
 		return parseUnaryNumericOperatorQueryFieldValue(pCtx, typedField)
 	case ApiNilQueryFieldValue:
 		return parseNilQueryFieldValue(typedField)
+	case ApiRowTimestampQueryFieldValue:
+		return datasource.NewRowTimestampFieldValue(), nil
+	case ApiTimestampExtractQueryFieldValue:
+		return parseTimestampExtractQueryFieldValue(pCtx, typedField)
 	default:
 		return wrapAndReturn(pCtx.plugin.ParseFieldValue(pCtx, queryField))("failed parsing query field with plugin parser")
 
@@ -157,4 +162,19 @@ func parseNilQueryFieldValue(nqf ApiNilQueryFieldValue) (datasource.Value, error
 		Unit:     nqf.Unit,
 	}
 	return datasource.NewConstantFieldValue(valueMeta, nil), nil
+}
+
+func parseTimestampExtractQueryFieldValue(
+	pCtx *ParsingContext,
+	tef ApiTimestampExtractQueryFieldValue,
+) (datasource.Value, error) {
+	source, err := ParseQueryField(pCtx, tef.Source)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse source field for timestampExtract: %w", err)
+	}
+	location, err := time.LoadLocation(tef.ZoneId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load timezone %q for timestampExtract: %w", tef.ZoneId, err)
+	}
+	return datasource.NewTimestampExtractFieldValue(source, tef.Component, location), nil
 }
