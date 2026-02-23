@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"reflect"
+	"time"
 )
 
 type DataType string
@@ -56,6 +57,12 @@ func (dt DataType) ValidateData(d any) error {
 		_, ok := d.(bool)
 		if !ok {
 			return fmt.Errorf("expected boolean data type, got %T", d)
+		}
+		return nil
+	case DataTypeTimestamp:
+		_, ok := d.(time.Time)
+		if !ok {
+			return fmt.Errorf("expected timestamp data type, got %T", d)
 		}
 		return nil
 	}

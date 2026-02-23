@@ -230,6 +230,16 @@ const (
 	ApiRefReportFieldValueTypeRef ApiRefReportFieldValueType = "ref"
 )
 
+// Defines values for ApiRowTimestampQueryFieldValueType.
+const (
+	ApiRowTimestampQueryFieldValueTypeRowTimestamp ApiRowTimestampQueryFieldValueType = "rowTimestamp"
+)
+
+// Defines values for ApiRowTimestampReportFieldValueType.
+const (
+	ApiRowTimestampReportFieldValueTypeRowTimestamp ApiRowTimestampReportFieldValueType = "rowTimestamp"
+)
+
 // Defines values for ApiSelectorQueryFieldValueType.
 const (
 	ApiSelectorQueryFieldValueTypeSelector ApiSelectorQueryFieldValueType = "selector"
@@ -253,6 +263,16 @@ const (
 // Defines values for ApiStaticReportDatasourceType.
 const (
 	ApiStaticReportDatasourceTypeStatic ApiStaticReportDatasourceType = "static"
+)
+
+// Defines values for ApiTimestampExtractQueryFieldValueType.
+const (
+	ApiTimestampExtractQueryFieldValueTypeTimestampExtract ApiTimestampExtractQueryFieldValueType = "timestampExtract"
+)
+
+// Defines values for ApiTimestampExtractReportFieldValueType.
+const (
+	ApiTimestampExtractReportFieldValueTypeTimestampExtract ApiTimestampExtractReportFieldValueType = "timestampExtract"
 )
 
 // Defines values for ApiUnaryNumericOperatorQueryFieldValueType.
@@ -815,6 +835,22 @@ type ApiReportMultiDatasource struct {
 	union json.RawMessage
 }
 
+// ApiRowTimestampQueryFieldValue Returns the record's timestamp as a timestamp-typed value.
+type ApiRowTimestampQueryFieldValue struct {
+	Type ApiRowTimestampQueryFieldValueType `json:"type"`
+}
+
+// ApiRowTimestampQueryFieldValueType defines model for ApiRowTimestampQueryFieldValue.Type.
+type ApiRowTimestampQueryFieldValueType string
+
+// ApiRowTimestampReportFieldValue Returns the record's timestamp as a timestamp-typed value.
+type ApiRowTimestampReportFieldValue struct {
+	Type ApiRowTimestampReportFieldValueType `json:"type"`
+}
+
+// ApiRowTimestampReportFieldValueType defines model for ApiRowTimestampReportFieldValue.Type.
+type ApiRowTimestampReportFieldValueType string
+
 // ApiSelectorQueryFieldValue defines model for ApiSelectorQueryFieldValue.
 type ApiSelectorQueryFieldValue struct {
 	FalseField           ApiQueryFieldValue             `json:"falseField"`
@@ -867,6 +903,31 @@ type ApiStaticReportDatasource struct {
 
 // ApiStaticReportDatasourceType defines model for ApiStaticReportDatasource.Type.
 type ApiStaticReportDatasourceType string
+
+// ApiTimestampExtractComponent defines model for ApiTimestampExtractComponent.
+type ApiTimestampExtractComponent = tsquery.TimestampExtractComponent
+
+// ApiTimestampExtractQueryFieldValue Extracts a calendar component from a timestamp-typed source field.
+type ApiTimestampExtractQueryFieldValue struct {
+	Component ApiTimestampExtractComponent           `json:"component"`
+	Source    ApiQueryFieldValue                     `json:"source"`
+	Type      ApiTimestampExtractQueryFieldValueType `json:"type"`
+	ZoneId    string                                 `json:"zoneId"`
+}
+
+// ApiTimestampExtractQueryFieldValueType defines model for ApiTimestampExtractQueryFieldValue.Type.
+type ApiTimestampExtractQueryFieldValueType string
+
+// ApiTimestampExtractReportFieldValue Extracts a calendar component from a timestamp-typed source field.
+type ApiTimestampExtractReportFieldValue struct {
+	Component ApiTimestampExtractComponent            `json:"component"`
+	Source    ApiReportFieldValue                     `json:"source"`
+	Type      ApiTimestampExtractReportFieldValueType `json:"type"`
+	ZoneId    string                                  `json:"zoneId"`
+}
+
+// ApiTimestampExtractReportFieldValueType defines model for ApiTimestampExtractReportFieldValue.Type.
+type ApiTimestampExtractReportFieldValueType string
 
 // ApiUnaryNumericOperatorQueryFieldValue defines model for ApiUnaryNumericOperatorQueryFieldValue.
 type ApiUnaryNumericOperatorQueryFieldValue struct {
@@ -1285,6 +1346,38 @@ func (t *ApiQueryFieldValue) FromApiNilQueryFieldValue(v ApiNilQueryFieldValue) 
 }
 
 
+// AsApiRowTimestampQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiRowTimestampQueryFieldValue
+func (t ApiQueryFieldValue) AsApiRowTimestampQueryFieldValue() (ApiRowTimestampQueryFieldValue, error) {
+	var body ApiRowTimestampQueryFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiRowTimestampQueryFieldValue overwrites any union data inside the ApiQueryFieldValue as the provided ApiRowTimestampQueryFieldValue
+func (t *ApiQueryFieldValue) FromApiRowTimestampQueryFieldValue(v ApiRowTimestampQueryFieldValue) error {
+	v.Type = "rowTimestamp"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiTimestampExtractQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiTimestampExtractQueryFieldValue
+func (t ApiQueryFieldValue) AsApiTimestampExtractQueryFieldValue() (ApiTimestampExtractQueryFieldValue, error) {
+	var body ApiTimestampExtractQueryFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiTimestampExtractQueryFieldValue overwrites any union data inside the ApiQueryFieldValue as the provided ApiTimestampExtractQueryFieldValue
+func (t *ApiQueryFieldValue) FromApiTimestampExtractQueryFieldValue(v ApiTimestampExtractQueryFieldValue) error {
+	v.Type = "timestampExtract"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiQueryFieldValue) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1315,8 +1408,12 @@ func (t ApiQueryFieldValue) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiNvlQueryFieldValue()
 	case "ref":
 		return t.AsApiRefQueryFieldValue()
+	case "rowTimestamp":
+		return t.AsApiRowTimestampQueryFieldValue()
 	case "selector":
 		return t.AsApiSelectorQueryFieldValue()
+	case "timestampExtract":
+		return t.AsApiTimestampExtractQueryFieldValue()
 	case "unaryNumericOperator":
 		return t.AsApiUnaryNumericOperatorQueryFieldValue()
 	default:
@@ -1748,6 +1845,38 @@ func (t *ApiReportFieldValue) FromApiNilReportFieldValue(v ApiNilReportFieldValu
 }
 
 
+// AsApiRowTimestampReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiRowTimestampReportFieldValue
+func (t ApiReportFieldValue) AsApiRowTimestampReportFieldValue() (ApiRowTimestampReportFieldValue, error) {
+	var body ApiRowTimestampReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiRowTimestampReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiRowTimestampReportFieldValue
+func (t *ApiReportFieldValue) FromApiRowTimestampReportFieldValue(v ApiRowTimestampReportFieldValue) error {
+	v.Type = "rowTimestamp"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiTimestampExtractReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiTimestampExtractReportFieldValue
+func (t ApiReportFieldValue) AsApiTimestampExtractReportFieldValue() (ApiTimestampExtractReportFieldValue, error) {
+	var body ApiTimestampExtractReportFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiTimestampExtractReportFieldValue overwrites any union data inside the ApiReportFieldValue as the provided ApiTimestampExtractReportFieldValue
+func (t *ApiReportFieldValue) FromApiTimestampExtractReportFieldValue(v ApiTimestampExtractReportFieldValue) error {
+	v.Type = "timestampExtract"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiReportFieldValue) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1780,8 +1909,12 @@ func (t ApiReportFieldValue) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiReduceReportFieldValue()
 	case "ref":
 		return t.AsApiRefReportFieldValue()
+	case "rowTimestamp":
+		return t.AsApiRowTimestampReportFieldValue()
 	case "selector":
 		return t.AsApiSelectorReportFieldValue()
+	case "timestampExtract":
+		return t.AsApiTimestampExtractReportFieldValue()
 	case "unaryNumericOperator":
 		return t.AsApiUnaryNumericOperatorReportFieldValue()
 	default:
