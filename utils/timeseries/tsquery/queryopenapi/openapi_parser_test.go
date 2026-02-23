@@ -1365,6 +1365,45 @@ func TestParseDatasource_CustomAlignmentPeriod(t *testing.T) {
 	assert.Greater(t, len(records), 0, "Custom alignment period should produce records")
 }
 
+func TestParseCustomAlignmentPeriod_WithOffset(t *testing.T) {
+	period := ApiCustomAlignmentPeriod{
+		ZoneId:           "UTC",
+		DurationInMillis: 3600000,  // 1 hour
+		OffsetInMillis:   900000,   // 15 minutes
+	}
+	ap, err := parseCustomAlignmentPeriod(period)
+	require.NoError(t, err)
+
+	// A time at 00:30 should align to 00:15 (bucket is 00:15–01:15)
+	got := ap.GetStartTime(time.Date(2024, 1, 1, 0, 30, 0, 0, time.UTC))
+	require.Equal(t, time.Date(2024, 1, 1, 0, 15, 0, 0, time.UTC), got)
+}
+
+func TestParseCustomAlignmentPeriod_NegativeOffsetRejected(t *testing.T) {
+	period := ApiCustomAlignmentPeriod{
+		ZoneId:           "UTC",
+		DurationInMillis: 3600000, // 1 hour
+		OffsetInMillis:   -1,
+	}
+	_, err := parseCustomAlignmentPeriod(period)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "offsetInMillis must be non-negative")
+}
+
+func TestParseCustomAlignmentPeriod_ZeroOffsetValid(t *testing.T) {
+	period := ApiCustomAlignmentPeriod{
+		ZoneId:           "UTC",
+		DurationInMillis: 3600000, // 1 hour
+		OffsetInMillis:   0,
+	}
+	ap, err := parseCustomAlignmentPeriod(period)
+	require.NoError(t, err)
+
+	// Should behave like no offset
+	got := ap.GetStartTime(time.Date(2024, 1, 1, 0, 30, 0, 0, time.UTC))
+	require.Equal(t, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), got)
+}
+
 // ========================================
 // Delta and Rate Filter Tests
 // ========================================

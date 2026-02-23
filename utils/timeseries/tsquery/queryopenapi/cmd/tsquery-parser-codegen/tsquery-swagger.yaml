@@ -235,6 +235,10 @@ components:
           type: integer
           format: int64
           minimum: 1
+        offsetInMillis:
+          type: integer
+          format: int64
+          x-go-type-skip-optional-pointer: true
 
     ApiAddFieldMeta:
       type: object

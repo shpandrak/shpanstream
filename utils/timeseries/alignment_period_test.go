@@ -127,6 +127,73 @@ func TestAlignedTimestampsStream_MonthPeriod(t *testing.T) {
 	require.Equal(t, expected, timestamps)
 }
 
+func TestFixedAlignmentPeriod_OffsetShiftsBuckets(t *testing.T) {
+	// 1h duration + 15min offset → buckets at :15, 1:15, 2:15, ...
+	ap := NewFixedAlignmentPeriodWithOffset(time.Hour, 15*time.Minute, time.UTC)
+
+	// A time at 00:30 should fall in the bucket starting at 00:15
+	got := ap.GetStartTime(time.Date(2024, 1, 1, 0, 30, 0, 0, time.UTC))
+	require.Equal(t, time.Date(2024, 1, 1, 0, 15, 0, 0, time.UTC), got)
+
+	// A time at 01:00 should still be in the 00:15 bucket (ends at 01:15)
+	got = ap.GetStartTime(time.Date(2024, 1, 1, 1, 0, 0, 0, time.UTC))
+	require.Equal(t, time.Date(2024, 1, 1, 0, 15, 0, 0, time.UTC), got)
+
+	// A time at 01:15 exactly should start a new bucket
+	got = ap.GetStartTime(time.Date(2024, 1, 1, 1, 15, 0, 0, time.UTC))
+	require.Equal(t, time.Date(2024, 1, 1, 1, 15, 0, 0, time.UTC), got)
+
+	// End time for bucket starting at 00:15 should be 01:15
+	got = ap.GetEndTime(time.Date(2024, 1, 1, 0, 30, 0, 0, time.UTC))
+	require.Equal(t, time.Date(2024, 1, 1, 1, 15, 0, 0, time.UTC), got)
+}
+
+func TestFixedAlignmentPeriod_ZeroOffsetMatchesNoOffset(t *testing.T) {
+	apNoOffset := NewFixedAlignmentPeriod(time.Hour, time.UTC)
+	apZeroOffset := NewFixedAlignmentPeriodWithOffset(time.Hour, 0, time.UTC)
+
+	testTimes := []time.Time{
+		time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2024, 1, 1, 0, 30, 0, 0, time.UTC),
+		time.Date(2024, 1, 1, 12, 45, 0, 0, time.UTC),
+		time.Date(2024, 6, 15, 23, 59, 59, 0, time.UTC),
+	}
+	for _, tt := range testTimes {
+		require.Equal(t, apNoOffset.GetStartTime(tt), apZeroOffset.GetStartTime(tt), "mismatch for %v", tt)
+		require.Equal(t, apNoOffset.GetEndTime(tt), apZeroOffset.GetEndTime(tt), "mismatch for %v", tt)
+	}
+}
+
+func TestFixedAlignmentPeriod_OffsetNormalization(t *testing.T) {
+	// offset >= duration should wrap: 75min offset with 1h duration → 15min offset
+	ap := NewFixedAlignmentPeriodWithOffset(time.Hour, 75*time.Minute, time.UTC)
+	apExpected := NewFixedAlignmentPeriodWithOffset(time.Hour, 15*time.Minute, time.UTC)
+
+	tt := time.Date(2024, 1, 1, 0, 30, 0, 0, time.UTC)
+	require.Equal(t, apExpected.GetStartTime(tt), ap.GetStartTime(tt))
+	require.Equal(t, apExpected.GetEndTime(tt), ap.GetEndTime(tt))
+}
+
+func TestAlignedTimestampsStream_WithOffset(t *testing.T) {
+	// 6h duration + 3h offset → buckets at 03:00, 09:00, 15:00, 21:00
+	ap := NewFixedAlignmentPeriodWithOffset(6*time.Hour, 3*time.Hour, time.UTC)
+	from := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
+
+	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
+	require.NoError(t, err)
+	require.Len(t, timestamps, 5)
+
+	expected := []time.Time{
+		time.Date(2023, 12, 31, 21, 0, 0, 0, time.UTC), // previous day 21:00
+		time.Date(2024, 1, 1, 3, 0, 0, 0, time.UTC),
+		time.Date(2024, 1, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC),
+		time.Date(2024, 1, 1, 21, 0, 0, 0, time.UTC),
+	}
+	require.Equal(t, expected, timestamps)
+}
+
 func TestAlignedTimestampsStream_ContextCancellation(t *testing.T) {
 	// Test that stream respects context cancellation
 	ap := NewFixedAlignmentPeriod(time.Minute, time.UTC)

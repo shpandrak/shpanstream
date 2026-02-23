@@ -78,6 +78,21 @@ func NewFixedAlignmentPeriod(duration time.Duration, location *time.Location) Al
 	return FixedAlignmentPeriod{Duration: duration, Location: location}
 }
 
+func NewFixedAlignmentPeriodWithOffset(duration, offset time.Duration, location *time.Location) AlignmentPeriod {
+	if duration <= 0 {
+		panic("invalid fixed duration for alignment of timeseries stream")
+	}
+	if location == nil {
+		location = time.UTC
+	}
+	// Normalize offset to [0, duration)
+	offset = offset % duration
+	if offset < 0 {
+		offset += duration
+	}
+	return FixedAlignmentPeriod{Duration: duration, Offset: offset, Location: location}
+}
+
 type DayAlignmentPeriod struct {
 	*time.Location
 }
@@ -99,15 +114,16 @@ type HalfYearAlignmentPeriod struct {
 
 type FixedAlignmentPeriod struct {
 	Duration time.Duration
+	Offset   time.Duration
 	Location *time.Location
 }
 
 func (f FixedAlignmentPeriod) GetStartTime(t time.Time) time.Time {
 	t = t.In(f.Location)
 	epoch := time.Date(1970, 1, 1, 0, 0, 0, 0, f.Location)
-	since := t.Sub(epoch)
+	since := t.Sub(epoch) - f.Offset
 	aligned := since.Truncate(f.Duration)
-	return epoch.Add(aligned)
+	return epoch.Add(aligned + f.Offset)
 }
 
 func (f FixedAlignmentPeriod) GetEndTime(t time.Time) time.Time {
