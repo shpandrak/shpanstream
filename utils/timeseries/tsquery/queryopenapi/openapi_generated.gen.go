@@ -423,6 +423,7 @@ type ApiConstantReportFieldValueType string
 // ApiCustomAlignmentPeriod defines model for ApiCustomAlignmentPeriod.
 type ApiCustomAlignmentPeriod struct {
 	DurationInMillis int64                        `json:"durationInMillis"`
+	OffsetInMillis   int64                        `json:"offsetInMillis,omitempty"`
 	Type             ApiCustomAlignmentPeriodType `json:"type"`
 	ZoneId           string                       `json:"zoneId"`
 }

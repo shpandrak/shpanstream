@@ -154,7 +154,15 @@ func parseCustomAlignmentPeriod(period ApiCustomAlignmentPeriod) (timeseries.Ali
 	if period.DurationInMillis <= 0 {
 		return nil, badInputErrorf(period, "duration must be positive")
 	}
-	return timeseries.NewFixedAlignmentPeriod(time.Duration(period.DurationInMillis)*time.Millisecond, loc), nil
+	if period.OffsetInMillis < 0 {
+		return nil, badInputErrorf(period, "offsetInMillis must be non-negative")
+	}
+	duration := time.Duration(period.DurationInMillis) * time.Millisecond
+	if period.OffsetInMillis > 0 {
+		offset := time.Duration(period.OffsetInMillis) * time.Millisecond
+		return timeseries.NewFixedAlignmentPeriodWithOffset(duration, offset, loc), nil
+	}
+	return timeseries.NewFixedAlignmentPeriod(duration, loc), nil
 }
 
 func ParseAddFieldMeta(apiMeta ApiAddFieldMeta) tsquery.AddFieldMeta {

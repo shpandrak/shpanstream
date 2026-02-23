@@ -91,7 +91,7 @@ Time to unleash the power of functional style stream-processing for Gophers!
 ## 🚀 Install
 
 ```sh
-go get github.com/shpandrak/shpanstream@v0.3.16
+go get github.com/shpandrak/shpanstream@v0.4.30
 ```
 
 ## Examples
