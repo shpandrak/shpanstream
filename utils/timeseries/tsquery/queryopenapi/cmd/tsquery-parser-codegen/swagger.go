@@ -20,6 +20,7 @@ var baseDiscriminatedTypes = []string{
 	"ApiReportDatasource",
 	"ApiReportMultiDatasource",
 	"ApiReportFilter",
+	"ApiAggregation",
 }
 
 func processSwaggerFile(swaggerPath string) error {
@@ -180,7 +181,8 @@ func extractBuiltInDiscriminators(baseSchemas *yaml.Node) (map[string]map[string
 // Schemas that are NOT part of the base query spec (only path/command args)
 // Note: ApiMeasurementValue IS included because it's used by query types like ApiStaticQueryDatasource
 var excludedSchemas = map[string]bool{
-	"ApiExecuteQueryCommandArgs": true,
+	"ApiExecuteQueryCommandArgs":       true,
+	"ApiExecuteAggregationCommandArgs": true,
 }
 
 func copyAllBaseSchemas(baseSchemas, userSchemas *yaml.Node) error {

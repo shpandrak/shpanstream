@@ -329,16 +329,15 @@ func TestAlignerFilter_DecimalDataType(t *testing.T) {
 	)
 }
 
-func TestAlignerFilter_ErrorOnStringDataType(t *testing.T) {
-	// Test that we get an error when trying to align string data types
-	// We need at least 2 records in different alignment periods where the second doesn't
-	// fall exactly on the boundary, to trigger interpolation
+func TestAlignerFilter_StringDataType_UsesStepFunction(t *testing.T) {
+	// Test that non-numeric types are aligned using step function (nearest value)
+	// instead of interpolation
 	fieldMeta, err := tsquery.NewFieldMeta("field", tsquery.DataTypeString, false)
 	require.NoError(t, err)
 
 	records := []timeseries.TsRecord[any]{
 		{Value: "value1", Timestamp: time.Unix(10, 0)},  // 00:00:10
-		{Value: "value2", Timestamp: time.Unix(105, 0)}, // 00:01:45 (not on boundary, will trigger interpolation)
+		{Value: "value2", Timestamp: time.Unix(105, 0)}, // 00:01:45 (not on boundary)
 	}
 
 	// Create input Result
@@ -354,22 +353,26 @@ func TestAlignerFilter_ErrorOnStringDataType(t *testing.T) {
 	// Create the aligner filter
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
-	// Apply the filter
-	_, err = alignerFilter.Filter(ctx, result)
-	require.ErrorContains(t, err, "numeric data types")
+	// Apply the filter - should succeed using step function
+	alignedResult, err := alignerFilter.Filter(ctx, result)
+	require.NoError(t, err)
 
+	// Verify aligned records use nearest value instead of interpolation
+	alignedRecords := alignedResult.Data().MustCollect()
+	require.Len(t, alignedRecords, 2)
+	require.Equal(t, "value1", alignedRecords[0].Value) // smeared to 00:00:00
+	require.Equal(t, "value2", alignedRecords[1].Value) // step function: use nearest value at 00:01:00
 }
 
-func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
-	// Test that we get an error when trying to align boolean data types
-	// We need at least 2 records in different alignment periods where the second doesn't
-	// fall exactly on the boundary, to trigger interpolation
+func TestAlignerFilter_BooleanDataType_UsesStepFunction(t *testing.T) {
+	// Test that boolean types are aligned using step function (nearest value)
+	// instead of interpolation
 	fieldMeta, err := tsquery.NewFieldMeta("field", tsquery.DataTypeBoolean, false)
 	require.NoError(t, err)
 
 	records := []timeseries.TsRecord[any]{
 		{Value: true, Timestamp: time.Unix(10, 0)},   // 00:00:10
-		{Value: false, Timestamp: time.Unix(105, 0)}, // 00:01:45 (not on boundary, will trigger interpolation)
+		{Value: false, Timestamp: time.Unix(105, 0)}, // 00:01:45 (not on boundary)
 	}
 
 	// Create input Result
@@ -385,10 +388,15 @@ func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
 	// Create the aligner filter
 	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
 
-	// Apply the filter
-	_, err = alignerFilter.Filter(ctx, result)
-	require.ErrorContains(t, err, "numeric data types")
+	// Apply the filter - should succeed using step function
+	alignedResult, err := alignerFilter.Filter(ctx, result)
+	require.NoError(t, err)
 
+	// Verify aligned records use nearest value instead of interpolation
+	alignedRecords := alignedResult.Data().MustCollect()
+	require.Len(t, alignedRecords, 2)
+	require.Equal(t, true, alignedRecords[0].Value)  // smeared to 00:00:00
+	require.Equal(t, false, alignedRecords[1].Value) // step function: use nearest value at 00:01:00
 }
 
 // --- Test Helper Functions ---

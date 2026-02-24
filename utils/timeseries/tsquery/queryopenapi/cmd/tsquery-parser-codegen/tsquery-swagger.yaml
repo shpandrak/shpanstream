@@ -22,6 +22,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiQueryResult'
 
+  /api/commands/execute-aggregation:
+    post:
+      tags:
+        - tsQuery
+      description: Execute aggregation - collapse a time series stream to scalar values
+      operationId: executeAggregation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiExecuteAggregationCommandArgs'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiAggregationResult'
+
 
 components:
   schemas:
@@ -673,6 +692,8 @@ components:
         - min
         - max
         - count
+        - first
+        - last
 
     ApiCalendarPeriodType:
       type: string
@@ -1351,3 +1372,163 @@ components:
           items:
             type: string
             minLength: 1
+
+    # --- Aggregation types ---
+
+    ApiExecuteAggregationCommandArgs:
+      type: object
+      required:
+        - aggregation
+        - from
+        - to
+      properties:
+        aggregation:
+          $ref: '#/components/schemas/ApiAggregation'
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+
+    ApiAggregation:
+      type: object
+      description: Aggregation definition - collapses a time series stream into scalar values.
+      discriminator:
+        propertyName: type
+        mapping:
+          fromDatasource: '#/components/schemas/ApiFromDatasourceAggregation'
+          fromReport: '#/components/schemas/ApiFromReportAggregation'
+          composite: '#/components/schemas/ApiCompositeAggregation'
+      oneOf:
+        - $ref: '#/components/schemas/ApiFromDatasourceAggregation'
+        - $ref: '#/components/schemas/ApiFromReportAggregation'
+        - $ref: '#/components/schemas/ApiCompositeAggregation'
+
+    ApiFromDatasourceAggregation:
+      type: object
+      description: Aggregates a datasource stream into one or more scalar values.
+      required:
+        - type
+        - datasource
+        - fields
+      properties:
+        type:
+          type: string
+          enum:
+            - fromDatasource
+        datasource:
+          $ref: '#/components/schemas/ApiQueryDatasource'
+        fields:
+          type: array
+          description: One or more aggregations to compute (like SQL SELECT SUM(x), AVG(x)).
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ApiAggregationField'
+
+    ApiAggregationField:
+      type: object
+      description: Defines a single aggregation to compute on a datasource field.
+      required:
+        - reductionType
+      properties:
+        reductionType:
+          $ref: '#/components/schemas/ApiReductionType'
+        fieldMeta:
+          description: Optional metadata override. When omitted, metadata is auto-derived from the source field.
+          $ref: '#/components/schemas/ApiAddFieldMeta'
+        emptyValue:
+          description: Optional fallback value when stream is empty. When omitted, empty stream produces null.
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+
+    ApiFromReportAggregation:
+      type: object
+      description: Aggregates a report datasource stream into one or more scalar values, with per-field reduction.
+      required:
+        - type
+        - reportDatasource
+        - fields
+      properties:
+        type:
+          type: string
+          enum:
+            - fromReport
+        reportDatasource:
+          $ref: '#/components/schemas/ApiReportDatasource'
+        fields:
+          type: array
+          description: One or more per-field aggregations to compute.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ApiReportAggregationField'
+
+    ApiReportAggregationField:
+      type: object
+      description: Defines a single aggregation to compute on a specific report field.
+      required:
+        - reductionType
+        - sourceFieldUrn
+      properties:
+        reductionType:
+          $ref: '#/components/schemas/ApiReductionType'
+        sourceFieldUrn:
+          type: string
+          description: URN of the report field to aggregate.
+          minLength: 1
+        fieldMeta:
+          description: Optional metadata override. When omitted, metadata is auto-derived from the source report field.
+          $ref: '#/components/schemas/ApiAddFieldMeta'
+        emptyValue:
+          description: Optional fallback value when the stream is empty. When omitted, empty stream produces null.
+          $ref: '#/components/schemas/ApiQueryFieldValue'
+
+    ApiCompositeAggregation:
+      type: object
+      description: Composes multiple aggregations and concatenates their results. URNs across all sub-aggregations must be unique.
+      required:
+        - type
+        - aggregations
+      properties:
+        type:
+          type: string
+          enum:
+            - composite
+        aggregations:
+          type: array
+          description: Aggregations to execute and combine.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ApiAggregation'
+
+    ApiAggregationResult:
+      type: object
+      description: Result of an aggregation - one or more scalar values with metadata.
+      required:
+        - fields
+      properties:
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiAggregatedField'
+
+    ApiAggregatedField:
+      type: object
+      description: A single aggregated scalar value with its metadata.
+      required:
+        - meta
+        - value
+      properties:
+        meta:
+          $ref: '#/components/schemas/ApiQueryFieldMeta'
+        value:
+          description: The aggregated scalar value (typed per meta.dataType). Null if stream was empty and no emptyValue was specified.
+          x-go-type: any
+          nullable: true
+          anyOf:
+            - type: string
+            - type: number
+            - type: boolean
+        timestamp:
+          type: string
+          format: date-time
+          description: Populated for reductions with a meaningful timestamp (first, last, min, max). Null for sum, avg, count.

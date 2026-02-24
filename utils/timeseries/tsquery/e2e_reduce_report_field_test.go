@@ -70,6 +70,12 @@ type OptionalFieldMetrics struct {
 	Required2 float64
 }
 
+type StringFieldMetrics struct {
+	Timestamp time.Time
+	FieldA    string
+	FieldB    string
+}
+
 // --- Sum Tests ---
 
 func TestReduceField_SumAllFields_Decimal(t *testing.T) {
@@ -469,4 +475,43 @@ func TestReduceField_MultipleRecordsProcessedCorrectly(t *testing.T) {
 	require.Equal(t, baseTime.Add(1*time.Hour), records[1].Timestamp)
 	require.Equal(t, baseTime.Add(2*time.Hour), records[2].Timestamp)
 	require.Equal(t, baseTime.Add(3*time.Hour), records[3].Timestamp)
+}
+
+// --- First/Last with Non-Numeric Types ---
+
+func TestReduceField_FirstWithString(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	testData := []StringFieldMetrics{
+		{Timestamp: baseTime, FieldA: "alpha", FieldB: "beta"},
+		{Timestamp: baseTime.Add(1 * time.Hour), FieldA: "alpha2", FieldB: "beta2"},
+	}
+
+	result, err := createResultFromStructs(
+		stream.Just(testData...),
+		[]string{"StringFieldMetrics:FieldA", "StringFieldMetrics:FieldB"},
+		[]tsquery.DataType{tsquery.DataTypeString, tsquery.DataTypeString},
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Apply reduce field: first of all string fields
+	reduceField := report.NewReduceAllFieldValues(tsquery.ReductionTypeFirst)
+	singleFieldFilter := report.NewSingleFieldFilter(reduceField, tsquery.AddFieldMeta{Urn: "first_field"})
+
+	reducedResult, err := singleFieldFilter.Filter(ctx, result)
+	require.NoError(t, err)
+
+	// Verify metadata
+	fieldsMeta := reducedResult.FieldsMeta()
+	require.Len(t, fieldsMeta, 1)
+	require.Equal(t, "first_field", fieldsMeta[0].Urn())
+	require.Equal(t, tsquery.DataTypeString, fieldsMeta[0].DataType())
+	require.True(t, fieldsMeta[0].Required())
+
+	// Verify values - first field's value should be selected
+	records := reducedResult.Stream().MustCollect()
+	require.Len(t, records, 2)
+	require.Equal(t, "alpha", records[0].Value[0])
+	require.Equal(t, "alpha2", records[1].Value[0])
 }

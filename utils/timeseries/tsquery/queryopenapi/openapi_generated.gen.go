@@ -48,6 +48,11 @@ const (
 	ApiCastReportFieldValueTypeCast ApiCastReportFieldValueType = "cast"
 )
 
+// Defines values for ApiCompositeAggregationType.
+const (
+	ApiCompositeAggregationTypeComposite ApiCompositeAggregationType = "composite"
+)
+
 // Defines values for ApiConditionFilterType.
 const (
 	ApiConditionFilterTypeCondition ApiConditionFilterType = "condition"
@@ -118,6 +123,11 @@ const (
 	ApiFilteredReportMultiDatasourceTypeFiltered ApiFilteredReportMultiDatasourceType = "filtered"
 )
 
+// Defines values for ApiFromDatasourceAggregationType.
+const (
+	ApiFromDatasourceAggregationTypeFromDatasource ApiFromDatasourceAggregationType = "fromDatasource"
+)
+
 // Defines values for ApiFromDatasourceReportDatasourceType.
 const (
 	ApiFromDatasourceReportDatasourceTypeFromDatasource ApiFromDatasourceReportDatasourceType = "fromDatasource"
@@ -126,6 +136,11 @@ const (
 // Defines values for ApiFromMultiDatasourceReportMultiDatasourceType.
 const (
 	ApiFromMultiDatasourceReportMultiDatasourceTypeFromMultiDatasource ApiFromMultiDatasourceReportMultiDatasourceType = "fromMultiDatasource"
+)
+
+// Defines values for ApiFromReportAggregationType.
+const (
+	ApiFromReportAggregationTypeFromReport ApiFromReportAggregationType = "fromReport"
 )
 
 // Defines values for ApiFromReportQueryDatasourceType.
@@ -292,6 +307,34 @@ type ApiAddFieldMeta struct {
 	Uri            string                 `json:"uri"`
 }
 
+// ApiAggregatedField A single aggregated scalar value with its metadata.
+type ApiAggregatedField struct {
+	Meta ApiQueryFieldMeta `json:"meta"`
+
+	// Timestamp Populated for reductions with a meaningful timestamp (first, last, min, max). Null for sum, avg, count.
+	Timestamp *time.Time `json:"timestamp,omitempty"`
+
+	// Value The aggregated scalar value (typed per meta.dataType). Null if stream was empty and no emptyValue was specified.
+	Value *any `json:"value"`
+}
+
+// ApiAggregation Aggregation definition - collapses a time series stream into scalar values.
+type ApiAggregation struct {
+	union json.RawMessage
+}
+
+// ApiAggregationField Defines a single aggregation to compute on a datasource field.
+type ApiAggregationField struct {
+	EmptyValue    *ApiQueryFieldValue `json:"emptyValue,omitempty"`
+	FieldMeta     *ApiAddFieldMeta    `json:"fieldMeta,omitempty"`
+	ReductionType ApiReductionType    `json:"reductionType"`
+}
+
+// ApiAggregationResult Result of an aggregation - one or more scalar values with metadata.
+type ApiAggregationResult struct {
+	Fields []ApiAggregatedField `json:"fields"`
+}
+
 // ApiAlignerFilter defines model for ApiAlignerFilter.
 type ApiAlignerFilter struct {
 	AlignerPeriod ApiAlignmentPeriod   `json:"alignerPeriod"`
@@ -352,6 +395,16 @@ type ApiCastReportFieldValue struct {
 
 // ApiCastReportFieldValueType defines model for ApiCastReportFieldValue.Type.
 type ApiCastReportFieldValueType string
+
+// ApiCompositeAggregation Composes multiple aggregations and concatenates their results. URNs across all sub-aggregations must be unique.
+type ApiCompositeAggregation struct {
+	// Aggregations Aggregations to execute and combine.
+	Aggregations []ApiAggregation            `json:"aggregations"`
+	Type         ApiCompositeAggregationType `json:"type"`
+}
+
+// ApiCompositeAggregationType defines model for ApiCompositeAggregation.Type.
+type ApiCompositeAggregationType string
 
 // ApiConditionFilter defines model for ApiConditionFilter.
 type ApiConditionFilter struct {
@@ -456,6 +509,14 @@ type ApiDropFieldsReportFilter struct {
 // ApiDropFieldsReportFilterType defines model for ApiDropFieldsReportFilter.Type.
 type ApiDropFieldsReportFilterType string
 
+// ApiExecuteAggregationCommandArgs defines model for ApiExecuteAggregationCommandArgs.
+type ApiExecuteAggregationCommandArgs struct {
+	// Aggregation Aggregation definition - collapses a time series stream into scalar values.
+	Aggregation ApiAggregation `json:"aggregation"`
+	From        time.Time      `json:"from"`
+	To          time.Time      `json:"to"`
+}
+
 // ApiExecuteQueryCommandArgs defines model for ApiExecuteQueryCommandArgs.
 type ApiExecuteQueryCommandArgs struct {
 	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
@@ -524,6 +585,19 @@ type ApiFilteredReportMultiDatasource struct {
 // ApiFilteredReportMultiDatasourceType defines model for ApiFilteredReportMultiDatasource.Type.
 type ApiFilteredReportMultiDatasourceType string
 
+// ApiFromDatasourceAggregation Aggregates a datasource stream into one or more scalar values.
+type ApiFromDatasourceAggregation struct {
+	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
+	Datasource ApiQueryDatasource `json:"datasource"`
+
+	// Fields One or more aggregations to compute (like SQL SELECT SUM(x), AVG(x)).
+	Fields []ApiAggregationField            `json:"fields"`
+	Type   ApiFromDatasourceAggregationType `json:"type"`
+}
+
+// ApiFromDatasourceAggregationType defines model for ApiFromDatasourceAggregation.Type.
+type ApiFromDatasourceAggregationType string
+
 // ApiFromDatasourceReportDatasource Wraps a standard query datasource as a report datasource (single field).
 type ApiFromDatasourceReportDatasource struct {
 	// Datasource Datasource for query. datasource can either be a source of data (e.g. from a database or api) or a manipulation of data (e.g. filtered, reduction, etc.)
@@ -543,6 +617,19 @@ type ApiFromMultiDatasourceReportMultiDatasource struct {
 
 // ApiFromMultiDatasourceReportMultiDatasourceType defines model for ApiFromMultiDatasourceReportMultiDatasource.Type.
 type ApiFromMultiDatasourceReportMultiDatasourceType string
+
+// ApiFromReportAggregation Aggregates a report datasource stream into one or more scalar values, with per-field reduction.
+type ApiFromReportAggregation struct {
+	// Fields One or more per-field aggregations to compute.
+	Fields []ApiReportAggregationField `json:"fields"`
+
+	// ReportDatasource Report datasource that produces multiple fields per timestamp.
+	ReportDatasource ApiReportDatasource          `json:"reportDatasource"`
+	Type             ApiFromReportAggregationType `json:"type"`
+}
+
+// ApiFromReportAggregationType defines model for ApiFromReportAggregation.Type.
+type ApiFromReportAggregationType string
 
 // ApiFromReportQueryDatasource Extracts a single field from a report datasource as a standard query datasource.
 type ApiFromReportQueryDatasource struct {
@@ -808,6 +895,16 @@ type ApiRefReportFieldValue struct {
 // ApiRefReportFieldValueType defines model for ApiRefReportFieldValue.Type.
 type ApiRefReportFieldValueType string
 
+// ApiReportAggregationField Defines a single aggregation to compute on a specific report field.
+type ApiReportAggregationField struct {
+	EmptyValue    *ApiQueryFieldValue `json:"emptyValue,omitempty"`
+	FieldMeta     *ApiAddFieldMeta    `json:"fieldMeta,omitempty"`
+	ReductionType ApiReductionType    `json:"reductionType"`
+
+	// SourceFieldUrn URN of the report field to aggregate.
+	SourceFieldUrn string `json:"sourceFieldUrn"`
+}
+
 // ApiReportDatasource Report datasource that produces multiple fields per timestamp.
 type ApiReportDatasource struct {
 	union json.RawMessage
@@ -953,8 +1050,94 @@ type ApiUnaryNumericOperatorReportFieldValueType string
 // ApiUnaryNumericOperatorType defines model for ApiUnaryNumericOperatorType.
 type ApiUnaryNumericOperatorType = tsquery.UnaryNumericOperatorType
 
+// ExecuteAggregationJSONRequestBody defines body for ExecuteAggregation for application/json ContentType.
+type ExecuteAggregationJSONRequestBody = ApiExecuteAggregationCommandArgs
+
 // ExecuteQueryJSONRequestBody defines body for ExecuteQuery for application/json ContentType.
 type ExecuteQueryJSONRequestBody = ApiExecuteQueryCommandArgs
+
+// AsApiFromDatasourceAggregation returns the union data inside the ApiAggregation as a ApiFromDatasourceAggregation
+func (t ApiAggregation) AsApiFromDatasourceAggregation() (ApiFromDatasourceAggregation, error) {
+	var body ApiFromDatasourceAggregation
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiFromDatasourceAggregation overwrites any union data inside the ApiAggregation as the provided ApiFromDatasourceAggregation
+func (t *ApiAggregation) FromApiFromDatasourceAggregation(v ApiFromDatasourceAggregation) error {
+	v.Type = "fromDatasource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiFromReportAggregation returns the union data inside the ApiAggregation as a ApiFromReportAggregation
+func (t ApiAggregation) AsApiFromReportAggregation() (ApiFromReportAggregation, error) {
+	var body ApiFromReportAggregation
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiFromReportAggregation overwrites any union data inside the ApiAggregation as the provided ApiFromReportAggregation
+func (t *ApiAggregation) FromApiFromReportAggregation(v ApiFromReportAggregation) error {
+	v.Type = "fromReport"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiCompositeAggregation returns the union data inside the ApiAggregation as a ApiCompositeAggregation
+func (t ApiAggregation) AsApiCompositeAggregation() (ApiCompositeAggregation, error) {
+	var body ApiCompositeAggregation
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiCompositeAggregation overwrites any union data inside the ApiAggregation as the provided ApiCompositeAggregation
+func (t *ApiAggregation) FromApiCompositeAggregation(v ApiCompositeAggregation) error {
+	v.Type = "composite"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+func (t ApiAggregation) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ApiAggregation) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "composite":
+		return t.AsApiCompositeAggregation()
+	case "fromDatasource":
+		return t.AsApiFromDatasourceAggregation()
+	case "fromReport":
+		return t.AsApiFromReportAggregation()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ApiAggregation) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ApiAggregation) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsApiCalendarAlignmentPeriod returns the union data inside the ApiAlignmentPeriod as a ApiCalendarAlignmentPeriod
 func (t ApiAlignmentPeriod) AsApiCalendarAlignmentPeriod() (ApiCalendarAlignmentPeriod, error) {
