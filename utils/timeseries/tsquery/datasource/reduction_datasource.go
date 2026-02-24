@@ -97,10 +97,10 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 		datasourceMetas[i] = result.Meta()
 	}
 
-	// Verify all datasources have numeric, same type, and required fields
+	// Verify all datasources have same type and required fields; numeric check only for reductions that need it
 	dataType := datasourceMetas[0].DataType()
-	if dataType != tsquery.DataTypeInteger && dataType != tsquery.DataTypeDecimal {
-		return util.DefaultValue[Result](), fmt.Errorf("cannot reduce datasource %s: must be numeric (integer or decimal), got %s", datasourceMetas[0].Urn(), dataType)
+	if r.reductionType.RequiresNumeric() && dataType != tsquery.DataTypeInteger && dataType != tsquery.DataTypeDecimal {
+		return util.DefaultValue[Result](), fmt.Errorf("cannot reduce datasource %s: reduction %s requires numeric (integer or decimal), got %s", datasourceMetas[0].Urn(), r.reductionType, dataType)
 	}
 	if !datasourceMetas[0].Required() {
 		return util.DefaultValue[Result](), fmt.Errorf("cannot reduce datasource %s: must be required", datasourceMetas[0].Urn())

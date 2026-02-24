@@ -34,12 +34,16 @@ func (af AlignerFilter) FillMode() *timeseries.FillMode {
 }
 
 func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error) {
-	if !result.meta.DataType().IsNumeric() {
+	isNumeric := result.meta.DataType().IsNumeric()
+
+	// For fill mode, we require numeric types because gap-filling uses interpolation
+	if !isNumeric && af.fillMode != nil {
 		return util.DefaultValue[Result](), fmt.Errorf(
-			"aligner filter can only be applied to numeric data types, got: %s",
+			"aligner filter with fill mode can only be applied to numeric data types, got: %s",
 			result.meta.DataType(),
 		)
 	}
+
 	// Using ClusterSortedStreamComparable to group the items by the duration slot
 	alignedStream := stream.ClusterSortedStreamComparable[timeseries.TsRecord[any], timeseries.TsRecord[any], time.Time](
 		func(
@@ -65,6 +69,13 @@ func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error)
 
 				// Check if the first item is magically aligned to the slot, return it
 				if firstItem.Timestamp == clusterTimestampClassifier {
+					return timeseries.TsRecord[any]{
+						Value:     firstItem.Value,
+						Timestamp: clusterTimestampClassifier,
+					}, nil
+				} else if !isNumeric {
+					// For non-numeric types, use the nearest value (step function)
+					// instead of interpolation
 					return timeseries.TsRecord[any]{
 						Value:     firstItem.Value,
 						Timestamp: clusterTimestampClassifier,

@@ -35,6 +35,9 @@ var parserReportDatasourceFile string
 //go:embed openapi_parser_report_filter.go
 var parserReportFilterFile string
 
+//go:embed openapi_parser_aggregation.go
+var parserAggregationFile string
+
 //go:embed report_field_refs.go
 var reportFieldRefsFile string
 
@@ -58,6 +61,7 @@ var embeddedFiles = map[string]string{
 	"openapi_parser_report_field.go":       parserReportFieldFile,
 	"openapi_parser_report_datasource.go":  parserReportDatasourceFile,
 	"openapi_parser_report_filter.go":      parserReportFilterFile,
+	"openapi_parser_aggregation.go":        parserAggregationFile,
 	"report_field_refs.go":                 reportFieldRefsFile,
 	"report_field_ordering.go":             reportFieldOrderingFile,
 	"report_field_ordering_test.go":        reportFieldOrderingTestFile,

@@ -8,6 +8,7 @@ openapi_parser_test.go
 openapi_parser_report_field.go
 openapi_parser_report_datasource.go
 openapi_parser_report_filter.go
+openapi_parser_aggregation.go
 report_field_ordering.go
 report_field_ordering_test.go
 report_field_refs.go

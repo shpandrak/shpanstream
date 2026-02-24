@@ -834,3 +834,47 @@ func TestReductionDatasource_SingleDatasource_Count(t *testing.T) {
 	require.Equal(t, "datasource_count", result.Meta().Urn())
 	require.Equal(t, tsquery.DataTypeInteger, result.Meta().DataType())
 }
+
+// --- First/Last with Non-Numeric Types ---
+
+func TestReductionDatasource_FirstWithString(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	timestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+	}
+
+	// Create two string datasources
+	hostADS := createDatasource(t, "HostA", tsquery.DataTypeString, true, "",
+		timestamps, []any{"host-a", "host-a"})
+	hostBDS := createDatasource(t, "HostB", tsquery.DataTypeString, true, "",
+		timestamps, []any{"host-b", "host-b"})
+
+	// Create multi datasource
+	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{hostADS, hostBDS})
+
+	// Create reduction datasource with first + 1 hour alignment
+	reductionDS := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeFirst,
+		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		multiDS,
+		tsquery.AddFieldMeta{Urn: "first_host"},
+	)
+
+	// Execute
+	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	// Verify metadata
+	meta := result.Meta()
+	require.Equal(t, "first_host", meta.Urn())
+	require.Equal(t, tsquery.DataTypeString, meta.DataType())
+	require.True(t, meta.Required())
+
+	// Verify values - first datasource's value should be selected
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2)
+	require.Equal(t, "host-a", records[0].Value)
+	require.Equal(t, "host-a", records[1].Value)
+}

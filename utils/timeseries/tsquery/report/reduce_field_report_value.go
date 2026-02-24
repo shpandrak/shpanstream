@@ -80,10 +80,10 @@ func (r ReduceFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.Fiel
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("no fields to reduce")
 	}
 
-	// Verify all fields are numeric, of the same type, and required
+	// Verify all fields have same type and are required; numeric check only for reductions that need it
 	dataType := fieldsToReduce[0].DataType()
-	if dataType != tsquery.DataTypeInteger && dataType != tsquery.DataTypeDecimal {
-		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("cannot reduce field %s: must be numeric (integer or decimal), got %s", fieldsToReduce[0].Urn(), dataType)
+	if r.reductionType.RequiresNumeric() && dataType != tsquery.DataTypeInteger && dataType != tsquery.DataTypeDecimal {
+		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("cannot reduce field %s: reduction %s requires numeric (integer or decimal), got %s", fieldsToReduce[0].Urn(), r.reductionType, dataType)
 	}
 	if !fieldsToReduce[0].Required() {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("cannot reduce field %s: must be required", fieldsToReduce[0].Urn())
