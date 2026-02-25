@@ -189,7 +189,6 @@ components:
             required:
                 - type
                 - reductionType
-                - aligner
                 - multiDatasource
                 - fieldMeta
             properties:
@@ -200,6 +199,10 @@ components:
                 reductionType:
                     $ref: '#/components/schemas/ApiReductionType'
                 aligner:
+                    description: |
+                        Optional alignment configuration. When provided, inner datasources are aligned
+                        before reduction. When omitted, data is assumed to be already aligned.
+                        Required when emptyDatasourceValue is set (to generate aligned timestamps).
                     $ref: '#/components/schemas/ApiAlignerFilter'
                 multiDatasource:
                     $ref: '#/components/schemas/ApiMultiDatasource'

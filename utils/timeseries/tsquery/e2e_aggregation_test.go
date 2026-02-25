@@ -694,7 +694,7 @@ func TestReductionDatasource_First(t *testing.T) {
 
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeFirst,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "first_value"},
 	)
@@ -720,7 +720,7 @@ func TestReductionDatasource_Last(t *testing.T) {
 
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeLast,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "last_value"},
 	)
@@ -745,7 +745,7 @@ func TestReductionDatasource_FirstLast_SingleDatasource(t *testing.T) {
 	// First with single datasource: identity optimization
 	firstDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeFirst,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -794,7 +794,7 @@ func TestReductionDatasource_AllSevenReductions(t *testing.T) {
 			multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{ds1Int, ds2Int, ds3Int})
 			reductionDS := datasource.NewReductionDatasource(
 				rt,
-				datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+				alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 				multiDS,
 				tsquery.AddFieldMeta{Urn: "result"},
 			)

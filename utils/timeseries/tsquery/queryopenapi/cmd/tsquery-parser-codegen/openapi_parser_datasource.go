@@ -110,10 +110,14 @@ func parseReductionDatasource(
 	pCtx *ParsingContext,
 	reductionDs ApiReductionQueryDatasource,
 ) (datasource.DataSource, error) {
-	// Parse aligner filter
-	alignerFilter, err := parseAlignerFilter(reductionDs.Aligner)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse aligner for reduction datasource: %w", err)
+	// Parse aligner filter (optional — nil means "no alignment")
+	var alignerFilter *datasource.AlignerFilter
+	if reductionDs.Aligner != nil {
+		af, err := parseAlignerFilter(*reductionDs.Aligner)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse aligner for reduction datasource: %w", err)
+		}
+		alignerFilter = &af
 	}
 
 	// Parse multi datasource

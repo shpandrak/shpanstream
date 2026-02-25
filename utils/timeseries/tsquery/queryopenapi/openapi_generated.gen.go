@@ -862,7 +862,7 @@ type ApiReduceReportFieldValueType string
 
 // ApiReductionQueryDatasource defines model for ApiReductionQueryDatasource.
 type ApiReductionQueryDatasource struct {
-	Aligner              ApiAlignerFilter    `json:"aligner"`
+	Aligner              *ApiAlignerFilter   `json:"aligner,omitempty"`
 	EmptyDatasourceValue *ApiQueryFieldValue `json:"emptyDatasourceValue,omitempty"`
 	FieldMeta            ApiAddFieldMeta     `json:"fieldMeta"`
 
