@@ -694,6 +694,15 @@ components:
         - count
         - first
         - last
+        - stddev
+        - variance
+        - spread
+        - p50
+        - p75
+        - p90
+        - p95
+        - p99
+        - p999
 
     ApiCalendarPeriodType:
       type: string

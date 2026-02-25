@@ -2,19 +2,32 @@ package tsquery
 
 import (
 	"fmt"
+	"math"
+	"sort"
 	"time"
+
+	"github.com/shpandrak/shpanstream/utils/tdigest"
 )
 
 type ReductionType string
 
 const (
-	ReductionTypeSum   ReductionType = "sum"
-	ReductionTypeAvg   ReductionType = "avg"
-	ReductionTypeMin   ReductionType = "min"
-	ReductionTypeMax   ReductionType = "max"
-	ReductionTypeCount ReductionType = "count"
-	ReductionTypeFirst ReductionType = "first"
-	ReductionTypeLast  ReductionType = "last"
+	ReductionTypeSum      ReductionType = "sum"
+	ReductionTypeAvg      ReductionType = "avg"
+	ReductionTypeMin      ReductionType = "min"
+	ReductionTypeMax      ReductionType = "max"
+	ReductionTypeCount    ReductionType = "count"
+	ReductionTypeFirst    ReductionType = "first"
+	ReductionTypeLast     ReductionType = "last"
+	ReductionTypeStddev   ReductionType = "stddev"
+	ReductionTypeVariance ReductionType = "variance"
+	ReductionTypeSpread   ReductionType = "spread"
+	ReductionTypeP50      ReductionType = "p50"
+	ReductionTypeP75      ReductionType = "p75"
+	ReductionTypeP90      ReductionType = "p90"
+	ReductionTypeP95      ReductionType = "p95"
+	ReductionTypeP99      ReductionType = "p99"
+	ReductionTypeP999     ReductionType = "p999"
 )
 
 // RequiresNumeric reports whether this reduction type requires a numeric input data type.
@@ -30,23 +43,27 @@ func (reductionType ReductionType) RequiresNumeric() bool {
 
 func (reductionType ReductionType) UseIdentityWhenSingleValue() bool {
 	switch reductionType {
-	case ReductionTypeSum, ReductionTypeAvg, ReductionTypeMax, ReductionTypeMin, ReductionTypeFirst, ReductionTypeLast:
+	case ReductionTypeSum, ReductionTypeAvg, ReductionTypeMax, ReductionTypeMin, ReductionTypeFirst, ReductionTypeLast,
+		ReductionTypeP50, ReductionTypeP75, ReductionTypeP90, ReductionTypeP95, ReductionTypeP99, ReductionTypeP999:
 		return true
 	case ReductionTypeCount:
 		return false
 	default:
+		// stddev, variance, spread return false (single value → 0)
 		return false
 	}
 }
 func (reductionType ReductionType) GetResultDataType(forDataType DataType) DataType {
-	if reductionType == ReductionTypeAvg {
-		// Average always returns decimal
+	switch reductionType {
+	case ReductionTypeAvg, ReductionTypeStddev, ReductionTypeVariance,
+		ReductionTypeP50, ReductionTypeP75, ReductionTypeP90, ReductionTypeP95, ReductionTypeP99, ReductionTypeP999:
+		// These always return decimal (due to sqrt, division, or interpolation)
 		return DataTypeDecimal
-	} else if reductionType == ReductionTypeCount {
+	case ReductionTypeCount:
 		// Count always returns an integer
 		return DataTypeInteger
-	} else {
-		// Sum, Min, Max, First, Last preserve the input data type
+	default:
+		// Sum, Min, Max, First, Last, Spread preserve the input data type
 		return forDataType
 	}
 }
@@ -89,6 +106,37 @@ func (reductionType ReductionType) GetReducerFunc(forDataType DataType) (func([]
 	case ReductionTypeLast:
 		// Last returns the last value in the slice
 		return lastValue, nil
+
+	case ReductionTypeStddev:
+		if forDataType == DataTypeInteger {
+			return stddevInt, nil
+		}
+		return stddevDecimal, nil
+
+	case ReductionTypeVariance:
+		if forDataType == DataTypeInteger {
+			return varianceInt, nil
+		}
+		return varianceDecimal, nil
+
+	case ReductionTypeSpread:
+		if forDataType == DataTypeInteger {
+			return spreadInt, nil
+		}
+		return spreadDecimal, nil
+
+	case ReductionTypeP50:
+		return percentileReducerFunc(forDataType, 0.50), nil
+	case ReductionTypeP75:
+		return percentileReducerFunc(forDataType, 0.75), nil
+	case ReductionTypeP90:
+		return percentileReducerFunc(forDataType, 0.90), nil
+	case ReductionTypeP95:
+		return percentileReducerFunc(forDataType, 0.95), nil
+	case ReductionTypeP99:
+		return percentileReducerFunc(forDataType, 0.99), nil
+	case ReductionTypeP999:
+		return percentileReducerFunc(forDataType, 0.999), nil
 
 	default:
 		// This should never happen if validation is correct
@@ -230,6 +278,33 @@ func (reductionType ReductionType) NewAccumulator(forDataType DataType) (Accumul
 		return &firstAccumulator{}, nil
 	case ReductionTypeLast:
 		return &lastAccumulator{}, nil
+	case ReductionTypeStddev:
+		if forDataType == DataTypeInteger {
+			return &stddevIntAccumulator{}, nil
+		}
+		return &stddevDecimalAccumulator{}, nil
+	case ReductionTypeVariance:
+		if forDataType == DataTypeInteger {
+			return &varianceIntAccumulator{}, nil
+		}
+		return &varianceDecimalAccumulator{}, nil
+	case ReductionTypeSpread:
+		if forDataType == DataTypeInteger {
+			return &spreadIntAccumulator{}, nil
+		}
+		return &spreadDecimalAccumulator{}, nil
+	case ReductionTypeP50:
+		return newPercentileAccumulator(forDataType, 0.50), nil
+	case ReductionTypeP75:
+		return newPercentileAccumulator(forDataType, 0.75), nil
+	case ReductionTypeP90:
+		return newPercentileAccumulator(forDataType, 0.90), nil
+	case ReductionTypeP95:
+		return newPercentileAccumulator(forDataType, 0.95), nil
+	case ReductionTypeP99:
+		return newPercentileAccumulator(forDataType, 0.99), nil
+	case ReductionTypeP999:
+		return newPercentileAccumulator(forDataType, 0.999), nil
 	default:
 		return nil, fmt.Errorf("unsupported reduction type: %s", reductionType)
 	}
@@ -543,3 +618,322 @@ func (a *lastAccumulator) ResultTimestamp() *time.Time {
 	}
 	return &a.ts
 }
+
+// --- Variance / Stddev reducer functions (Welford's algorithm) ---
+
+func varianceInt(values []any) any {
+	var mean, m2 float64
+	for i, v := range values {
+		x := float64(v.(int64))
+		delta := x - mean
+		mean += delta / float64(i+1)
+		delta2 := x - mean
+		m2 += delta * delta2
+	}
+	return m2 / float64(len(values))
+}
+
+func varianceDecimal(values []any) any {
+	var mean, m2 float64
+	for i, v := range values {
+		x := v.(float64)
+		delta := x - mean
+		mean += delta / float64(i+1)
+		delta2 := x - mean
+		m2 += delta * delta2
+	}
+	return m2 / float64(len(values))
+}
+
+func stddevInt(values []any) any {
+	return math.Sqrt(varianceInt(values).(float64))
+}
+
+func stddevDecimal(values []any) any {
+	return math.Sqrt(varianceDecimal(values).(float64))
+}
+
+// --- Spread reducer functions ---
+
+func spreadInt(values []any) any {
+	minVal := values[0].(int64)
+	maxVal := minVal
+	for i := 1; i < len(values); i++ {
+		v := values[i].(int64)
+		if v < minVal {
+			minVal = v
+		}
+		if v > maxVal {
+			maxVal = v
+		}
+	}
+	return maxVal - minVal
+}
+
+func spreadDecimal(values []any) any {
+	minVal := values[0].(float64)
+	maxVal := minVal
+	for i := 1; i < len(values); i++ {
+		v := values[i].(float64)
+		if v < minVal {
+			minVal = v
+		}
+		if v > maxVal {
+			maxVal = v
+		}
+	}
+	return maxVal - minVal
+}
+
+// --- Percentile reducer functions (linear interpolation, method 7) ---
+
+func percentileReducerFunc(forDataType DataType, phi float64) func([]any) any {
+	if forDataType == DataTypeInteger {
+		return func(values []any) any {
+			return percentileInt(values, phi)
+		}
+	}
+	return func(values []any) any {
+		return percentileDecimal(values, phi)
+	}
+}
+
+func percentileInt(values []any, phi float64) any {
+	n := len(values)
+	sorted := make([]float64, n)
+	for i, v := range values {
+		sorted[i] = float64(v.(int64))
+	}
+	sort.Float64s(sorted)
+	return interpolatePercentile(sorted, phi)
+}
+
+func percentileDecimal(values []any, phi float64) any {
+	n := len(values)
+	sorted := make([]float64, n)
+	for i, v := range values {
+		sorted[i] = v.(float64)
+	}
+	sort.Float64s(sorted)
+	return interpolatePercentile(sorted, phi)
+}
+
+// interpolatePercentile computes a percentile using linear interpolation (numpy default / method 7).
+// The virtual index is: idx = phi * (n - 1). We interpolate between sorted[floor(idx)] and sorted[ceil(idx)].
+func interpolatePercentile(sorted []float64, phi float64) float64 {
+	n := len(sorted)
+	if n == 1 {
+		return sorted[0]
+	}
+	idx := phi * float64(n-1)
+	lo := int(math.Floor(idx))
+	hi := int(math.Ceil(idx))
+	if lo == hi {
+		return sorted[lo]
+	}
+	frac := idx - float64(lo)
+	return sorted[lo] + frac*(sorted[hi]-sorted[lo])
+}
+
+// --- Variance accumulator (Welford's online algorithm, population variance) ---
+
+type varianceIntAccumulator struct {
+	count int64
+	mean  float64
+	m2    float64
+}
+
+func (a *varianceIntAccumulator) Add(value any, _ time.Time) {
+	if value == nil {
+		return
+	}
+	a.count++
+	x := float64(value.(int64))
+	delta := x - a.mean
+	a.mean += delta / float64(a.count)
+	delta2 := x - a.mean
+	a.m2 += delta * delta2
+}
+
+func (a *varianceIntAccumulator) Result() any {
+	if a.count == 0 {
+		return nil
+	}
+	return a.m2 / float64(a.count)
+}
+
+func (a *varianceIntAccumulator) ResultTimestamp() *time.Time { return nil }
+
+type varianceDecimalAccumulator struct {
+	count int64
+	mean  float64
+	m2    float64
+}
+
+func (a *varianceDecimalAccumulator) Add(value any, _ time.Time) {
+	if value == nil {
+		return
+	}
+	a.count++
+	x := value.(float64)
+	delta := x - a.mean
+	a.mean += delta / float64(a.count)
+	delta2 := x - a.mean
+	a.m2 += delta * delta2
+}
+
+func (a *varianceDecimalAccumulator) Result() any {
+	if a.count == 0 {
+		return nil
+	}
+	return a.m2 / float64(a.count)
+}
+
+func (a *varianceDecimalAccumulator) ResultTimestamp() *time.Time { return nil }
+
+// --- Stddev accumulator (sqrt of variance) ---
+
+type stddevIntAccumulator struct {
+	varianceIntAccumulator
+}
+
+func (a *stddevIntAccumulator) Result() any {
+	v := a.varianceIntAccumulator.Result()
+	if v == nil {
+		return nil
+	}
+	return math.Sqrt(v.(float64))
+}
+
+type stddevDecimalAccumulator struct {
+	varianceDecimalAccumulator
+}
+
+func (a *stddevDecimalAccumulator) Result() any {
+	v := a.varianceDecimalAccumulator.Result()
+	if v == nil {
+		return nil
+	}
+	return math.Sqrt(v.(float64))
+}
+
+// --- Spread accumulator (max - min) ---
+
+type spreadIntAccumulator struct {
+	min    int64
+	max    int64
+	hasAny bool
+}
+
+func (a *spreadIntAccumulator) Add(value any, _ time.Time) {
+	if value == nil {
+		return
+	}
+	v := value.(int64)
+	if !a.hasAny {
+		a.min = v
+		a.max = v
+		a.hasAny = true
+	} else {
+		if v < a.min {
+			a.min = v
+		}
+		if v > a.max {
+			a.max = v
+		}
+	}
+}
+
+func (a *spreadIntAccumulator) Result() any {
+	if !a.hasAny {
+		return nil
+	}
+	return a.max - a.min
+}
+
+func (a *spreadIntAccumulator) ResultTimestamp() *time.Time { return nil }
+
+type spreadDecimalAccumulator struct {
+	min    float64
+	max    float64
+	hasAny bool
+}
+
+func (a *spreadDecimalAccumulator) Add(value any, _ time.Time) {
+	if value == nil {
+		return
+	}
+	v := value.(float64)
+	if !a.hasAny {
+		a.min = v
+		a.max = v
+		a.hasAny = true
+	} else {
+		if v < a.min {
+			a.min = v
+		}
+		if v > a.max {
+			a.max = v
+		}
+	}
+}
+
+func (a *spreadDecimalAccumulator) Result() any {
+	if !a.hasAny {
+		return nil
+	}
+	return a.max - a.min
+}
+
+func (a *spreadDecimalAccumulator) ResultTimestamp() *time.Time { return nil }
+
+// --- Percentile accumulator (streaming t-digest, O(1) amortized add) ---
+
+func newPercentileAccumulator(forDataType DataType, phi float64) Accumulator {
+	if forDataType == DataTypeInteger {
+		return &percentileIntAccumulator{phi: phi, td: tdigest.New(100)}
+	}
+	return &percentileDecimalAccumulator{phi: phi, td: tdigest.New(100)}
+}
+
+type percentileIntAccumulator struct {
+	phi float64
+	td  *tdigest.TDigest
+}
+
+func (a *percentileIntAccumulator) Add(value any, _ time.Time) {
+	if value == nil {
+		return
+	}
+	a.td.Add(float64(value.(int64)))
+}
+
+func (a *percentileIntAccumulator) Result() any {
+	if a.td.Count() == 0 {
+		return nil
+	}
+	return a.td.Quantile(a.phi)
+}
+
+func (a *percentileIntAccumulator) ResultTimestamp() *time.Time { return nil }
+
+type percentileDecimalAccumulator struct {
+	phi float64
+	td  *tdigest.TDigest
+}
+
+func (a *percentileDecimalAccumulator) Add(value any, _ time.Time) {
+	if value == nil {
+		return
+	}
+	a.td.Add(value.(float64))
+}
+
+func (a *percentileDecimalAccumulator) Result() any {
+	if a.td.Count() == 0 {
+		return nil
+	}
+	return a.td.Quantile(a.phi)
+}
+
+func (a *percentileDecimalAccumulator) ResultTimestamp() *time.Time { return nil }
