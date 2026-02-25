@@ -14,7 +14,7 @@ var _ DataSource = ReductionDatasource{}
 
 type ReductionDatasource struct {
 	reductionType        tsquery.ReductionType
-	alignerFilter        AlignerFilter
+	alignerFilter        *AlignerFilter
 	multiDataSource      MultiDataSource
 	addFieldMeta         tsquery.AddFieldMeta
 	emptyDatasourceValue Value // Optional fallback when multiDataSource yields zero datasources
@@ -22,7 +22,7 @@ type ReductionDatasource struct {
 
 func NewReductionDatasource(
 	reductionType tsquery.ReductionType,
-	alignerFilter AlignerFilter,
+	alignerFilter *AlignerFilter,
 	multiDataSource MultiDataSource,
 	addFieldMeta tsquery.AddFieldMeta,
 ) *ReductionDatasource {
@@ -38,7 +38,7 @@ func NewReductionDatasource(
 // fallback value to use when the multiDataSource yields zero datasources.
 func NewReductionDatasourceWithEmptyFallback(
 	reductionType tsquery.ReductionType,
-	alignerFilter AlignerFilter,
+	alignerFilter *AlignerFilter,
 	multiDataSource MultiDataSource,
 	addFieldMeta tsquery.AddFieldMeta,
 	emptyDatasourceValue Value,
@@ -54,14 +54,13 @@ func NewReductionDatasourceWithEmptyFallback(
 
 func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to time.Time) (Result, error) {
 
-	// Validate alignment period is provided
-	if r.alignerFilter.AlignmentPeriod() == nil {
-		return util.DefaultValue[Result](), fmt.Errorf("alignment period is required for reduction datasource")
-	}
-
 	// Early validation: if emptyDatasourceValue is set, it must be a StaticValue
 	var emptyFallbackStaticValue StaticValue
 	if r.emptyDatasourceValue != nil {
+		// emptyDatasourceValue requires alignment period to generate timestamps
+		if r.alignerFilter == nil {
+			return util.DefaultValue[Result](), fmt.Errorf("alignment period is required for reduction datasource when emptyDatasourceValue is set")
+		}
 		var ok bool
 		emptyFallbackStaticValue, ok = r.emptyDatasourceValue.(StaticValue)
 		if !ok {
@@ -69,12 +68,15 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 		}
 	}
 
-	// Execute datasources and apply alignment
+	// Execute datasources, applying alignment if configured
 	datasourceResultsToToReduce, err :=
 		stream.MapWithErrAndCtx(
 			r.multiDataSource.GetDatasources(ctx),
 			func(ctx context.Context, ds DataSource) (Result, error) {
-				return NewFilteredDataSource(ds, r.alignerFilter).Execute(ctx, from, to)
+				if r.alignerFilter != nil {
+					return NewFilteredDataSource(ds, *r.alignerFilter).Execute(ctx, from, to)
+				}
+				return ds.Execute(ctx, from, to)
 			},
 		).Collect(ctx)
 

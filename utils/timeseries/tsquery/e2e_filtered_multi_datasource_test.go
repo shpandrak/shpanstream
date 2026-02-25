@@ -55,7 +55,7 @@ func TestFilteredMultiDatasource_DeltaNonNegative_ThenReduce(t *testing.T) {
 	// Now reduce with sum using an aligner
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		filteredMultiDS,
 		tsquery.AddFieldMeta{Urn: "total_delta"},
 	)
@@ -106,10 +106,10 @@ func TestReductionDatasource_AlignerWithFillMode(t *testing.T) {
 	// Create reduction with linear fill aligner
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewInterpolatingAlignerFilter(
+		alignerFilterPtr(datasource.NewInterpolatingAlignerFilter(
 			timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC),
 			timeseries.FillModeLinear,
-		),
+		)),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "filled"},
 	)

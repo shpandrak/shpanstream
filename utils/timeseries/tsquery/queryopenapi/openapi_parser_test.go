@@ -301,7 +301,7 @@ func TestParseReductionDatasource_WithPipeline(t *testing.T) {
 	// Create a reduction datasource (sum)
 	reductionDs := ApiReductionQueryDatasource{
 		ReductionType:   tsquery.ReductionTypeSum,
-		Aligner: ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
+		Aligner: &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 		MultiDatasource: multiDs,
 		FieldMeta: ApiAddFieldMeta{
 			Uri: "summed",
@@ -1272,7 +1272,7 @@ func TestParseDatasource_Reduction_AllTypes(t *testing.T) {
 
 			reductionDs := ApiReductionQueryDatasource{
 				ReductionType:   tt.reductionType,
-				Aligner: ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
+				Aligner: &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 				MultiDatasource: multiDs,
 				FieldMeta: ApiAddFieldMeta{
 					Uri: "reduced",
@@ -1346,7 +1346,7 @@ func TestParseDatasource_CustomAlignmentPeriod(t *testing.T) {
 
 	reductionDs := ApiReductionQueryDatasource{
 		ReductionType:   tsquery.ReductionTypeSum,
-		Aligner: ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
+		Aligner: &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 		MultiDatasource: multiDs,
 		FieldMeta: ApiAddFieldMeta{
 			Uri: "summed",
@@ -2373,7 +2373,7 @@ func TestParseFilteredMultiDatasource(t *testing.T) {
 
 	reductionDs := ApiReductionQueryDatasource{
 		ReductionType:   tsquery.ReductionTypeSum,
-		Aligner:         ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
+		Aligner:         &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 		MultiDatasource: filteredMultiDs,
 		FieldMeta:       ApiAddFieldMeta{Uri: "total_delta"},
 	}
@@ -2506,7 +2506,7 @@ func TestParseReductionDatasource_WithAlignerFillMode(t *testing.T) {
 	fillMode := timeseries.FillModeLinear
 	reductionDs := ApiReductionQueryDatasource{
 		ReductionType:   tsquery.ReductionTypeSum,
-		Aligner:         ApiAlignerFilter{AlignerPeriod: alignmentPeriod, FillMode: &fillMode},
+		Aligner:         &ApiAlignerFilter{AlignerPeriod: alignmentPeriod, FillMode: &fillMode},
 		MultiDatasource: multiDs,
 		FieldMeta:       ApiAddFieldMeta{Uri: "filled"},
 	}

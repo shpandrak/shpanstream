@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+func alignerFilterPtr(af datasource.AlignerFilter) *datasource.AlignerFilter { return &af }
+
 // Helper function to create a single-value datasource from scalar values
 func createDatasource(t *testing.T, urn string, dataType tsquery.DataType, required bool, unit string, timestamps []time.Time, values []any) datasource.DataSource {
 	require.Equal(t, len(timestamps), len(values), "timestamps and values must have same length")
@@ -59,7 +61,7 @@ func TestReductionDatasource_SumAllDatasources_Decimal(t *testing.T) {
 	// Create a reduction datasource with 1 hour alignment
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "total"},
 	)
@@ -111,7 +113,7 @@ func TestReductionDatasource_Sum_Integer(t *testing.T) {
 	// Create reduction datasource
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "sum_counts"},
 	)
@@ -159,7 +161,7 @@ func TestReductionDatasource_AvgAllDatasources_Decimal(t *testing.T) {
 	// Create reduction datasource
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeAvg,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "average"},
 	)
@@ -199,7 +201,7 @@ func TestReductionDatasource_MinMax_Integer(t *testing.T) {
 	multiDSMin := datasource.NewListMultiDatasource([]datasource.DataSource{count1DS, count2DS})
 	reductionDSMin := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeMin,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDSMin,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -214,7 +216,7 @@ func TestReductionDatasource_MinMax_Integer(t *testing.T) {
 	multiDSMax := datasource.NewListMultiDatasource([]datasource.DataSource{count2DS, count3DS})
 	reductionDSMax := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeMax,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDSMax,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -247,7 +249,7 @@ func TestReductionDatasource_Count(t *testing.T) {
 	// Create reduction datasource
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeCount,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "datasource_count"},
 	)
@@ -289,7 +291,7 @@ func TestReductionDatasource_ErrorOnMixedDataTypes(t *testing.T) {
 	// Create reduction datasource
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -319,7 +321,7 @@ func TestReductionDatasource_ErrorOnOptionalDatasource(t *testing.T) {
 	// Create reduction datasource
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -351,7 +353,7 @@ func TestReductionDatasource_PreservesUnitWhenAllSame(t *testing.T) {
 	// Create reduction datasource
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -384,7 +386,7 @@ func TestReductionDatasource_NoUnitWhenDifferent(t *testing.T) {
 	// Create reduction datasource
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -424,7 +426,7 @@ func TestReductionDatasource_MultipleRecordsProcessedCorrectly(t *testing.T) {
 	// Create reduction datasource
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -483,7 +485,7 @@ func TestReductionDatasource_AlignsMisalignedData_Sum(t *testing.T) {
 	// Create reduction datasource with 1 hour alignment
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "total"},
 	)
@@ -544,7 +546,7 @@ func TestReductionDatasource_AlignsMisalignedData_WeightedAverage(t *testing.T) 
 	// Create reduction datasource with 1 hour alignment
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "total"},
 	)
@@ -604,7 +606,7 @@ func TestReductionDatasource_HandlesPartialOverlap(t *testing.T) {
 	// Create reduction datasource with 1 hour alignment
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "total"},
 	)
@@ -639,9 +641,9 @@ func TestReductionDatasource_HandlesPartialOverlap(t *testing.T) {
 	require.Equal(t, int64(315), records[2].Value) // 40 + 275
 }
 
-// TestReductionDatasource_ErrorOnNilAlignmentPeriod verifies that
-// a nil alignment period results in an error
-func TestReductionDatasource_ErrorOnNilAlignmentPeriod(t *testing.T) {
+// TestReductionDatasource_NoAligner verifies that a reduction datasource
+// works without an aligner when data is already aligned
+func TestReductionDatasource_NoAligner(t *testing.T) {
 	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime}
@@ -653,15 +655,44 @@ func TestReductionDatasource_ErrorOnNilAlignmentPeriod(t *testing.T) {
 
 	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{ds1, ds2})
 
-	// Create reduction datasource with nil alignment period
+	// Create reduction datasource with no aligner (nil *AlignerFilter)
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(nil), // Should error
+		nil,
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "total"},
 	)
 
-	// Execute - should fail
+	// Execute - should succeed since data is pre-aligned
+	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 1)
+	require.Equal(t, int64(30), records[0].Value)
+	require.Equal(t, baseTime, records[0].Timestamp)
+}
+
+// TestReductionDatasource_ErrorOnEmptyDatasourceValueWithoutAligner verifies that
+// emptyDatasourceValue requires an aligner (to generate aligned timestamps)
+func TestReductionDatasource_ErrorOnEmptyDatasourceValueWithoutAligner(t *testing.T) {
+	ctx := context.Background()
+
+	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{})
+
+	// Create a static fallback value
+	emptyValue := datasource.NewConstantFieldValue(tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: true}, int64(0))
+
+	// Create reduction datasource with emptyDatasourceValue but no aligner
+	reductionDS := datasource.NewReductionDatasourceWithEmptyFallback(
+		tsquery.ReductionTypeSum,
+		nil,
+		multiDS,
+		tsquery.AddFieldMeta{Urn: "total"},
+		emptyValue,
+	)
+
+	// Execute - should fail because emptyDatasourceValue needs alignment period
 	_, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "alignment period is required")
@@ -689,7 +720,7 @@ func TestReductionDatasource_SingleDatasource_Sum(t *testing.T) {
 	// Create reduction datasource with Sum
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeSum,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -727,7 +758,7 @@ func TestReductionDatasource_SingleDatasource_Avg(t *testing.T) {
 	// Create reduction datasource with Avg
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeAvg,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -763,7 +794,7 @@ func TestReductionDatasource_SingleDatasource_MinMax(t *testing.T) {
 	multiDSMin := datasource.NewListMultiDatasource([]datasource.DataSource{ds})
 	reductionDSMin := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeMin,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDSMin,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -780,7 +811,7 @@ func TestReductionDatasource_SingleDatasource_MinMax(t *testing.T) {
 	multiDSMax := datasource.NewListMultiDatasource([]datasource.DataSource{ds})
 	reductionDSMax := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeMax,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDSMax,
 		tsquery.AddFieldMeta{Urn: "result"},
 	)
@@ -814,7 +845,7 @@ func TestReductionDatasource_SingleDatasource_Count(t *testing.T) {
 	// Create reduction datasource with Count
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeCount,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "datasource_count"},
 	)
@@ -857,7 +888,7 @@ func TestReductionDatasource_FirstWithString(t *testing.T) {
 	// Create reduction datasource with first + 1 hour alignment
 	reductionDS := datasource.NewReductionDatasource(
 		tsquery.ReductionTypeFirst,
-		datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC)),
+		alignerFilterPtr(datasource.NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(1*time.Hour, time.UTC))),
 		multiDS,
 		tsquery.AddFieldMeta{Urn: "first_host"},
 	)
