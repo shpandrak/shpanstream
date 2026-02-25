@@ -1220,6 +1220,9 @@ func TestParseDatasource_Reduction_AllTypes(t *testing.T) {
 		{"min", tsquery.ReductionTypeMin, []float64{5, 2, 8}, []float64{3, 7, 4}, []float64{3, 2, 4}},
 		{"max", tsquery.ReductionTypeMax, []float64{5, 2, 8}, []float64{3, 7, 4}, []float64{5, 7, 8}},
 		{"count", tsquery.ReductionTypeCount, []float64{1, 2, 3}, []float64{4, 5, 6}, []float64{2, 2, 2}},
+		{"stddev", tsquery.ReductionTypeStddev, []float64{5, 2, 8}, []float64{3, 7, 4}, []float64{1, 2.5, 2}},
+		{"spread", tsquery.ReductionTypeSpread, []float64{5, 2, 8}, []float64{3, 7, 4}, []float64{2, 5, 4}},
+		{"p95", tsquery.ReductionTypeP95, []float64{5, 2, 8}, []float64{3, 7, 4}, []float64{4.9, 6.75, 7.8}},
 	}
 
 	for _, tt := range tests {
