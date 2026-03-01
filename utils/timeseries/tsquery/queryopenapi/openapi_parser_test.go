@@ -2746,3 +2746,395 @@ func TestParseTimestampExtractFieldValue(t *testing.T) {
 		assert.NotEqual(t, time.Sunday, day)
 	}
 }
+
+// =====================
+// Schedule Filter Tests
+// =====================
+
+func TestParseFilter_ScheduleFilter(t *testing.T) {
+	// Monday June 17, 2024
+	baseTime := time.Date(2024, 6, 17, 0, 0, 0, 0, time.UTC)
+
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeDecimal,
+			Required: false,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: time.Date(2024, 6, 17, 8, 0, 0, 0, time.UTC), Value: 1.0},  // Mon 08:00 → outside 09-17
+			{Timestamp: time.Date(2024, 6, 17, 10, 0, 0, 0, time.UTC), Value: 2.0}, // Mon 10:00 → inside
+			{Timestamp: time.Date(2024, 6, 17, 18, 0, 0, 0, time.UTC), Value: 3.0}, // Mon 18:00 → outside
+			{Timestamp: time.Date(2024, 6, 18, 12, 0, 0, 0, time.UTC), Value: 4.0}, // Tue 12:00 → inside
+			{Timestamp: time.Date(2024, 6, 15, 10, 0, 0, 0, time.UTC), Value: 5.0}, // Sat 10:00 → weekend
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Schedule filter: business hours 09:00–17:00 on weekdays (Mon–Fri)
+	var schedFilter ApiQueryFilter
+	require.NoError(t, schedFilter.FromApiScheduleFilter(ApiScheduleFilter{
+		Schedule: ApiSchedule{
+			Conditions: []ApiScheduleCondition{
+				{
+					TimeSlots: []ApiScheduleTimeSlot{
+						{FromHourOfDay: 9, FromMinuteOfHour: 0, ToHourOfDay: 17, ToMinuteOfHour: 0},
+					},
+					DaysOfWeek: []int{1, 2, 3, 4, 5},
+				},
+			},
+		},
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{schedFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime.Add(-3*24*time.Hour), baseTime.Add(3*24*time.Hour))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2)
+	assert.Equal(t, 2.0, records[0].Value) // Mon 10:00
+	assert.Equal(t, 4.0, records[1].Value) // Tue 12:00
+}
+
+func TestParseFilter_ScheduleFilter_WithTimezone(t *testing.T) {
+	// Records at UTC times that cross timezone boundary
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeDecimal,
+			Required: false,
+		},
+		Data: []ApiMeasurementValue{
+			// 23:30 UTC on Dec 24 = 00:30 Dec 25 in UTC+1
+			{Timestamp: time.Date(2024, 12, 24, 23, 30, 0, 0, time.UTC), Value: 1.0},
+			// 00:30 UTC on Dec 25 = 00:30 Dec 25 in UTC
+			{Timestamp: time.Date(2024, 12, 25, 0, 30, 0, 0, time.UTC), Value: 2.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Schedule filter: only Dec 25 in Europe/Paris (UTC+1)
+	tz := "Europe/Paris"
+	var schedFilter ApiQueryFilter
+	require.NoError(t, schedFilter.FromApiScheduleFilter(ApiScheduleFilter{
+		Schedule: ApiSchedule{
+			CustomTimezone: &tz,
+			Conditions: []ApiScheduleCondition{
+				{
+					Dates: []string{"2024-12-25"},
+				},
+			},
+		},
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{schedFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, time.Date(2024, 12, 24, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 26, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	// 23:30 UTC Dec 24 is Dec 25 in Paris → matches
+	// 00:30 UTC Dec 25 is Dec 25 in Paris → matches
+	require.Len(t, records, 2)
+	assert.Equal(t, 1.0, records[0].Value)
+	assert.Equal(t, 2.0, records[1].Value)
+}
+
+func TestParseFilter_ScheduleFilter_WithExclude(t *testing.T) {
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeDecimal,
+			Required: false,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: time.Date(2024, 12, 24, 10, 0, 0, 0, time.UTC), Value: 1.0}, // Tue 10:00 → biz hours, not holiday
+			{Timestamp: time.Date(2024, 12, 25, 10, 0, 0, 0, time.UTC), Value: 2.0}, // Wed 10:00 → biz hours, but holiday
+			{Timestamp: time.Date(2024, 12, 26, 10, 0, 0, 0, time.UTC), Value: 3.0}, // Thu 10:00 → biz hours, not holiday
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Include: business hours 09:00–17:00 weekdays; Exclude: Christmas
+	var schedFilter ApiQueryFilter
+	require.NoError(t, schedFilter.FromApiScheduleFilter(ApiScheduleFilter{
+		Schedule: ApiSchedule{
+			Conditions: []ApiScheduleCondition{
+				{
+					TimeSlots: []ApiScheduleTimeSlot{
+						{FromHourOfDay: 9, FromMinuteOfHour: 0, ToHourOfDay: 17, ToMinuteOfHour: 0},
+					},
+					DaysOfWeek: []int{1, 2, 3, 4, 5},
+				},
+			},
+			ExcludeConditions: []ApiScheduleCondition{
+				{
+					Dates: []string{"2024-12-25"},
+				},
+			},
+		},
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{schedFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, time.Date(2024, 12, 24, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 27, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2)
+	assert.Equal(t, 1.0, records[0].Value) // Dec 24
+	assert.Equal(t, 3.0, records[1].Value) // Dec 26
+}
+
+func TestParseFilter_ScheduleFilter_InvalidTimezone(t *testing.T) {
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeDecimal,
+			Required: false,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: time.Date(2024, 6, 17, 10, 0, 0, 0, time.UTC), Value: 1.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	invalidTz := "Invalid/Timezone"
+	var schedFilter ApiQueryFilter
+	require.NoError(t, schedFilter.FromApiScheduleFilter(ApiScheduleFilter{
+		Schedule: ApiSchedule{
+			CustomTimezone: &invalidTz,
+			Conditions: []ApiScheduleCondition{
+				{
+					TimeSlots: []ApiScheduleTimeSlot{
+						{FromHourOfDay: 9, FromMinuteOfHour: 0, ToHourOfDay: 17, ToMinuteOfHour: 0},
+					},
+				},
+			},
+		},
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{schedFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	_, err := ParseDatasource(pCtx, finalApiDs)
+	require.Error(t, err)
+}
+
+func TestParseFilter_ScheduleFilter_WithPeriods(t *testing.T) {
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeDecimal,
+			Required: false,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC), Value: 1.0}, // June 15 → inside period
+			{Timestamp: time.Date(2024, 6, 30, 10, 0, 0, 0, time.UTC), Value: 2.0}, // June 30 → inside period
+			{Timestamp: time.Date(2024, 8, 10, 12, 0, 0, 0, time.UTC), Value: 3.0}, // Aug 10  → outside period
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Schedule filter: only June 1–30
+	var schedFilter ApiQueryFilter
+	require.NoError(t, schedFilter.FromApiScheduleFilter(ApiScheduleFilter{
+		Schedule: ApiSchedule{
+			Conditions: []ApiScheduleCondition{
+				{
+					Periods: []ApiSchedulePeriod{
+						{StartMonth: 6, StartDayOfMonth: 1, EndMonth: 6, EndDayOfMonth: 30},
+					},
+				},
+			},
+		},
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{schedFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2)
+	assert.Equal(t, 1.0, records[0].Value) // June 15
+	assert.Equal(t, 2.0, records[1].Value) // June 30
+}
+
+func TestParseFilter_ScheduleFilter_WithStartEndTime(t *testing.T) {
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeDecimal,
+			Required: false,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: time.Date(2024, 3, 1, 12, 0, 0, 0, time.UTC), Value: 1.0},  // Before startTime
+			{Timestamp: time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC), Value: 2.0}, // Within bounds
+			{Timestamp: time.Date(2024, 12, 1, 12, 0, 0, 0, time.UTC), Value: 3.0}, // After endTime
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	startTime := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
+	endTime := time.Date(2024, 9, 1, 0, 0, 0, 0, time.UTC)
+
+	// Schedule filter with startTime and endTime, plus a match-all condition (broad time slot)
+	var schedFilter ApiQueryFilter
+	require.NoError(t, schedFilter.FromApiScheduleFilter(ApiScheduleFilter{
+		Schedule: ApiSchedule{
+			StartTime: &startTime,
+			EndTime:   &endTime,
+			Conditions: []ApiScheduleCondition{
+				{
+					TimeSlots: []ApiScheduleTimeSlot{
+						{FromHourOfDay: 0, FromMinuteOfHour: 0, ToHourOfDay: 23, ToMinuteOfHour: 59},
+					},
+				},
+			},
+		},
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{schedFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 1)
+	assert.Equal(t, 2.0, records[0].Value) // June 15 — within startTime/endTime bounds
+}
+
+func TestParseReportFilter_ScheduleFilter(t *testing.T) {
+	baseTime := time.Date(2024, 6, 17, 0, 0, 0, 0, time.UTC) // Monday
+
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "value", DataType: tsquery.DataTypeDecimal, Required: true},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: time.Date(2024, 6, 17, 8, 0, 0, 0, time.UTC), Values: []any{1.0}},  // Mon 08:00 → outside
+			{Timestamp: time.Date(2024, 6, 17, 10, 0, 0, 0, time.UTC), Values: []any{2.0}}, // Mon 10:00 → inside
+			{Timestamp: time.Date(2024, 6, 17, 18, 0, 0, 0, time.UTC), Values: []any{3.0}}, // Mon 18:00 → outside
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiScheduleFilter(ApiScheduleFilter{
+		Schedule: ApiSchedule{
+			Conditions: []ApiScheduleCondition{
+				{
+					TimeSlots: []ApiScheduleTimeSlot{
+						{FromHourOfDay: 9, FromMinuteOfHour: 0, ToHourOfDay: 17, ToMinuteOfHour: 0},
+					},
+					DaysOfWeek: []int{1, 2, 3, 4, 5},
+				},
+			},
+		},
+	}))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(24*time.Hour))
+	require.NoError(t, err)
+
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 1)
+	assert.Equal(t, 2.0, records[0].Value[0]) // Mon 10:00
+}

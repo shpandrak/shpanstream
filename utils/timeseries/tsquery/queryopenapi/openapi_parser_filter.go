@@ -26,6 +26,8 @@ func ParseFilter(pCtx *ParsingContext, rawFilter ApiQueryFilter) (datasource.Fil
 		return parseDeltaFilter(typedFilter)
 	case ApiRateFilter:
 		return parseRateFilter(typedFilter)
+	case ApiScheduleFilter:
+		return parseScheduleFilter(typedFilter)
 	}
 	return wrapAndReturn(pCtx.plugin.ParseFilter(pCtx, rawFilter))("failed parsing filter with plugin parser")
 }
@@ -175,4 +177,72 @@ func ParseAddFieldMeta(apiMeta ApiAddFieldMeta) tsquery.AddFieldMeta {
 		CustomMeta:   apiMeta.CustomMetadata,
 		OverrideUnit: apiMeta.OverrideUnit,
 	}
+}
+
+func parseScheduleFilter(sf ApiScheduleFilter) (datasource.Filter, error) {
+	schedule, err := parseSchedule(sf.Schedule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse schedule filter: %w", err)
+	}
+	return datasource.NewScheduleFilter(schedule), nil
+}
+
+func parseSchedule(apiSchedule ApiSchedule) (datasource.Schedule, error) {
+	var location *time.Location
+	if apiSchedule.CustomTimezone != nil {
+		loc, err := time.LoadLocation(*apiSchedule.CustomTimezone)
+		if err != nil {
+			return datasource.Schedule{}, badInputError(apiSchedule, err)
+		}
+		location = loc
+	}
+
+	conditions, err := parseScheduleConditions(apiSchedule.Conditions)
+	if err != nil {
+		return datasource.Schedule{}, err
+	}
+	excludeConditions, err := parseScheduleConditions(apiSchedule.ExcludeConditions)
+	if err != nil {
+		return datasource.Schedule{}, err
+	}
+
+	return datasource.NewSchedule(conditions, excludeConditions,
+		apiSchedule.StartTime, apiSchedule.EndTime, location), nil
+}
+
+func parseScheduleConditions(apiConds []ApiScheduleCondition) ([]datasource.ScheduleCondition, error) {
+	if len(apiConds) == 0 {
+		return nil, nil
+	}
+	conditions := make([]datasource.ScheduleCondition, 0, len(apiConds))
+	for _, apiCond := range apiConds {
+		cond, err := parseScheduleCondition(apiCond)
+		if err != nil {
+			return nil, err
+		}
+		conditions = append(conditions, cond)
+	}
+	return conditions, nil
+}
+
+func parseScheduleCondition(apiCond ApiScheduleCondition) (datasource.ScheduleCondition, error) {
+	timeSlots := make([]datasource.ScheduleTimeSlot, 0, len(apiCond.TimeSlots))
+	for _, ts := range apiCond.TimeSlots {
+		slot, err := datasource.NewScheduleTimeSlot(ts.FromHourOfDay, ts.FromMinuteOfHour, ts.ToHourOfDay, ts.ToMinuteOfHour)
+		if err != nil {
+			return datasource.ScheduleCondition{}, fmt.Errorf("failed to parse schedule time slot: %w", err)
+		}
+		timeSlots = append(timeSlots, slot)
+	}
+
+	periods := make([]datasource.SchedulePeriod, 0, len(apiCond.Periods))
+	for _, p := range apiCond.Periods {
+		period, err := datasource.NewSchedulePeriod(p.StartMonth, p.StartDayOfMonth, p.EndMonth, p.EndDayOfMonth)
+		if err != nil {
+			return datasource.ScheduleCondition{}, fmt.Errorf("failed to parse schedule period: %w", err)
+		}
+		periods = append(periods, period)
+	}
+
+	return datasource.NewScheduleCondition(timeSlots, apiCond.DaysOfWeek, periods, apiCond.Dates)
 }
