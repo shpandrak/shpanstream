@@ -27,6 +27,8 @@ func ParseReportFilter(pCtx *ParsingContext, rawFilter ApiReportFilter) (report.
 		return parseSingleFieldReportFilter(pCtx, typedFilter)
 	case ApiProjectionReportFilter:
 		return parseProjectionReportFilter(typedFilter)
+	case ApiScheduleFilter:
+		return parseScheduleReportFilter(typedFilter)
 	}
 	return wrapAndReturnReportFilter(pCtx.plugin.ParseReportFilter(pCtx, rawFilter))("failed parsing report filter with plugin parser")
 }
@@ -92,6 +94,14 @@ func parseAlignerReportFilter(apiAlignerFilter ApiAlignerFilter) (report.Filter,
 		return report.NewInterpolatingAlignerFilter(alignerPeriod, *apiAlignerFilter.FillMode), nil
 	}
 	return report.NewAlignerFilter(alignerPeriod), nil
+}
+
+func parseScheduleReportFilter(sf ApiScheduleFilter) (report.Filter, error) {
+	schedule, err := parseSchedule(sf.Schedule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse schedule report filter: %w", err)
+	}
+	return report.NewScheduleFilter(schedule), nil
 }
 
 func wrapAndReturnReportFilter(v report.Filter, err error) func(format string, a ...any) (report.Filter, error) {

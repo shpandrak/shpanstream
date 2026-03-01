@@ -255,6 +255,11 @@ const (
 	ApiRowTimestampReportFieldValueTypeRowTimestamp ApiRowTimestampReportFieldValueType = "rowTimestamp"
 )
 
+// Defines values for ApiScheduleFilterType.
+const (
+	ApiScheduleFilterTypeSchedule ApiScheduleFilterType = "schedule"
+)
+
 // Defines values for ApiSelectorQueryFieldValueType.
 const (
 	ApiSelectorQueryFieldValueTypeSelector ApiSelectorQueryFieldValueType = "selector"
@@ -949,6 +954,58 @@ type ApiRowTimestampReportFieldValue struct {
 
 // ApiRowTimestampReportFieldValueType defines model for ApiRowTimestampReportFieldValue.Type.
 type ApiRowTimestampReportFieldValueType string
+
+// ApiSchedule defines model for ApiSchedule.
+type ApiSchedule struct {
+	// Conditions Conditions are OR'd: a timestamp matches if it matches ANY condition. Within a condition, all specified fields (daysOfWeek, periods, timeSlots, dates) are AND'd.
+	Conditions []ApiScheduleCondition `json:"conditions"`
+
+	// CustomTimezone Optional, allows defining a custom timezone for the schedule, IANA timezone format (e.g. America/New_York)
+	CustomTimezone *string `json:"customTimezone,omitempty"`
+
+	// EndTime Optional, allows defining an end date for the schedule
+	EndTime *time.Time `json:"endTime,omitempty"`
+
+	// ExcludeConditions Exclusion conditions are OR'd: if a timestamp matches ANY exclude condition, it is excluded even if it matched an include condition. Semantics: (matches ANY condition) AND NOT (matches ANY excludeCondition)
+	ExcludeConditions []ApiScheduleCondition `json:"excludeConditions,omitempty"`
+
+	// StartTime Optional, allows defining a start date for the schedule
+	StartTime *time.Time `json:"startTime,omitempty"`
+}
+
+// ApiScheduleCondition defines model for ApiScheduleCondition.
+type ApiScheduleCondition struct {
+	// Dates Explicit dates to match (e.g. holidays). Format YYYY-MM-DD.
+	Dates      []string              `json:"dates,omitempty"`
+	DaysOfWeek []int                 `json:"daysOfWeek,omitempty"`
+	Periods    []ApiSchedulePeriod   `json:"periods,omitempty"`
+	TimeSlots  []ApiScheduleTimeSlot `json:"timeSlots,omitempty"`
+}
+
+// ApiScheduleFilter Filters timeseries rows based on whether their timestamp falls within a schedule. Only rows whose timestamp matches the schedule are kept.
+type ApiScheduleFilter struct {
+	Schedule ApiSchedule           `json:"schedule"`
+	Type     ApiScheduleFilterType `json:"type"`
+}
+
+// ApiScheduleFilterType defines model for ApiScheduleFilter.Type.
+type ApiScheduleFilterType string
+
+// ApiSchedulePeriod defines model for ApiSchedulePeriod.
+type ApiSchedulePeriod struct {
+	EndDayOfMonth   int `json:"endDayOfMonth"`
+	EndMonth        int `json:"endMonth"`
+	StartDayOfMonth int `json:"startDayOfMonth"`
+	StartMonth      int `json:"startMonth"`
+}
+
+// ApiScheduleTimeSlot defines model for ApiScheduleTimeSlot.
+type ApiScheduleTimeSlot struct {
+	FromHourOfDay    int `json:"fromHourOfDay"`
+	FromMinuteOfHour int `json:"fromMinuteOfHour"`
+	ToHourOfDay      int `json:"toHourOfDay"`
+	ToMinuteOfHour   int `json:"toMinuteOfHour"`
+}
 
 // ApiSelectorQueryFieldValue defines model for ApiSelectorQueryFieldValue.
 type ApiSelectorQueryFieldValue struct {
@@ -1712,6 +1769,22 @@ func (t *ApiQueryFilter) FromApiRateFilter(v ApiRateFilter) error {
 }
 
 
+// AsApiScheduleFilter returns the union data inside the ApiQueryFilter as a ApiScheduleFilter
+func (t ApiQueryFilter) AsApiScheduleFilter() (ApiScheduleFilter, error) {
+	var body ApiScheduleFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiScheduleFilter overwrites any union data inside the ApiQueryFilter as the provided ApiScheduleFilter
+func (t *ApiQueryFilter) FromApiScheduleFilter(v ApiScheduleFilter) error {
+	v.Type = "schedule"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiQueryFilter) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1738,6 +1811,8 @@ func (t ApiQueryFilter) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiOverrideFieldMetadataFilter()
 	case "rate":
 		return t.AsApiRateFilter()
+	case "schedule":
+		return t.AsApiScheduleFilter()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
@@ -2213,6 +2288,22 @@ func (t *ApiReportFilter) FromApiProjectionReportFilter(v ApiProjectionReportFil
 }
 
 
+// AsApiScheduleFilter returns the union data inside the ApiReportFilter as a ApiScheduleFilter
+func (t ApiReportFilter) AsApiScheduleFilter() (ApiScheduleFilter, error) {
+	var body ApiScheduleFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiScheduleFilter overwrites any union data inside the ApiReportFilter as the provided ApiScheduleFilter
+func (t *ApiReportFilter) FromApiScheduleFilter(v ApiScheduleFilter) error {
+	v.Type = "schedule"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiReportFilter) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -2237,6 +2328,8 @@ func (t ApiReportFilter) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiDropFieldsReportFilter()
 	case "projection":
 		return t.AsApiProjectionReportFilter()
+	case "schedule":
+		return t.AsApiScheduleFilter()
 	case "singleField":
 		return t.AsApiSingleFieldReportFilter()
 	default:
