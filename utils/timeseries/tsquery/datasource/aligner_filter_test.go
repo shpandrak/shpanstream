@@ -510,6 +510,416 @@ func testAlignerFilterWithFieldMeta(
 	require.Len(t, result_data, len(expected), "Number of resulting records mismatch")
 }
 
+// --- Bucket Reduction Tests ---
+
+// testBucketReductionFilter runs the AlignerFilter with bucket reduction and asserts the output.
+func testBucketReductionFilter(
+	t *testing.T,
+	fixedDuration time.Duration,
+	dataType tsquery.DataType,
+	reductionType tsquery.ReductionType,
+	records []timeseries.TsRecord[any],
+	expected []timeseries.TsRecord[any],
+	expectedDataType tsquery.DataType,
+) {
+	t.Helper()
+
+	fieldMeta, err := tsquery.NewFieldMeta("field", dataType, false)
+	require.NoError(t, err)
+
+	inputStream := stream.Just(records...)
+	staticDS, err := NewStaticDatasource(*fieldMeta, inputStream)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := staticDS.Execute(ctx, time.Unix(0, 0), time.Unix(10000, 0))
+	require.NoError(t, err)
+
+	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(fixedDuration, time.Local)).
+		WithBucketReduction(reductionType)
+
+	outputResult, err := alignerFilter.Filter(ctx, result)
+	require.NoError(t, err)
+
+	// Verify output data type
+	require.Equal(t, expectedDataType, outputResult.Meta().DataType(), "Output data type mismatch")
+
+	resultData, err := outputResult.Data().Collect(ctx)
+	require.NoError(t, err)
+
+	require.EqualValues(t,
+		mapSlice(expected, func(r timeseries.TsRecord[any]) time.Time { return r.Timestamp }),
+		mapSlice(resultData, func(r timeseries.TsRecord[any]) time.Time { return r.Timestamp }),
+		"Timestamps mismatch",
+	)
+
+	assertValuesEqualWithTolerance(t,
+		mapSlice(expected, func(r timeseries.TsRecord[any]) any { return r.Value }),
+		mapSlice(resultData, func(r timeseries.TsRecord[any]) any { return r.Value }),
+		1e-10,
+		"Values mismatch",
+	)
+
+	require.Len(t, resultData, len(expected), "Number of resulting records mismatch")
+}
+
+func TestAlignerFilter_BucketReduction_Sum(t *testing.T) {
+	// 3 points in bucket [0,60), 2 points in bucket [60,120)
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeSum,
+		[]timeseries.TsRecord[any]{
+			{Value: 10.0, Timestamp: time.Unix(5, 0)},
+			{Value: 20.0, Timestamp: time.Unix(25, 0)},
+			{Value: 30.0, Timestamp: time.Unix(45, 0)},
+			{Value: 40.0, Timestamp: time.Unix(65, 0)},
+			{Value: 50.0, Timestamp: time.Unix(85, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: 60.0, Timestamp: time.Unix(0, 0)},  // 10+20+30
+			{Value: 90.0, Timestamp: time.Unix(60, 0)}, // 40+50
+		},
+		tsquery.DataTypeDecimal,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_Avg(t *testing.T) {
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeAvg,
+		[]timeseries.TsRecord[any]{
+			{Value: 10.0, Timestamp: time.Unix(5, 0)},
+			{Value: 20.0, Timestamp: time.Unix(25, 0)},
+			{Value: 30.0, Timestamp: time.Unix(45, 0)},
+			{Value: 40.0, Timestamp: time.Unix(65, 0)},
+			{Value: 60.0, Timestamp: time.Unix(85, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: 20.0, Timestamp: time.Unix(0, 0)},  // (10+20+30)/3
+			{Value: 50.0, Timestamp: time.Unix(60, 0)}, // (40+60)/2
+		},
+		tsquery.DataTypeDecimal,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_Max(t *testing.T) {
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeMax,
+		[]timeseries.TsRecord[any]{
+			{Value: 10.0, Timestamp: time.Unix(5, 0)},
+			{Value: 30.0, Timestamp: time.Unix(25, 0)},
+			{Value: 20.0, Timestamp: time.Unix(45, 0)},
+			{Value: 50.0, Timestamp: time.Unix(65, 0)},
+			{Value: 40.0, Timestamp: time.Unix(85, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: 30.0, Timestamp: time.Unix(0, 0)},
+			{Value: 50.0, Timestamp: time.Unix(60, 0)},
+		},
+		tsquery.DataTypeDecimal,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_Min(t *testing.T) {
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeMin,
+		[]timeseries.TsRecord[any]{
+			{Value: 10.0, Timestamp: time.Unix(5, 0)},
+			{Value: 30.0, Timestamp: time.Unix(25, 0)},
+			{Value: 20.0, Timestamp: time.Unix(45, 0)},
+			{Value: 50.0, Timestamp: time.Unix(65, 0)},
+			{Value: 40.0, Timestamp: time.Unix(85, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: 10.0, Timestamp: time.Unix(0, 0)},
+			{Value: 40.0, Timestamp: time.Unix(60, 0)},
+		},
+		tsquery.DataTypeDecimal,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_Sum_Integer(t *testing.T) {
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeInteger,
+		tsquery.ReductionTypeSum,
+		[]timeseries.TsRecord[any]{
+			{Value: int64(10), Timestamp: time.Unix(5, 0)},
+			{Value: int64(20), Timestamp: time.Unix(25, 0)},
+			{Value: int64(30), Timestamp: time.Unix(45, 0)},
+			{Value: int64(40), Timestamp: time.Unix(65, 0)},
+			{Value: int64(50), Timestamp: time.Unix(85, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: int64(60), Timestamp: time.Unix(0, 0)},  // 10+20+30
+			{Value: int64(90), Timestamp: time.Unix(60, 0)}, // 40+50
+		},
+		tsquery.DataTypeInteger,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_NilValues(t *testing.T) {
+	// Nil values mixed with real values should be skipped by the accumulator
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeSum,
+		[]timeseries.TsRecord[any]{
+			{Value: 10.0, Timestamp: time.Unix(5, 0)},
+			{Value: nil, Timestamp: time.Unix(15, 0)},
+			{Value: 20.0, Timestamp: time.Unix(25, 0)},
+			{Value: nil, Timestamp: time.Unix(65, 0)},
+			{Value: 50.0, Timestamp: time.Unix(85, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: 30.0, Timestamp: time.Unix(0, 0)},  // 10+20 (nil skipped)
+			{Value: 50.0, Timestamp: time.Unix(60, 0)}, // 50 (nil skipped)
+		},
+		tsquery.DataTypeDecimal,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_Count(t *testing.T) {
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeCount,
+		[]timeseries.TsRecord[any]{
+			{Value: 10.0, Timestamp: time.Unix(5, 0)},
+			{Value: 20.0, Timestamp: time.Unix(25, 0)},
+			{Value: 30.0, Timestamp: time.Unix(45, 0)},
+			{Value: 40.0, Timestamp: time.Unix(65, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: int64(3), Timestamp: time.Unix(0, 0)},
+			{Value: int64(1), Timestamp: time.Unix(60, 0)},
+		},
+		tsquery.DataTypeInteger, // count always returns integer
+	)
+}
+
+func TestAlignerFilter_BucketReduction_First_Last(t *testing.T) {
+	records := []timeseries.TsRecord[any]{
+		{Value: 10.0, Timestamp: time.Unix(5, 0)},
+		{Value: 20.0, Timestamp: time.Unix(25, 0)},
+		{Value: 30.0, Timestamp: time.Unix(45, 0)},
+		{Value: 40.0, Timestamp: time.Unix(65, 0)},
+		{Value: 50.0, Timestamp: time.Unix(85, 0)},
+	}
+
+	// First
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeFirst,
+		records,
+		[]timeseries.TsRecord[any]{
+			{Value: 10.0, Timestamp: time.Unix(0, 0)},
+			{Value: 40.0, Timestamp: time.Unix(60, 0)},
+		},
+		tsquery.DataTypeDecimal,
+	)
+
+	// Last
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeLast,
+		records,
+		[]timeseries.TsRecord[any]{
+			{Value: 30.0, Timestamp: time.Unix(0, 0)},
+			{Value: 50.0, Timestamp: time.Unix(60, 0)},
+		},
+		tsquery.DataTypeDecimal,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_EmptyBucket(t *testing.T) {
+	// Points in bucket [0,60) and [120,180), gap at [60,120)
+	// ClusterSortedStream only creates clusters where data exists, so no output for [60,120)
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeSum,
+		[]timeseries.TsRecord[any]{
+			{Value: 10.0, Timestamp: time.Unix(5, 0)},
+			{Value: 20.0, Timestamp: time.Unix(25, 0)},
+			{Value: 100.0, Timestamp: time.Unix(125, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: 30.0, Timestamp: time.Unix(0, 0)},    // 10+20
+			{Value: 100.0, Timestamp: time.Unix(120, 0)}, // 100
+		},
+		tsquery.DataTypeDecimal,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_SingleItemBucket(t *testing.T) {
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeDecimal,
+		tsquery.ReductionTypeSum,
+		[]timeseries.TsRecord[any]{
+			{Value: 42.0, Timestamp: time.Unix(30, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: 42.0, Timestamp: time.Unix(0, 0)},
+		},
+		tsquery.DataTypeDecimal,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_WithFillMode(t *testing.T) {
+	// Bucket reduction + fill mode: first reduce, then gap-fill
+	// Points in bucket [0,60) and [120,180), gap at [60,120) should be filled
+	fieldMeta, err := tsquery.NewFieldMeta("field", tsquery.DataTypeDecimal, false)
+	require.NoError(t, err)
+
+	records := []timeseries.TsRecord[any]{
+		{Value: 10.0, Timestamp: time.Unix(5, 0)},
+		{Value: 20.0, Timestamp: time.Unix(25, 0)},
+		{Value: 90.0, Timestamp: time.Unix(125, 0)},
+	}
+	inputStream := stream.Just(records...)
+	staticDS, err := NewStaticDatasource(*fieldMeta, inputStream)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := staticDS.Execute(ctx, time.Unix(0, 0), time.Unix(10000, 0))
+	require.NoError(t, err)
+
+	alignerFilter := NewInterpolatingAlignerFilter(
+		timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local),
+		"linear",
+	).WithBucketReduction(tsquery.ReductionTypeSum)
+
+	outputResult, err := alignerFilter.Filter(ctx, result)
+	require.NoError(t, err)
+
+	resultData, err := outputResult.Data().Collect(ctx)
+	require.NoError(t, err)
+
+	// Expect: [0]=30.0 (sum of 10+20), [60]=60.0 (linear fill between 30 and 90), [120]=90.0
+	require.Len(t, resultData, 3)
+	require.Equal(t, time.Unix(0, 0), resultData[0].Timestamp)
+	require.Equal(t, time.Unix(60, 0), resultData[1].Timestamp)
+	require.Equal(t, time.Unix(120, 0), resultData[2].Timestamp)
+	require.InDelta(t, 30.0, resultData[0].Value, 1e-10)
+	require.InDelta(t, 60.0, resultData[1].Value, 1e-10)
+	require.InDelta(t, 90.0, resultData[2].Value, 1e-10)
+}
+
+func TestAlignerFilter_BucketReduction_NonNumeric_Count(t *testing.T) {
+	// Count works on non-numeric types (strings)
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeString,
+		tsquery.ReductionTypeCount,
+		[]timeseries.TsRecord[any]{
+			{Value: "a", Timestamp: time.Unix(5, 0)},
+			{Value: "b", Timestamp: time.Unix(25, 0)},
+			{Value: "c", Timestamp: time.Unix(65, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: int64(2), Timestamp: time.Unix(0, 0)},
+			{Value: int64(1), Timestamp: time.Unix(60, 0)},
+		},
+		tsquery.DataTypeInteger,
+	)
+}
+
+func TestAlignerFilter_BucketReduction_Count_NonNumeric_WithFillMode(t *testing.T) {
+	// Count on strings with fillMode=linear should work: count outputs integer (numeric),
+	// so fill mode is valid even though the input type (string) is non-numeric.
+	fieldMeta, err := tsquery.NewFieldMeta("field", tsquery.DataTypeString, false)
+	require.NoError(t, err)
+
+	// Points in bucket [0,60) and [120,180), gap at [60,120) should be filled
+	records := []timeseries.TsRecord[any]{
+		{Value: "a", Timestamp: time.Unix(5, 0)},
+		{Value: "b", Timestamp: time.Unix(25, 0)},
+		{Value: "c", Timestamp: time.Unix(125, 0)},
+	}
+	inputStream := stream.Just(records...)
+	staticDS, err := NewStaticDatasource(*fieldMeta, inputStream)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := staticDS.Execute(ctx, time.Unix(0, 0), time.Unix(10000, 0))
+	require.NoError(t, err)
+
+	alignerFilter := NewInterpolatingAlignerFilter(
+		timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local),
+		"linear",
+	).WithBucketReduction(tsquery.ReductionTypeCount)
+
+	outputResult, err := alignerFilter.Filter(ctx, result)
+	require.NoError(t, err)
+
+	// Output type should be integer (count result)
+	require.Equal(t, tsquery.DataTypeInteger, outputResult.Meta().DataType())
+
+	resultData, err := outputResult.Data().Collect(ctx)
+	require.NoError(t, err)
+
+	// Expect: [0]=2 (count of a,b), [60]=1 (linear fill between 2 and 1), [120]=1
+	require.Len(t, resultData, 3)
+	require.Equal(t, time.Unix(0, 0), resultData[0].Timestamp)
+	require.Equal(t, time.Unix(60, 0), resultData[1].Timestamp)
+	require.Equal(t, time.Unix(120, 0), resultData[2].Timestamp)
+	require.Equal(t, int64(2), resultData[0].Value)
+	require.Equal(t, int64(1), resultData[1].Value) // linear interpolation: truncated from 1.5
+	require.Equal(t, int64(1), resultData[2].Value)
+}
+
+func TestAlignerFilter_BucketReduction_NonNumeric_Sum_Error(t *testing.T) {
+	// Sum on strings should error
+	fieldMeta, err := tsquery.NewFieldMeta("field", tsquery.DataTypeString, false)
+	require.NoError(t, err)
+
+	records := []timeseries.TsRecord[any]{
+		{Value: "a", Timestamp: time.Unix(5, 0)},
+	}
+	inputStream := stream.Just(records...)
+	staticDS, err := NewStaticDatasource(*fieldMeta, inputStream)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := staticDS.Execute(ctx, time.Unix(0, 0), time.Unix(10000, 0))
+	require.NoError(t, err)
+
+	alignerFilter := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.UTC)).
+		WithBucketReduction(tsquery.ReductionTypeSum)
+
+	_, err = alignerFilter.Filter(ctx, result)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "requires numeric data type")
+}
+
+func TestAlignerFilter_BucketReduction_DataTypeChange(t *testing.T) {
+	// Avg on integer returns decimal
+	testBucketReductionFilter(t,
+		time.Minute,
+		tsquery.DataTypeInteger,
+		tsquery.ReductionTypeAvg,
+		[]timeseries.TsRecord[any]{
+			{Value: int64(10), Timestamp: time.Unix(5, 0)},
+			{Value: int64(20), Timestamp: time.Unix(25, 0)},
+			{Value: int64(30), Timestamp: time.Unix(45, 0)},
+		},
+		[]timeseries.TsRecord[any]{
+			{Value: 20.0, Timestamp: time.Unix(0, 0)}, // (10+20+30)/3 = 20.0 (float64)
+		},
+		tsquery.DataTypeDecimal, // avg on integer → decimal
+	)
+}
+
 // mapSlice is a helper to transform slices
 func mapSlice[A any, B any](input []A, m func(a A) B) []B {
 	ret := make([]B, len(input))

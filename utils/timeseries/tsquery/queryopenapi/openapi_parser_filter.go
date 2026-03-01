@@ -88,6 +88,7 @@ func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.AlignerFi
 	if err != nil {
 		return datasource.AlignerFilter{}, err
 	}
+	var af datasource.AlignerFilter
 	if apiAlignerFilter.FillMode != nil {
 		switch *apiAlignerFilter.FillMode {
 		case timeseries.FillModeLinear, timeseries.FillModeForwardFill:
@@ -95,9 +96,14 @@ func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.AlignerFi
 		default:
 			return datasource.AlignerFilter{}, fmt.Errorf("unsupported fill mode: %q", *apiAlignerFilter.FillMode)
 		}
-		return datasource.NewInterpolatingAlignerFilter(alignerPeriod, *apiAlignerFilter.FillMode), nil
+		af = datasource.NewInterpolatingAlignerFilter(alignerPeriod, *apiAlignerFilter.FillMode)
+	} else {
+		af = datasource.NewAlignerFilter(alignerPeriod)
 	}
-	return datasource.NewAlignerFilter(alignerPeriod), nil
+	if apiAlignerFilter.BucketReduction != nil {
+		af = af.WithBucketReduction(*apiAlignerFilter.BucketReduction)
+	}
+	return af, nil
 }
 
 func ParseAlignmentPeriod(ap ApiAlignmentPeriod) (timeseries.AlignmentPeriod, error) {

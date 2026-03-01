@@ -455,6 +455,73 @@ func TestParseFilter_AlignerFilter(t *testing.T) {
 	assert.Greater(t, len(records), 0, "Aligner should produce aligned records")
 }
 
+func TestParseFilter_AlignerFilter_WithBucketReduction(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create a static datasource with multiple points per hour
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "requests",
+			DataType: tsquery.DataTypeDecimal,
+			Required: false,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime.Add(10 * time.Minute), Value: 10.0},
+			{Timestamp: baseTime.Add(20 * time.Minute), Value: 20.0},
+			{Timestamp: baseTime.Add(30 * time.Minute), Value: 30.0},
+			{Timestamp: baseTime.Add(70 * time.Minute), Value: 40.0},
+			{Timestamp: baseTime.Add(80 * time.Minute), Value: 50.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Create aligner filter with hourly alignment and sum bucket reduction
+	var alignmentPeriod ApiAlignmentPeriod
+	require.NoError(t, alignmentPeriod.FromApiCalendarAlignmentPeriod(ApiCalendarAlignmentPeriod{
+		AlignmentPeriodType: ApiCalendarPeriodTypeHour,
+		ZoneId:              "UTC",
+	}))
+
+	bucketReduction := ApiReductionType(tsquery.ReductionTypeSum)
+	var alignerFilter ApiQueryFilter
+	require.NoError(t, alignerFilter.FromApiAlignerFilter(ApiAlignerFilter{
+		AlignerPeriod:   alignmentPeriod,
+		BucketReduction: &bucketReduction,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{alignerFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+	require.NotNil(t, ds)
+
+	// Execute and verify bucket reduction works
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2, "Should produce one record per bucket")
+
+	// First bucket [00:00, 01:00): sum of 10+20+30 = 60
+	assert.Equal(t, baseTime, records[0].Timestamp)
+	assert.InDelta(t, 60.0, records[0].Value, 1e-10)
+
+	// Second bucket [01:00, 02:00): sum of 40+50 = 90
+	assert.Equal(t, baseTime.Add(1*time.Hour), records[1].Timestamp)
+	assert.InDelta(t, 90.0, records[1].Value, 1e-10)
+}
+
 func TestParseFilter_ConditionFilter(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
