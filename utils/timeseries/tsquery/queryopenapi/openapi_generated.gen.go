@@ -337,9 +337,10 @@ type ApiAggregationResult struct {
 
 // ApiAlignerFilter defines model for ApiAlignerFilter.
 type ApiAlignerFilter struct {
-	AlignerPeriod ApiAlignmentPeriod   `json:"alignerPeriod"`
-	FillMode      *ApiFillMode         `json:"fillMode,omitempty"`
-	Type          ApiAlignerFilterType `json:"type"`
+	AlignerPeriod   ApiAlignmentPeriod   `json:"alignerPeriod"`
+	BucketReduction *ApiReductionType    `json:"bucketReduction,omitempty"`
+	FillMode        *ApiFillMode         `json:"fillMode,omitempty"`
+	Type            ApiAlignerFilterType `json:"type"`
 }
 
 // ApiAlignerFilterType defines model for ApiAlignerFilter.Type.

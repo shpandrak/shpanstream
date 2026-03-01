@@ -15,6 +15,7 @@ var _ Filter = AlignerFilter{}
 type AlignerFilter struct {
 	alignmentPeriod timeseries.AlignmentPeriod
 	fillMode        *timeseries.FillMode
+	bucketReduction *tsquery.ReductionType
 }
 
 func NewAlignerFilter(alignmentPeriod timeseries.AlignmentPeriod) AlignerFilter {
@@ -33,80 +34,165 @@ func (af AlignerFilter) FillMode() *timeseries.FillMode {
 	return af.fillMode
 }
 
+func (af AlignerFilter) WithBucketReduction(rt tsquery.ReductionType) AlignerFilter {
+	af.bucketReduction = &rt
+	return af
+}
+
+func (af AlignerFilter) BucketReduction() *tsquery.ReductionType {
+	return af.bucketReduction
+}
+
 func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error) {
 	isNumeric := result.meta.DataType().IsNumeric()
 
-	// For fill mode, we require numeric types because gap-filling uses interpolation
-	if !isNumeric && af.fillMode != nil {
+	// Validate bucket reduction compatibility (must come before fill mode check)
+	if af.bucketReduction != nil && af.bucketReduction.RequiresNumeric() && !isNumeric {
 		return util.DefaultValue[Result](), fmt.Errorf(
-			"aligner filter with fill mode can only be applied to numeric data types, got: %s",
-			result.meta.DataType(),
+			"aligner filter with bucket reduction %q requires numeric data type, got: %s",
+			*af.bucketReduction, result.meta.DataType(),
 		)
 	}
 
-	// Using ClusterSortedStreamComparable to group the items by the duration slot
-	alignedStream := stream.ClusterSortedStreamComparable[timeseries.TsRecord[any], timeseries.TsRecord[any], time.Time](
-		func(
-			ctx context.Context,
-			clusterTimestampClassifier time.Time,
-			clusterStream stream.Stream[timeseries.TsRecord[any]],
-			lastItemOnPreviousCluster *timeseries.TsRecord[any],
-		) (timeseries.TsRecord[any], error) {
+	// Determine effective output type — bucket reduction may change it
+	effectiveDataType := result.meta.DataType()
+	if af.bucketReduction != nil {
+		effectiveDataType = af.bucketReduction.GetResultDataType(result.meta.DataType())
+	}
 
-			firstItem, err := clusterStream.FindFirst().Get(ctx)
+	// Fill mode requires numeric OUTPUT type (after reduction)
+	if af.fillMode != nil && !effectiveDataType.IsNumeric() {
+		return util.DefaultValue[Result](), fmt.Errorf(
+			"aligner filter with fill mode can only be applied to numeric data types, got: %s",
+			effectiveDataType,
+		)
+	}
+
+	// Determine output metadata — bucket reduction may change the data type
+	resultMeta := result.meta
+	if af.bucketReduction != nil {
+		resultDataType := af.bucketReduction.GetResultDataType(result.meta.DataType())
+		if resultDataType != result.meta.DataType() {
+			newMeta, err := tsquery.NewFieldMetaWithCustomData(
+				result.meta.Urn(),
+				resultDataType,
+				result.meta.Required(),
+				result.meta.Unit(),
+				result.meta.CustomMeta(),
+			)
 			if err != nil {
-				return util.DefaultValue[timeseries.TsRecord[any]](), err
+				return util.DefaultValue[Result](), fmt.Errorf("failed to create new field meta for bucket reduction: %w", err)
 			}
+			resultMeta = *newMeta
+		}
+	}
 
-			// If this is the first cluster, smudge the first item to the start of the cluster
-			if lastItemOnPreviousCluster == nil {
+	var alignedStream stream.Stream[timeseries.TsRecord[any]]
+
+	if af.bucketReduction != nil {
+		// Bucket reduction mode: aggregate all values within each bucket using an Accumulator
+		inputDataType := result.meta.DataType()
+		reductionType := *af.bucketReduction
+
+		alignedStream = stream.ClusterSortedStreamComparable[timeseries.TsRecord[any], timeseries.TsRecord[any], time.Time](
+			func(
+				ctx context.Context,
+				clusterTimestampClassifier time.Time,
+				clusterStream stream.Stream[timeseries.TsRecord[any]],
+				_ *timeseries.TsRecord[any],
+			) (timeseries.TsRecord[any], error) {
+				acc, err := reductionType.NewAccumulator(inputDataType)
+				if err != nil {
+					return util.DefaultValue[timeseries.TsRecord[any]](), fmt.Errorf("failed to create accumulator for bucket reduction: %w", err)
+				}
+
+				err = clusterStream.ConsumeWithErr(ctx, func(item timeseries.TsRecord[any]) error {
+					acc.Add(item.Value, item.Timestamp)
+					return nil
+				})
+				if err != nil {
+					return util.DefaultValue[timeseries.TsRecord[any]](), err
+				}
+
+				accResult := acc.Result()
+				if accResult == nil {
+					// Defensive: cluster stream always has at least one item, so this should not happen
+					return util.DefaultValue[timeseries.TsRecord[any]](), fmt.Errorf("bucket reduction %q produced no result for bucket at %s", reductionType, clusterTimestampClassifier)
+				}
+
 				return timeseries.TsRecord[any]{
-					Value:     firstItem.Value,
+					Value:     accResult,
 					Timestamp: clusterTimestampClassifier,
 				}, nil
-			} else {
-				// If this is not the first cluster
+			},
+			alignmentPeriodClassifierFunc[any](af.alignmentPeriod),
+			result.data,
+		)
+	} else {
+		// Default interpolation mode
+		alignedStream = stream.ClusterSortedStreamComparable[timeseries.TsRecord[any], timeseries.TsRecord[any], time.Time](
+			func(
+				ctx context.Context,
+				clusterTimestampClassifier time.Time,
+				clusterStream stream.Stream[timeseries.TsRecord[any]],
+				lastItemOnPreviousCluster *timeseries.TsRecord[any],
+			) (timeseries.TsRecord[any], error) {
 
-				// Check if the first item is magically aligned to the slot, return it
-				if firstItem.Timestamp == clusterTimestampClassifier {
-					return timeseries.TsRecord[any]{
-						Value:     firstItem.Value,
-						Timestamp: clusterTimestampClassifier,
-					}, nil
-				} else if !isNumeric {
-					// For non-numeric types, use the nearest value (step function)
-					// instead of interpolation
+				firstItem, err := clusterStream.FindFirst().Get(ctx)
+				if err != nil {
+					return util.DefaultValue[timeseries.TsRecord[any]](), err
+				}
+
+				// If this is the first cluster, smudge the first item to the start of the cluster
+				if lastItemOnPreviousCluster == nil {
 					return timeseries.TsRecord[any]{
 						Value:     firstItem.Value,
 						Timestamp: clusterTimestampClassifier,
 					}, nil
 				} else {
-					// If not, we need to calculate the time-weighted average
-					avgItem, err := timeWeightedAverage(
-						result.meta,
-						clusterTimestampClassifier,
-						lastItemOnPreviousCluster.Timestamp,
-						lastItemOnPreviousCluster.Value,
-						firstItem.Timestamp,
-						firstItem.Value,
-					)
-					if err != nil {
-						return util.DefaultValue[timeseries.TsRecord[any]](), fmt.Errorf("error calculating time weighted average while aliging streams: %w", err)
+					// If this is not the first cluster
+
+					// Check if the first item is magically aligned to the slot, return it
+					if firstItem.Timestamp == clusterTimestampClassifier {
+						return timeseries.TsRecord[any]{
+							Value:     firstItem.Value,
+							Timestamp: clusterTimestampClassifier,
+						}, nil
+					} else if !isNumeric {
+						// For non-numeric types, use the nearest value (step function)
+						// instead of interpolation
+						return timeseries.TsRecord[any]{
+							Value:     firstItem.Value,
+							Timestamp: clusterTimestampClassifier,
+						}, nil
+					} else {
+						// If not, we need to calculate the time-weighted average
+						avgItem, err := timeWeightedAverage(
+							result.meta,
+							clusterTimestampClassifier,
+							lastItemOnPreviousCluster.Timestamp,
+							lastItemOnPreviousCluster.Value,
+							firstItem.Timestamp,
+							firstItem.Value,
+						)
+						if err != nil {
+							return util.DefaultValue[timeseries.TsRecord[any]](), fmt.Errorf("error calculating time weighted average while aliging streams: %w", err)
+						}
+						return timeseries.TsRecord[any]{
+							Value:     avgItem,
+							Timestamp: clusterTimestampClassifier,
+						}, nil
 					}
-					return timeseries.TsRecord[any]{
-						Value:     avgItem,
-						Timestamp: clusterTimestampClassifier,
-					}, nil
 				}
-			}
-		},
-		alignmentPeriodClassifierFunc[any](af.alignmentPeriod),
-		result.data,
-	)
+			},
+			alignmentPeriodClassifierFunc[any](af.alignmentPeriod),
+			result.data,
+		)
+	}
 
 	// If fillMode is set, wrap the sparse aligned stream with a gap-filler
 	if af.fillMode != nil {
-		fieldMeta := result.meta
+		fieldMeta := resultMeta
 		alignedStream = timeseries.NewTsGapFillerStream[any](
 			alignedStream,
 			af.alignmentPeriod,
@@ -119,7 +205,7 @@ func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error)
 	}
 
 	return Result{
-		meta: result.meta,
+		meta: resultMeta,
 		data: alignedStream,
 	}, nil
 
