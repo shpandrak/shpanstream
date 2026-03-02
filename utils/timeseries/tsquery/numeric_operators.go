@@ -30,6 +30,10 @@ func ModInt(v1, v2 any) any {
 	return v1.(int64) % v2.(int64)
 }
 
+func PowInt(v1, v2 any) any {
+	return int64(math.Pow(float64(v1.(int64)), float64(v2.(int64))))
+}
+
 // Decimal operations
 
 func AddDecimal(v1, v2 any) any {
@@ -48,6 +52,19 @@ func DivDecimal(v1, v2 any) any {
 	return v1.(float64) / v2.(float64)
 }
 
+func PowDecimal(v1, v2 any) any {
+	return math.Pow(v1.(float64), v2.(float64))
+}
+
+func (bno BinaryNumericOperatorType) Validate() error {
+	switch bno {
+	case BinaryNumericOperatorAdd, BinaryNumericOperatorSub, BinaryNumericOperatorMul,
+		BinaryNumericOperatorDiv, BinaryNumericOperatorMod, BinaryNumericOperatorPow:
+		return nil
+	}
+	return fmt.Errorf("invalid binary numeric operator: %q", bno)
+}
+
 func (bno BinaryNumericOperatorType) GetFuncImpl(forDataType DataType) (func(v1, v2 any) any, error) {
 	switch forDataType {
 	case DataTypeInteger:
@@ -62,6 +79,8 @@ func (bno BinaryNumericOperatorType) GetFuncImpl(forDataType DataType) (func(v1,
 			return DivInt, nil
 		case BinaryNumericOperatorMod:
 			return ModInt, nil
+		case BinaryNumericOperatorPow:
+			return PowInt, nil
 		default:
 			return nil, fmt.Errorf("unsupported operator %s for data type %s", bno, forDataType)
 		}
@@ -75,6 +94,8 @@ func (bno BinaryNumericOperatorType) GetFuncImpl(forDataType DataType) (func(v1,
 			return MulDecimal, nil
 		case BinaryNumericOperatorDiv:
 			return DivDecimal, nil
+		case BinaryNumericOperatorPow:
+			return PowDecimal, nil
 		default:
 			return nil, fmt.Errorf("unsupported operator %s for data type %s", bno, forDataType)
 		}
@@ -88,6 +109,7 @@ const (
 	BinaryNumericOperatorMul BinaryNumericOperatorType = "*"
 	BinaryNumericOperatorDiv BinaryNumericOperatorType = "/"
 	BinaryNumericOperatorMod BinaryNumericOperatorType = "%"
+	BinaryNumericOperatorPow BinaryNumericOperatorType = "^"
 )
 
 type UnaryNumericOperatorType string
@@ -171,6 +193,17 @@ func cosDecimal(v any) any {
 
 func tanDecimal(v any) any {
 	return math.Tan(v.(float64))
+}
+
+func (uno UnaryNumericOperatorType) Validate() error {
+	switch uno {
+	case UnaryNumericOperatorAbs, UnaryNumericOperatorNegate, UnaryNumericOperatorSqrt,
+		UnaryNumericOperatorCeil, UnaryNumericOperatorFloor, UnaryNumericOperatorRound,
+		UnaryNumericOperatorLog, UnaryNumericOperatorLog10, UnaryNumericOperatorExp,
+		UnaryNumericOperatorSin, UnaryNumericOperatorCos, UnaryNumericOperatorTan:
+		return nil
+	}
+	return fmt.Errorf("invalid unary numeric operator: %q", uno)
 }
 
 func (uno UnaryNumericOperatorType) GetFuncImpl(forDataType DataType) (func(v any) any, error) {

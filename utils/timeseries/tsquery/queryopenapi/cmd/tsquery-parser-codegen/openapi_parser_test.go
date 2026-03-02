@@ -1116,6 +1116,7 @@ func TestParseFieldValue_NumericExpression_AllOperators(t *testing.T) {
 		{"subtract", tsquery.BinaryNumericOperatorSub, 10.0, 5.0, 5.0},
 		{"multiply", tsquery.BinaryNumericOperatorMul, 10.0, 5.0, 50.0},
 		{"divide", tsquery.BinaryNumericOperatorDiv, 10.0, 5.0, 2.0},
+		{"power", tsquery.BinaryNumericOperatorPow, 2.0, 10.0, 1024.0},
 	}
 
 	for _, tt := range tests {
@@ -3139,4 +3140,416 @@ func TestParseReportFilter_ScheduleFilter(t *testing.T) {
 	records := result.Stream().MustCollect()
 	require.Len(t, records, 1)
 	assert.Equal(t, 2.0, records[0].Value[0]) // Mon 10:00
+}
+
+// =====================
+// Expression Aggregation Tests (E2E: API types → parse → execute)
+// =====================
+
+// helperStaticDsAgg creates a static datasource aggregation with decimal values for testing.
+// Uses float64/DataTypeDecimal because JSON roundtrip (in From*) converts numbers to float64.
+func helperStaticDsAgg(t *testing.T, values []float64) ApiAggregation {
+	t.Helper()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	data := make([]ApiMeasurementValue, len(values))
+	for i, v := range values {
+		data[i] = ApiMeasurementValue{
+			Timestamp: baseTime.Add(time.Duration(i) * time.Hour),
+			Value:     v,
+		}
+	}
+
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: data,
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	apiFromDs := ApiFromDatasourceAggregation{
+		Type:       "fromDatasource",
+		Datasource: apiDs,
+		Fields: []ApiAggregationField{
+			{ReductionType: tsquery.ReductionTypeSum, FieldMeta: &ApiAddFieldMeta{Uri: "total"}},
+			{ReductionType: tsquery.ReductionTypeCount, FieldMeta: &ApiAddFieldMeta{Uri: "cnt"}},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiFromDatasourceAggregation(apiFromDs))
+	return apiAgg
+}
+
+func helperAggFieldRef(urn string) ApiAggregationFieldValue {
+	var fv ApiAggregationFieldValue
+	_ = fv.FromApiRefAggregationFieldValue(ApiRefAggregationFieldValue{
+		Type: "ref",
+		Urn:  urn,
+	})
+	return fv
+}
+
+func helperAggFieldConstant(dataType tsquery.DataType, value any) ApiAggregationFieldValue {
+	var fv ApiAggregationFieldValue
+	_ = fv.FromApiConstantAggregationFieldValue(ApiConstantAggregationFieldValue{
+		Type:       "constant",
+		DataType:   ApiMetricDataType(dataType),
+		FieldValue: value,
+	})
+	return fv
+}
+
+func helperAggFieldNumericExpr(op1 ApiAggregationFieldValue, op tsquery.BinaryNumericOperatorType, op2 ApiAggregationFieldValue) ApiAggregationFieldValue {
+	var fv ApiAggregationFieldValue
+	_ = fv.FromApiNumericExpressionAggregationFieldValue(ApiNumericExpressionAggregationFieldValue{
+		Type: "numericExpression",
+		Op1:  op1,
+		Op:   op,
+		Op2:  op2,
+	})
+	return fv
+}
+
+func helperAggFieldCast(source ApiAggregationFieldValue, targetType tsquery.DataType) ApiAggregationFieldValue {
+	var fv ApiAggregationFieldValue
+	_ = fv.FromApiCastAggregationFieldValue(ApiCastAggregationFieldValue{
+		Type:       "cast",
+		Source:     source,
+		TargetType: ApiMetricDataType(targetType),
+	})
+	return fv
+}
+
+func helperAggFieldUnary(operand ApiAggregationFieldValue, op tsquery.UnaryNumericOperatorType) ApiAggregationFieldValue {
+	var fv ApiAggregationFieldValue
+	_ = fv.FromApiUnaryNumericOperatorAggregationFieldValue(ApiUnaryNumericOperatorAggregationFieldValue{
+		Type:    "unaryNumericOperator",
+		Operand: operand,
+		Op:      op,
+	})
+	return fv
+}
+
+func TestExpressionAggregation_SumTimesConstant(t *testing.T) {
+	sourceAgg := helperStaticDsAgg(t, []float64{10, 20, 30})
+
+	// sum(field) * 100
+	exprValue := helperAggFieldNumericExpr(
+		helperAggFieldRef("total"),
+		tsquery.BinaryNumericOperatorMul,
+		helperAggFieldConstant(tsquery.DataTypeDecimal, 100.0),
+	)
+
+	apiExprAgg := ApiExpressionAggregation{
+		Type:   "expression",
+		Source: sourceAgg,
+		Fields: []ApiExpressionAggregationField{
+			{
+				FieldMeta: ApiAddFieldMeta{Uri: "result"},
+				Value:     exprValue,
+			},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiExpressionAggregation(apiExprAgg))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	agg, err := ParseAggregation(pCtx, apiAgg)
+	require.NoError(t, err)
+
+	result, err := agg.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	metas := result.FieldsMeta()
+	require.Len(t, metas, 1)
+	require.Equal(t, "result", metas[0].Urn())
+
+	fields, err := result.Fields().Get(testContext())
+	require.NoError(t, err)
+	require.Len(t, fields, 1)
+	// sum = 10+20+30 = 60, * 100 = 6000.0
+	require.InDelta(t, 6000.0, fields[0].Value.(float64), 0.0001)
+}
+
+func TestExpressionAggregation_CompoundDivision(t *testing.T) {
+	sourceAgg := helperStaticDsAgg(t, []float64{10, 20, 30})
+
+	// (total * 100) / cast(cnt, decimal) — total is already decimal, cnt is integer (count reduction)
+	exprValue := helperAggFieldNumericExpr(
+		helperAggFieldNumericExpr(
+			helperAggFieldRef("total"),
+			tsquery.BinaryNumericOperatorMul,
+			helperAggFieldConstant(tsquery.DataTypeDecimal, 100.0),
+		),
+		tsquery.BinaryNumericOperatorDiv,
+		helperAggFieldCast(helperAggFieldRef("cnt"), tsquery.DataTypeDecimal),
+	)
+
+	apiExprAgg := ApiExpressionAggregation{
+		Type:   "expression",
+		Source: sourceAgg,
+		Fields: []ApiExpressionAggregationField{
+			{
+				FieldMeta: ApiAddFieldMeta{Uri: "weighted_avg"},
+				Value:     exprValue,
+			},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiExpressionAggregation(apiExprAgg))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	agg, err := ParseAggregation(pCtx, apiAgg)
+	require.NoError(t, err)
+
+	result, err := agg.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	fields, err := result.Fields().Get(testContext())
+	require.NoError(t, err)
+	require.Len(t, fields, 1)
+	// sum=60, cnt=3 → (60*100)/3 = 2000
+	require.InDelta(t, 2000.0, fields[0].Value.(float64), 0.0001)
+}
+
+func TestExpressionAggregation_UnaryAbs(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Use negative decimal values: sum will be negative
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: -10.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: -20.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	apiFromDs := ApiFromDatasourceAggregation{
+		Type:       "fromDatasource",
+		Datasource: apiDs,
+		Fields: []ApiAggregationField{
+			{ReductionType: tsquery.ReductionTypeSum, FieldMeta: &ApiAddFieldMeta{Uri: "total"}},
+		},
+	}
+
+	var sourceAgg ApiAggregation
+	require.NoError(t, sourceAgg.FromApiFromDatasourceAggregation(apiFromDs))
+
+	// abs(total)
+	exprValue := helperAggFieldUnary(helperAggFieldRef("total"), tsquery.UnaryNumericOperatorAbs)
+
+	apiExprAgg := ApiExpressionAggregation{
+		Type:   "expression",
+		Source: sourceAgg,
+		Fields: []ApiExpressionAggregationField{
+			{
+				FieldMeta: ApiAddFieldMeta{Uri: "abs_total"},
+				Value:     exprValue,
+			},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiExpressionAggregation(apiExprAgg))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	agg, err := ParseAggregation(pCtx, apiAgg)
+	require.NoError(t, err)
+
+	result, err := agg.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	fields, err := result.Fields().Get(testContext())
+	require.NoError(t, err)
+	require.Len(t, fields, 1)
+	// sum = -30.0, abs(-30.0) = 30.0
+	require.InDelta(t, 30.0, fields[0].Value.(float64), 0.0001)
+}
+
+func TestExpressionAggregation_RefPassthrough(t *testing.T) {
+	sourceAgg := helperStaticDsAgg(t, []float64{10, 20, 30})
+
+	// Pass through total via ref
+	apiExprAgg := ApiExpressionAggregation{
+		Type:   "expression",
+		Source: sourceAgg,
+		Fields: []ApiExpressionAggregationField{
+			{
+				FieldMeta: ApiAddFieldMeta{Uri: "total"},
+				Value:     helperAggFieldRef("total"),
+			},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiExpressionAggregation(apiExprAgg))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	agg, err := ParseAggregation(pCtx, apiAgg)
+	require.NoError(t, err)
+
+	result, err := agg.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	fields, err := result.Fields().Get(testContext())
+	require.NoError(t, err)
+	require.Len(t, fields, 1)
+	require.Equal(t, 60.0, fields[0].Value) // sum = 60.0
+}
+
+func TestExpressionAggregation_PowerOperator(t *testing.T) {
+	sourceAgg := helperStaticDsAgg(t, []float64{2, 3})
+
+	// total ^ constant(2.0) — where total = sum(2,3) = 5.0
+	exprValue := helperAggFieldNumericExpr(
+		helperAggFieldRef("total"),
+		tsquery.BinaryNumericOperatorPow,
+		helperAggFieldConstant(tsquery.DataTypeDecimal, 2.0),
+	)
+
+	apiExprAgg := ApiExpressionAggregation{
+		Type:   "expression",
+		Source: sourceAgg,
+		Fields: []ApiExpressionAggregationField{
+			{
+				FieldMeta: ApiAddFieldMeta{Uri: "squared"},
+				Value:     exprValue,
+			},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiExpressionAggregation(apiExprAgg))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	agg, err := ParseAggregation(pCtx, apiAgg)
+	require.NoError(t, err)
+
+	result, err := agg.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	fields, err := result.Fields().Get(testContext())
+	require.NoError(t, err)
+	require.Len(t, fields, 1)
+	// sum=5.0, 5.0^2.0 = 25.0
+	require.InDelta(t, 25.0, fields[0].Value.(float64), 0.0001)
+}
+
+func TestExpressionAggregation_WithCompositeSource(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// First datasource: energy with sum (decimal to avoid JSON roundtrip issues)
+	ds1 := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "energy",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 200.0},
+		},
+	}
+	var apiDs1 ApiQueryDatasource
+	require.NoError(t, apiDs1.FromApiStaticQueryDatasource(ds1))
+
+	fromDs1 := ApiFromDatasourceAggregation{
+		Type:       "fromDatasource",
+		Datasource: apiDs1,
+		Fields: []ApiAggregationField{
+			{ReductionType: tsquery.ReductionTypeSum, FieldMeta: &ApiAddFieldMeta{Uri: "energy_sum"}},
+		},
+	}
+	var agg1 ApiAggregation
+	require.NoError(t, agg1.FromApiFromDatasourceAggregation(fromDs1))
+
+	// Second datasource: cost with sum
+	ds2 := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "cost",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 50.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 150.0},
+		},
+	}
+	var apiDs2 ApiQueryDatasource
+	require.NoError(t, apiDs2.FromApiStaticQueryDatasource(ds2))
+
+	fromDs2 := ApiFromDatasourceAggregation{
+		Type:       "fromDatasource",
+		Datasource: apiDs2,
+		Fields: []ApiAggregationField{
+			{ReductionType: tsquery.ReductionTypeSum, FieldMeta: &ApiAddFieldMeta{Uri: "cost_sum"}},
+		},
+	}
+	var agg2 ApiAggregation
+	require.NoError(t, agg2.FromApiFromDatasourceAggregation(fromDs2))
+
+	// Composite source
+	compositeAgg := ApiCompositeAggregation{
+		Type:         "composite",
+		Aggregations: []ApiAggregation{agg1, agg2},
+	}
+	var sourceAgg ApiAggregation
+	require.NoError(t, sourceAgg.FromApiCompositeAggregation(compositeAgg))
+
+	// Expression: energy_sum / cost_sum (both are already decimal)
+	exprValue := helperAggFieldNumericExpr(
+		helperAggFieldRef("energy_sum"),
+		tsquery.BinaryNumericOperatorDiv,
+		helperAggFieldRef("cost_sum"),
+	)
+
+	apiExprAgg := ApiExpressionAggregation{
+		Type:   "expression",
+		Source: sourceAgg,
+		Fields: []ApiExpressionAggregationField{
+			{
+				FieldMeta: ApiAddFieldMeta{Uri: "ratio"},
+				Value:     exprValue,
+			},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiExpressionAggregation(apiExprAgg))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	agg, err := ParseAggregation(pCtx, apiAgg)
+	require.NoError(t, err)
+
+	result, err := agg.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	metas := result.FieldsMeta()
+	require.Len(t, metas, 1)
+	require.Equal(t, "ratio", metas[0].Urn())
+
+	fields, err := result.Fields().Get(testContext())
+	require.NoError(t, err)
+	require.Len(t, fields, 1)
+	// energy_sum=300.0, cost_sum=200.0, ratio = 300/200 = 1.5
+	require.InDelta(t, 1.5, fields[0].Value.(float64), 0.0001)
 }
