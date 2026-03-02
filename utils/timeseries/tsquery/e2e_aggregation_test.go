@@ -815,3 +815,181 @@ func TestReductionDatasource_AllSevenReductions(t *testing.T) {
 		})
 	}
 }
+
+// --- Expression Aggregation Tests ---
+
+func TestExpressionAggregation_BinaryOps(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	ds := createDatasource(t, "value", tsquery.DataTypeDecimal, true, "",
+		[]time.Time{baseTime, baseTime.Add(1 * time.Hour)},
+		[]any{10.0, 20.0},
+	)
+
+	sourceAgg := aggregation.NewFromDatasourceAggregation(ds, []aggregation.AggregationFieldDef{
+		{ReductionType: tsquery.ReductionTypeSum, AddFieldMeta: &tsquery.AddFieldMeta{Urn: "total"}},
+		{ReductionType: tsquery.ReductionTypeCount, AddFieldMeta: &tsquery.AddFieldMeta{Urn: "cnt"}},
+	})
+
+	tests := []struct {
+		name     string
+		op       tsquery.BinaryNumericOperatorType
+		op1      aggregation.AggregationValue
+		op2      aggregation.AggregationValue
+		expected float64
+	}{
+		{
+			"add",
+			tsquery.BinaryNumericOperatorAdd,
+			aggregation.NewRefAggregationValue("total"),
+			aggregation.NewConstantAggregationValue(tsquery.DataTypeDecimal, 5.0),
+			35.0, // sum=30, 30+5=35
+		},
+		{
+			"sub",
+			tsquery.BinaryNumericOperatorSub,
+			aggregation.NewRefAggregationValue("total"),
+			aggregation.NewConstantAggregationValue(tsquery.DataTypeDecimal, 5.0),
+			25.0, // 30-5=25
+		},
+		{
+			"mul",
+			tsquery.BinaryNumericOperatorMul,
+			aggregation.NewRefAggregationValue("total"),
+			aggregation.NewConstantAggregationValue(tsquery.DataTypeDecimal, 2.0),
+			60.0, // 30*2=60
+		},
+		{
+			"div",
+			tsquery.BinaryNumericOperatorDiv,
+			aggregation.NewRefAggregationValue("total"),
+			aggregation.NewConstantAggregationValue(tsquery.DataTypeDecimal, 3.0),
+			10.0, // 30/3=10
+		},
+		{
+			"pow",
+			tsquery.BinaryNumericOperatorPow,
+			aggregation.NewRefAggregationValue("total"),
+			aggregation.NewConstantAggregationValue(tsquery.DataTypeDecimal, 2.0),
+			900.0, // 30^2=900
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exprAgg := aggregation.NewExpressionAggregation(sourceAgg, []aggregation.ExpressionAggregationFieldDef{
+				{
+					AddFieldMeta: tsquery.AddFieldMeta{Urn: "result"},
+					Value:        aggregation.NewNumericExpressionAggregationValue(tt.op1, tt.op, tt.op2),
+				},
+			})
+
+			result, err := exprAgg.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+			require.NoError(t, err)
+
+			fields, err := result.Fields().Get(ctx)
+			require.NoError(t, err)
+			require.Len(t, fields, 1)
+			require.InDelta(t, tt.expected, fields[0].Value.(float64), 0.0001)
+		})
+	}
+}
+
+func TestExpressionAggregation_OnlyExpressionFieldsInOutput(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	ds := createDatasource(t, "value", tsquery.DataTypeInteger, true, "",
+		[]time.Time{baseTime},
+		[]any{int64(42)},
+	)
+
+	sourceAgg := aggregation.NewFromDatasourceAggregation(ds, []aggregation.AggregationFieldDef{
+		{ReductionType: tsquery.ReductionTypeSum, AddFieldMeta: &tsquery.AddFieldMeta{Urn: "total"}},
+		{ReductionType: tsquery.ReductionTypeCount, AddFieldMeta: &tsquery.AddFieldMeta{Urn: "cnt"}},
+	})
+
+	// Only output one computed field — source fields (total, cnt) should NOT appear
+	exprAgg := aggregation.NewExpressionAggregation(sourceAgg, []aggregation.ExpressionAggregationFieldDef{
+		{
+			AddFieldMeta: tsquery.AddFieldMeta{Urn: "doubled"},
+			Value: aggregation.NewNumericExpressionAggregationValue(
+				aggregation.NewRefAggregationValue("total"),
+				tsquery.BinaryNumericOperatorMul,
+				aggregation.NewConstantAggregationValue(tsquery.DataTypeInteger, int64(2)),
+			),
+		},
+	})
+
+	result, err := exprAgg.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	metas := result.FieldsMeta()
+	require.Len(t, metas, 1, "only expression fields should appear in output")
+	require.Equal(t, "doubled", metas[0].Urn())
+
+	fields, err := result.Fields().Get(ctx)
+	require.NoError(t, err)
+	require.Len(t, fields, 1)
+	require.Equal(t, int64(84), fields[0].Value)
+}
+
+func TestExpressionAggregation_MultipleFields(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	ds := createDatasource(t, "value", tsquery.DataTypeDecimal, true, "",
+		[]time.Time{baseTime, baseTime.Add(1 * time.Hour), baseTime.Add(2 * time.Hour)},
+		[]any{10.0, 20.0, 30.0},
+	)
+
+	sourceAgg := aggregation.NewFromDatasourceAggregation(ds, []aggregation.AggregationFieldDef{
+		{ReductionType: tsquery.ReductionTypeSum, AddFieldMeta: &tsquery.AddFieldMeta{Urn: "total"}},
+		{ReductionType: tsquery.ReductionTypeCount, AddFieldMeta: &tsquery.AddFieldMeta{Urn: "cnt"}},
+	})
+
+	exprAgg := aggregation.NewExpressionAggregation(sourceAgg, []aggregation.ExpressionAggregationFieldDef{
+		{
+			AddFieldMeta: tsquery.AddFieldMeta{Urn: "sum_x2"},
+			Value: aggregation.NewNumericExpressionAggregationValue(
+				aggregation.NewRefAggregationValue("total"),
+				tsquery.BinaryNumericOperatorMul,
+				aggregation.NewConstantAggregationValue(tsquery.DataTypeDecimal, 2.0),
+			),
+		},
+		{
+			AddFieldMeta: tsquery.AddFieldMeta{Urn: "avg"},
+			Value: aggregation.NewNumericExpressionAggregationValue(
+				aggregation.NewRefAggregationValue("total"),
+				tsquery.BinaryNumericOperatorDiv,
+				aggregation.NewCastAggregationValue(
+					aggregation.NewRefAggregationValue("cnt"),
+					tsquery.DataTypeDecimal,
+				),
+			),
+		},
+		{
+			AddFieldMeta: tsquery.AddFieldMeta{Urn: "total_passthrough"},
+			Value:        aggregation.NewRefAggregationValue("total"),
+		},
+	})
+
+	result, err := exprAgg.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	metas := result.FieldsMeta()
+	require.Len(t, metas, 3)
+	require.Equal(t, "sum_x2", metas[0].Urn())
+	require.Equal(t, "avg", metas[1].Urn())
+	require.Equal(t, "total_passthrough", metas[2].Urn())
+
+	fields, err := result.Fields().Get(ctx)
+	require.NoError(t, err)
+	require.Len(t, fields, 3)
+
+	// total=60, cnt=3
+	require.InDelta(t, 120.0, fields[0].Value.(float64), 0.0001)  // 60*2
+	require.InDelta(t, 20.0, fields[1].Value.(float64), 0.0001)   // 60/3
+	require.Equal(t, 60.0, fields[2].Value)                        // passthrough
+}

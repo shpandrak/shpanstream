@@ -141,6 +141,9 @@ func parseNumericExpressionReportFieldValue(
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse op2 field for numeric expression: %w", err)
 	}
+	if err := nef.Op.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid operator for numeric expression: %w", err)
+	}
 	return report.NewNumericExpressionFieldValue(op1, nef.Op, op2), nil
 }
 
@@ -151,6 +154,9 @@ func parseUnaryNumericOperatorReportFieldValue(
 	operand, err := ParseReportField(pCtx, ufv.Operand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse operand field for unary numeric operator: %w", err)
+	}
+	if err := ufv.Op.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid operator for unary numeric expression: %w", err)
 	}
 	return report.NewUnaryNumericOperatorFieldValue(operand, ufv.Op), nil
 }

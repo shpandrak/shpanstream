@@ -584,6 +584,7 @@ components:
         - "*"
         - "/"
         - "%"
+        - "^"
 
     ApiNumericExpressionQueryFieldValue:
       type: object
@@ -1423,10 +1424,12 @@ components:
           fromDatasource: '#/components/schemas/ApiFromDatasourceAggregation'
           fromReport: '#/components/schemas/ApiFromReportAggregation'
           composite: '#/components/schemas/ApiCompositeAggregation'
+          expression: '#/components/schemas/ApiExpressionAggregation'
       oneOf:
         - $ref: '#/components/schemas/ApiFromDatasourceAggregation'
         - $ref: '#/components/schemas/ApiFromReportAggregation'
         - $ref: '#/components/schemas/ApiCompositeAggregation'
+        - $ref: '#/components/schemas/ApiExpressionAggregation'
 
     ApiFromDatasourceAggregation:
       type: object
@@ -1522,6 +1525,156 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/ApiAggregation'
+
+    ApiExpressionAggregation:
+      type: object
+      description: |
+        Computes new scalar fields from the results of a source aggregation using
+        arithmetic expressions. Only the explicitly defined expression fields are output;
+        source fields are not passed through unless referenced via a ref expression.
+      required:
+        - type
+        - source
+        - fields
+      properties:
+        type:
+          type: string
+          enum:
+            - expression
+        source:
+          description: The source aggregation whose results are available as expression operands.
+          $ref: '#/components/schemas/ApiAggregation'
+        fields:
+          type: array
+          description: Computed fields to produce. Each field is an expression over source aggregation results.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ApiExpressionAggregationField'
+
+    ApiExpressionAggregationField:
+      type: object
+      description: A computed aggregation field defined as an expression over source aggregation results.
+      required:
+        - fieldMeta
+        - value
+      properties:
+        fieldMeta:
+          description: Metadata for the computed field (urn is required to name the output).
+          $ref: '#/components/schemas/ApiAddFieldMeta'
+        value:
+          description: The expression to evaluate.
+          $ref: '#/components/schemas/ApiAggregationFieldValue'
+
+    ApiAggregationFieldValue:
+      type: object
+      description: |
+        Expression over aggregation scalar results. Supports references to source
+        aggregation fields, constants, arithmetic, and unary operations.
+      discriminator:
+        propertyName: type
+        mapping:
+          ref: '#/components/schemas/ApiRefAggregationFieldValue'
+          constant: '#/components/schemas/ApiConstantAggregationFieldValue'
+          numericExpression: '#/components/schemas/ApiNumericExpressionAggregationFieldValue'
+          unaryNumericOperator: '#/components/schemas/ApiUnaryNumericOperatorAggregationFieldValue'
+          cast: '#/components/schemas/ApiCastAggregationFieldValue'
+      oneOf:
+        - $ref: '#/components/schemas/ApiRefAggregationFieldValue'
+        - $ref: '#/components/schemas/ApiConstantAggregationFieldValue'
+        - $ref: '#/components/schemas/ApiNumericExpressionAggregationFieldValue'
+        - $ref: '#/components/schemas/ApiUnaryNumericOperatorAggregationFieldValue'
+        - $ref: '#/components/schemas/ApiCastAggregationFieldValue'
+
+    ApiRefAggregationFieldValue:
+      type: object
+      description: Reference to a field from the source aggregation by its URN.
+      required:
+        - type
+        - urn
+      properties:
+        type:
+          type: string
+          enum:
+            - ref
+        urn:
+          type: string
+          description: URN of the source aggregation field to reference.
+          minLength: 1
+
+    ApiConstantAggregationFieldValue:
+      type: object
+      description: A literal constant value.
+      required:
+        - type
+        - dataType
+        - fieldValue
+      properties:
+        type:
+          type: string
+          enum:
+            - constant
+        dataType:
+          $ref: '#/components/schemas/ApiMetricDataType'
+        fieldValue:
+          x-go-type: any
+          anyOf:
+            - type: string
+            - type: number
+            - type: boolean
+
+    ApiNumericExpressionAggregationFieldValue:
+      type: object
+      description: Binary numeric operation on two aggregation field values.
+      required:
+        - type
+        - op1
+        - op
+        - op2
+      properties:
+        type:
+          type: string
+          enum:
+            - numericExpression
+        op1:
+          $ref: '#/components/schemas/ApiAggregationFieldValue'
+        op:
+          $ref: '#/components/schemas/ApiBinaryNumericOperatorType'
+        op2:
+          $ref: '#/components/schemas/ApiAggregationFieldValue'
+
+    ApiUnaryNumericOperatorAggregationFieldValue:
+      type: object
+      description: Unary numeric operation on an aggregation field value.
+      required:
+        - type
+        - operand
+        - op
+      properties:
+        type:
+          type: string
+          enum:
+            - unaryNumericOperator
+        operand:
+          $ref: '#/components/schemas/ApiAggregationFieldValue'
+        op:
+          $ref: '#/components/schemas/ApiUnaryNumericOperatorType'
+
+    ApiCastAggregationFieldValue:
+      type: object
+      description: Cast an aggregation field value to a different numeric type.
+      required:
+        - type
+        - source
+        - targetType
+      properties:
+        type:
+          type: string
+          enum:
+            - cast
+        source:
+          $ref: '#/components/schemas/ApiAggregationFieldValue'
+        targetType:
+          $ref: '#/components/schemas/ApiMetricDataType'
 
     ApiAggregationResult:
       type: object

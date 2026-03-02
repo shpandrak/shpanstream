@@ -38,6 +38,11 @@ const (
 	ApiCalendarPeriodTypeYear        ApiCalendarPeriodType = "year"
 )
 
+// Defines values for ApiCastAggregationFieldValueType.
+const (
+	ApiCastAggregationFieldValueTypeCast ApiCastAggregationFieldValueType = "cast"
+)
+
 // Defines values for ApiCastQueryFieldValueType.
 const (
 	ApiCastQueryFieldValueTypeCast ApiCastQueryFieldValueType = "cast"
@@ -73,6 +78,11 @@ const (
 	ApiConditionReportFilterTypeCondition ApiConditionReportFilterType = "condition"
 )
 
+// Defines values for ApiConstantAggregationFieldValueType.
+const (
+	ApiConstantAggregationFieldValueTypeConstant ApiConstantAggregationFieldValueType = "constant"
+)
+
 // Defines values for ApiConstantQueryFieldValueType.
 const (
 	ApiConstantQueryFieldValueTypeConstant ApiConstantQueryFieldValueType = "constant"
@@ -96,6 +106,11 @@ const (
 // Defines values for ApiDropFieldsReportFilterType.
 const (
 	ApiDropFieldsReportFilterTypeDropFields ApiDropFieldsReportFilterType = "dropFields"
+)
+
+// Defines values for ApiExpressionAggregationType.
+const (
+	ApiExpressionAggregationTypeExpression ApiExpressionAggregationType = "expression"
 )
 
 // Defines values for ApiFieldValueFilterType.
@@ -190,6 +205,11 @@ const (
 	ApiNilReportFieldValueTypeNil ApiNilReportFieldValueType = "nil"
 )
 
+// Defines values for ApiNumericExpressionAggregationFieldValueType.
+const (
+	ApiNumericExpressionAggregationFieldValueTypeNumericExpression ApiNumericExpressionAggregationFieldValueType = "numericExpression"
+)
+
 // Defines values for ApiNumericExpressionQueryFieldValueType.
 const (
 	ApiNumericExpressionQueryFieldValueTypeNumericExpression ApiNumericExpressionQueryFieldValueType = "numericExpression"
@@ -233,6 +253,11 @@ const (
 // Defines values for ApiReductionQueryDatasourceType.
 const (
 	ApiReductionQueryDatasourceTypeReduction ApiReductionQueryDatasourceType = "reduction"
+)
+
+// Defines values for ApiRefAggregationFieldValueType.
+const (
+	ApiRefAggregationFieldValueTypeRef ApiRefAggregationFieldValueType = "ref"
 )
 
 // Defines values for ApiRefQueryFieldValueType.
@@ -295,6 +320,11 @@ const (
 	ApiTimestampExtractReportFieldValueTypeTimestampExtract ApiTimestampExtractReportFieldValueType = "timestampExtract"
 )
 
+// Defines values for ApiUnaryNumericOperatorAggregationFieldValueType.
+const (
+	ApiUnaryNumericOperatorAggregationFieldValueTypeUnaryNumericOperator ApiUnaryNumericOperatorAggregationFieldValueType = "unaryNumericOperator"
+)
+
 // Defines values for ApiUnaryNumericOperatorQueryFieldValueType.
 const (
 	ApiUnaryNumericOperatorQueryFieldValueTypeUnaryNumericOperator ApiUnaryNumericOperatorQueryFieldValueType = "unaryNumericOperator"
@@ -333,6 +363,12 @@ type ApiAggregationField struct {
 	EmptyValue    *ApiQueryFieldValue `json:"emptyValue,omitempty"`
 	FieldMeta     *ApiAddFieldMeta    `json:"fieldMeta,omitempty"`
 	ReductionType ApiReductionType    `json:"reductionType"`
+}
+
+// ApiAggregationFieldValue Expression over aggregation scalar results. Supports references to source
+// aggregation fields, constants, arithmetic, and unary operations.
+type ApiAggregationFieldValue struct {
+	union json.RawMessage
 }
 
 // ApiAggregationResult Result of an aggregation - one or more scalar values with metadata.
@@ -381,6 +417,18 @@ type ApiCalendarAlignmentPeriodType string
 
 // ApiCalendarPeriodType defines model for ApiCalendarPeriodType.
 type ApiCalendarPeriodType string
+
+// ApiCastAggregationFieldValue Cast an aggregation field value to a different numeric type.
+type ApiCastAggregationFieldValue struct {
+	// Source Expression over aggregation scalar results. Supports references to source
+	// aggregation fields, constants, arithmetic, and unary operations.
+	Source     ApiAggregationFieldValue         `json:"source"`
+	TargetType ApiMetricDataType                `json:"targetType"`
+	Type       ApiCastAggregationFieldValueType `json:"type"`
+}
+
+// ApiCastAggregationFieldValueType defines model for ApiCastAggregationFieldValue.Type.
+type ApiCastAggregationFieldValueType string
 
 // ApiCastQueryFieldValue defines model for ApiCastQueryFieldValue.
 type ApiCastQueryFieldValue struct {
@@ -454,6 +502,16 @@ type ApiConditionReportFilter struct {
 
 // ApiConditionReportFilterType defines model for ApiConditionReportFilter.Type.
 type ApiConditionReportFilterType string
+
+// ApiConstantAggregationFieldValue A literal constant value.
+type ApiConstantAggregationFieldValue struct {
+	DataType   ApiMetricDataType                    `json:"dataType"`
+	FieldValue any                                  `json:"fieldValue"`
+	Type       ApiConstantAggregationFieldValueType `json:"type"`
+}
+
+// ApiConstantAggregationFieldValueType defines model for ApiConstantAggregationFieldValue.Type.
+type ApiConstantAggregationFieldValueType string
 
 // ApiConstantQueryFieldValue defines model for ApiConstantQueryFieldValue.
 type ApiConstantQueryFieldValue struct {
@@ -529,6 +587,30 @@ type ApiExecuteQueryCommandArgs struct {
 	Datasource ApiQueryDatasource `json:"datasource"`
 	From       time.Time          `json:"from"`
 	To         time.Time          `json:"to"`
+}
+
+// ApiExpressionAggregation Computes new scalar fields from the results of a source aggregation using
+// arithmetic expressions. Only the explicitly defined expression fields are output;
+// source fields are not passed through unless referenced via a ref expression.
+type ApiExpressionAggregation struct {
+	// Fields Computed fields to produce. Each field is an expression over source aggregation results.
+	Fields []ApiExpressionAggregationField `json:"fields"`
+
+	// Source Aggregation definition - collapses a time series stream into scalar values.
+	Source ApiAggregation               `json:"source"`
+	Type   ApiExpressionAggregationType `json:"type"`
+}
+
+// ApiExpressionAggregationType defines model for ApiExpressionAggregation.Type.
+type ApiExpressionAggregationType string
+
+// ApiExpressionAggregationField A computed aggregation field defined as an expression over source aggregation results.
+type ApiExpressionAggregationField struct {
+	FieldMeta ApiAddFieldMeta `json:"fieldMeta"`
+
+	// Value Expression over aggregation scalar results. Supports references to source
+	// aggregation fields, constants, arithmetic, and unary operations.
+	Value ApiAggregationFieldValue `json:"value"`
 }
 
 // ApiFieldValueFilter defines model for ApiFieldValueFilter.
@@ -743,6 +825,23 @@ type ApiNilReportFieldValue struct {
 // ApiNilReportFieldValueType defines model for ApiNilReportFieldValue.Type.
 type ApiNilReportFieldValueType string
 
+// ApiNumericExpressionAggregationFieldValue Binary numeric operation on two aggregation field values.
+type ApiNumericExpressionAggregationFieldValue struct {
+	Op ApiBinaryNumericOperatorType `json:"op"`
+
+	// Op1 Expression over aggregation scalar results. Supports references to source
+	// aggregation fields, constants, arithmetic, and unary operations.
+	Op1 ApiAggregationFieldValue `json:"op1"`
+
+	// Op2 Expression over aggregation scalar results. Supports references to source
+	// aggregation fields, constants, arithmetic, and unary operations.
+	Op2  ApiAggregationFieldValue                      `json:"op2"`
+	Type ApiNumericExpressionAggregationFieldValueType `json:"type"`
+}
+
+// ApiNumericExpressionAggregationFieldValueType defines model for ApiNumericExpressionAggregationFieldValue.Type.
+type ApiNumericExpressionAggregationFieldValueType string
+
 // ApiNumericExpressionQueryFieldValue defines model for ApiNumericExpressionQueryFieldValue.
 type ApiNumericExpressionQueryFieldValue struct {
 	Op   ApiBinaryNumericOperatorType            `json:"op"`
@@ -883,6 +982,17 @@ type ApiReductionQueryDatasourceType string
 
 // ApiReductionType defines model for ApiReductionType.
 type ApiReductionType = tsquery.ReductionType
+
+// ApiRefAggregationFieldValue Reference to a field from the source aggregation by its URN.
+type ApiRefAggregationFieldValue struct {
+	Type ApiRefAggregationFieldValueType `json:"type"`
+
+	// Urn URN of the source aggregation field to reference.
+	Urn string `json:"urn"`
+}
+
+// ApiRefAggregationFieldValueType defines model for ApiRefAggregationFieldValue.Type.
+type ApiRefAggregationFieldValueType string
 
 // ApiRefQueryFieldValue defines model for ApiRefQueryFieldValue.
 type ApiRefQueryFieldValue struct {
@@ -1085,6 +1195,19 @@ type ApiTimestampExtractReportFieldValue struct {
 // ApiTimestampExtractReportFieldValueType defines model for ApiTimestampExtractReportFieldValue.Type.
 type ApiTimestampExtractReportFieldValueType string
 
+// ApiUnaryNumericOperatorAggregationFieldValue Unary numeric operation on an aggregation field value.
+type ApiUnaryNumericOperatorAggregationFieldValue struct {
+	Op ApiUnaryNumericOperatorType `json:"op"`
+
+	// Operand Expression over aggregation scalar results. Supports references to source
+	// aggregation fields, constants, arithmetic, and unary operations.
+	Operand ApiAggregationFieldValue                         `json:"operand"`
+	Type    ApiUnaryNumericOperatorAggregationFieldValueType `json:"type"`
+}
+
+// ApiUnaryNumericOperatorAggregationFieldValueType defines model for ApiUnaryNumericOperatorAggregationFieldValue.Type.
+type ApiUnaryNumericOperatorAggregationFieldValueType string
+
 // ApiUnaryNumericOperatorQueryFieldValue defines model for ApiUnaryNumericOperatorQueryFieldValue.
 type ApiUnaryNumericOperatorQueryFieldValue struct {
 	Op      ApiUnaryNumericOperatorType                `json:"op"`
@@ -1162,6 +1285,22 @@ func (t *ApiAggregation) FromApiCompositeAggregation(v ApiCompositeAggregation) 
 }
 
 
+// AsApiExpressionAggregation returns the union data inside the ApiAggregation as a ApiExpressionAggregation
+func (t ApiAggregation) AsApiExpressionAggregation() (ApiExpressionAggregation, error) {
+	var body ApiExpressionAggregation
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiExpressionAggregation overwrites any union data inside the ApiAggregation as the provided ApiExpressionAggregation
+func (t *ApiAggregation) FromApiExpressionAggregation(v ApiExpressionAggregation) error {
+	v.Type = "expression"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiAggregation) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1178,6 +1317,8 @@ func (t ApiAggregation) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "composite":
 		return t.AsApiCompositeAggregation()
+	case "expression":
+		return t.AsApiExpressionAggregation()
 	case "fromDatasource":
 		return t.AsApiFromDatasourceAggregation()
 	case "fromReport":
@@ -1193,6 +1334,125 @@ func (t ApiAggregation) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ApiAggregation) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsApiRefAggregationFieldValue returns the union data inside the ApiAggregationFieldValue as a ApiRefAggregationFieldValue
+func (t ApiAggregationFieldValue) AsApiRefAggregationFieldValue() (ApiRefAggregationFieldValue, error) {
+	var body ApiRefAggregationFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiRefAggregationFieldValue overwrites any union data inside the ApiAggregationFieldValue as the provided ApiRefAggregationFieldValue
+func (t *ApiAggregationFieldValue) FromApiRefAggregationFieldValue(v ApiRefAggregationFieldValue) error {
+	v.Type = "ref"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiConstantAggregationFieldValue returns the union data inside the ApiAggregationFieldValue as a ApiConstantAggregationFieldValue
+func (t ApiAggregationFieldValue) AsApiConstantAggregationFieldValue() (ApiConstantAggregationFieldValue, error) {
+	var body ApiConstantAggregationFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiConstantAggregationFieldValue overwrites any union data inside the ApiAggregationFieldValue as the provided ApiConstantAggregationFieldValue
+func (t *ApiAggregationFieldValue) FromApiConstantAggregationFieldValue(v ApiConstantAggregationFieldValue) error {
+	v.Type = "constant"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiNumericExpressionAggregationFieldValue returns the union data inside the ApiAggregationFieldValue as a ApiNumericExpressionAggregationFieldValue
+func (t ApiAggregationFieldValue) AsApiNumericExpressionAggregationFieldValue() (ApiNumericExpressionAggregationFieldValue, error) {
+	var body ApiNumericExpressionAggregationFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiNumericExpressionAggregationFieldValue overwrites any union data inside the ApiAggregationFieldValue as the provided ApiNumericExpressionAggregationFieldValue
+func (t *ApiAggregationFieldValue) FromApiNumericExpressionAggregationFieldValue(v ApiNumericExpressionAggregationFieldValue) error {
+	v.Type = "numericExpression"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiUnaryNumericOperatorAggregationFieldValue returns the union data inside the ApiAggregationFieldValue as a ApiUnaryNumericOperatorAggregationFieldValue
+func (t ApiAggregationFieldValue) AsApiUnaryNumericOperatorAggregationFieldValue() (ApiUnaryNumericOperatorAggregationFieldValue, error) {
+	var body ApiUnaryNumericOperatorAggregationFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiUnaryNumericOperatorAggregationFieldValue overwrites any union data inside the ApiAggregationFieldValue as the provided ApiUnaryNumericOperatorAggregationFieldValue
+func (t *ApiAggregationFieldValue) FromApiUnaryNumericOperatorAggregationFieldValue(v ApiUnaryNumericOperatorAggregationFieldValue) error {
+	v.Type = "unaryNumericOperator"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+// AsApiCastAggregationFieldValue returns the union data inside the ApiAggregationFieldValue as a ApiCastAggregationFieldValue
+func (t ApiAggregationFieldValue) AsApiCastAggregationFieldValue() (ApiCastAggregationFieldValue, error) {
+	var body ApiCastAggregationFieldValue
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiCastAggregationFieldValue overwrites any union data inside the ApiAggregationFieldValue as the provided ApiCastAggregationFieldValue
+func (t *ApiAggregationFieldValue) FromApiCastAggregationFieldValue(v ApiCastAggregationFieldValue) error {
+	v.Type = "cast"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
+func (t ApiAggregationFieldValue) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ApiAggregationFieldValue) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "cast":
+		return t.AsApiCastAggregationFieldValue()
+	case "constant":
+		return t.AsApiConstantAggregationFieldValue()
+	case "numericExpression":
+		return t.AsApiNumericExpressionAggregationFieldValue()
+	case "ref":
+		return t.AsApiRefAggregationFieldValue()
+	case "unaryNumericOperator":
+		return t.AsApiUnaryNumericOperatorAggregationFieldValue()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ApiAggregationFieldValue) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ApiAggregationFieldValue) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
