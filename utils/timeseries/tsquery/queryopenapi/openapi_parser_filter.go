@@ -244,5 +244,14 @@ func parseScheduleCondition(apiCond ApiScheduleCondition) (datasource.ScheduleCo
 		periods = append(periods, period)
 	}
 
-	return datasource.NewScheduleCondition(timeSlots, apiCond.DaysOfWeek, periods, apiCond.Dates)
+	excludePeriods := make([]datasource.SchedulePeriod, 0, len(apiCond.ExcludePeriods))
+	for _, p := range apiCond.ExcludePeriods {
+		period, err := datasource.NewSchedulePeriod(p.StartMonth, p.StartDayOfMonth, p.EndMonth, p.EndDayOfMonth)
+		if err != nil {
+			return datasource.ScheduleCondition{}, fmt.Errorf("failed to parse schedule exclude period: %w", err)
+		}
+		excludePeriods = append(excludePeriods, period)
+	}
+
+	return datasource.NewScheduleCondition(timeSlots, apiCond.DaysOfWeek, periods, apiCond.Dates, excludePeriods, apiCond.ExcludeDates)
 }

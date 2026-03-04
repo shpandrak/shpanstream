@@ -74,12 +74,17 @@ func NewSchedulePeriod(startMonth, startDay, endMonth, endDay int) (SchedulePeri
 // ScheduleCondition is the pre-processed form of a single condition.
 // Within a condition all specified field-types are AND'd.
 // Items within a field-type (multiple timeSlots, multiple periods) are OR'd.
+// Optional excludePeriods/excludeDates allow per-condition exclusions:
+// the condition matches only if (include fields match) AND NOT (any exclude matches).
 type ScheduleCondition struct {
 	timeSlots     []ScheduleTimeSlot
 	daysOfWeek    [7]bool // indexed by time.Weekday (0=Sunday .. 6=Saturday)
 	hasDaysOfWeek bool    // true if daysOfWeek constraint is active
 	periods       []SchedulePeriod
 	dates         map[string]bool // set of "2006-01-02" strings for O(1) lookup
+
+	excludePeriods []SchedulePeriod
+	excludeDates   map[string]bool // set of "2006-01-02" strings for O(1) lookup
 }
 
 // Schedule is the pre-processed, ready-to-evaluate schedule.
@@ -112,12 +117,14 @@ func NewSchedule(
 }
 
 // NewScheduleCondition creates a pre-processed schedule condition.
-// daysOfWeek values must be 0–6 (matching time.Weekday). dates must be "2006-01-02" format.
+// daysOfWeek values must be 0–6 (matching time.Weekday). dates/excludeDates must be "2006-01-02" format.
 func NewScheduleCondition(
 	timeSlots []ScheduleTimeSlot,
 	daysOfWeek []int,
 	periods []SchedulePeriod,
 	dates []string,
+	excludePeriods []SchedulePeriod,
+	excludeDates []string,
 ) (ScheduleCondition, error) {
 	cond := ScheduleCondition{}
 
@@ -142,6 +149,18 @@ func NewScheduleCondition(
 				return ScheduleCondition{}, fmt.Errorf("invalid date format %q, expected YYYY-MM-DD: %w", d, err)
 			}
 			cond.dates[d] = true
+		}
+	}
+
+	cond.excludePeriods = excludePeriods
+
+	if len(excludeDates) > 0 {
+		cond.excludeDates = make(map[string]bool, len(excludeDates))
+		for _, d := range excludeDates {
+			if _, err := time.Parse("2006-01-02", d); err != nil {
+				return ScheduleCondition{}, fmt.Errorf("invalid excludeDate format %q, expected YYYY-MM-DD: %w", d, err)
+			}
+			cond.excludeDates[d] = true
 		}
 	}
 
@@ -226,6 +245,25 @@ func conditionMatches(cond *ScheduleCondition, localTime time.Time) bool {
 	if len(cond.dates) > 0 {
 		dateStr := localTime.Format("2006-01-02")
 		if !cond.dates[dateStr] {
+			return false
+		}
+	}
+
+	// Per-condition exclude period check
+	if len(cond.excludePeriods) > 0 {
+		month := int(localTime.Month())
+		day := localTime.Day()
+		for i := range cond.excludePeriods {
+			if periodMatches(&cond.excludePeriods[i], month, day) {
+				return false
+			}
+		}
+	}
+
+	// Per-condition exclude date check
+	if len(cond.excludeDates) > 0 {
+		dateStr := localTime.Format("2006-01-02")
+		if cond.excludeDates[dateStr] {
 			return false
 		}
 	}
