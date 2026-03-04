@@ -1090,6 +1090,12 @@ type ApiScheduleCondition struct {
 	DaysOfWeek []int                 `json:"daysOfWeek,omitempty"`
 	Periods    []ApiSchedulePeriod   `json:"periods,omitempty"`
 	TimeSlots  []ApiScheduleTimeSlot `json:"timeSlots,omitempty"`
+
+	// ExcludeDates Exclude specific dates from this condition. Format YYYY-MM-DD. If the timestamp falls on any exclude date, this condition does not match.
+	ExcludeDates []string `json:"excludeDates,omitempty"`
+
+	// ExcludePeriods Exclude specific date ranges from this condition. If the timestamp falls within any exclude period, this condition does not match. Semantics: (include fields match) AND NOT (any excludePeriod matches).
+	ExcludePeriods []ApiSchedulePeriod `json:"excludePeriods,omitempty"`
 }
 
 // ApiScheduleFilter Filters timeseries rows based on whether their timestamp falls within a schedule. Only rows whose timestamp matches the schedule are kept.

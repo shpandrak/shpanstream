@@ -12,7 +12,7 @@ import (
 func TestSchedule_TimeSlot_BasicMatch(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -25,7 +25,7 @@ func TestSchedule_TimeSlot_BasicMatch(t *testing.T) {
 func TestSchedule_TimeSlot_OutsideSlot(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -38,7 +38,7 @@ func TestSchedule_TimeSlot_OutsideSlot(t *testing.T) {
 func TestSchedule_TimeSlot_FromInclusive(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -51,7 +51,7 @@ func TestSchedule_TimeSlot_FromInclusive(t *testing.T) {
 func TestSchedule_TimeSlot_ToExclusive(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -64,7 +64,7 @@ func TestSchedule_TimeSlot_ToExclusive(t *testing.T) {
 func TestSchedule_TimeSlot_CrossMidnight_MatchesLateEvening(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 22, 0, 6, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -77,7 +77,7 @@ func TestSchedule_TimeSlot_CrossMidnight_MatchesLateEvening(t *testing.T) {
 func TestSchedule_TimeSlot_CrossMidnight_MatchesEarlyMorning(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 22, 0, 6, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -90,7 +90,7 @@ func TestSchedule_TimeSlot_CrossMidnight_MatchesEarlyMorning(t *testing.T) {
 func TestSchedule_TimeSlot_CrossMidnight_Gap(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 22, 0, 6, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -106,7 +106,7 @@ func TestSchedule_TimeSlot_MultipleSlots_OR(t *testing.T) {
 			mustTimeSlot(t, 9, 0, 12, 0),  // 09:00–12:00
 			mustTimeSlot(t, 13, 0, 17, 0), // 13:00–17:00
 		},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -124,7 +124,7 @@ func TestSchedule_TimeSlot_MultipleSlots_OR(t *testing.T) {
 
 func TestSchedule_DayOfWeek_WeekdayMatch(t *testing.T) {
 	// Tuesday = 2
-	cond, err := NewScheduleCondition(nil, []int{1, 2, 3, 4, 5}, nil, nil)
+	cond, err := NewScheduleCondition(nil, []int{1, 2, 3, 4, 5}, nil, nil, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 
@@ -135,7 +135,7 @@ func TestSchedule_DayOfWeek_WeekdayMatch(t *testing.T) {
 }
 
 func TestSchedule_DayOfWeek_WeekendNoMatch(t *testing.T) {
-	cond, err := NewScheduleCondition(nil, []int{1, 2, 3, 4, 5}, nil, nil)
+	cond, err := NewScheduleCondition(nil, []int{1, 2, 3, 4, 5}, nil, nil, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 
@@ -146,7 +146,7 @@ func TestSchedule_DayOfWeek_WeekendNoMatch(t *testing.T) {
 }
 
 func TestSchedule_DayOfWeek_AllDays(t *testing.T) {
-	cond, err := NewScheduleCondition(nil, []int{0, 1, 2, 3, 4, 5, 6}, nil, nil)
+	cond, err := NewScheduleCondition(nil, []int{0, 1, 2, 3, 4, 5, 6}, nil, nil, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 
@@ -157,7 +157,7 @@ func TestSchedule_DayOfWeek_AllDays(t *testing.T) {
 
 func TestSchedule_DayOfWeek_NoConstraint(t *testing.T) {
 	// Empty daysOfWeek → no constraint → matches any day
-	cond, err := NewScheduleCondition(nil, nil, nil, nil)
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 
@@ -170,7 +170,7 @@ func TestSchedule_DayOfWeek_NoConstraint(t *testing.T) {
 func TestSchedule_Period_WithinPeriod(t *testing.T) {
 	cond, err := NewScheduleCondition(nil, nil,
 		[]SchedulePeriod{mustPeriod(t, 1, 1, 6, 30)},
-		nil,
+		nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -183,7 +183,7 @@ func TestSchedule_Period_WithinPeriod(t *testing.T) {
 func TestSchedule_Period_OutsidePeriod(t *testing.T) {
 	cond, err := NewScheduleCondition(nil, nil,
 		[]SchedulePeriod{mustPeriod(t, 1, 1, 6, 30)},
-		nil,
+		nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -196,7 +196,7 @@ func TestSchedule_Period_OutsidePeriod(t *testing.T) {
 func TestSchedule_Period_StartInclusive(t *testing.T) {
 	cond, err := NewScheduleCondition(nil, nil,
 		[]SchedulePeriod{mustPeriod(t, 1, 1, 6, 30)},
-		nil,
+		nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -209,7 +209,7 @@ func TestSchedule_Period_StartInclusive(t *testing.T) {
 func TestSchedule_Period_EndInclusive(t *testing.T) {
 	cond, err := NewScheduleCondition(nil, nil,
 		[]SchedulePeriod{mustPeriod(t, 1, 1, 6, 30)},
-		nil,
+		nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -222,7 +222,7 @@ func TestSchedule_Period_EndInclusive(t *testing.T) {
 func TestSchedule_Period_CrossYear(t *testing.T) {
 	cond, err := NewScheduleCondition(nil, nil,
 		[]SchedulePeriod{mustPeriod(t, 11, 1, 2, 28)},
-		nil,
+		nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -235,7 +235,7 @@ func TestSchedule_Period_CrossYear(t *testing.T) {
 func TestSchedule_Period_CrossYear_OtherSide(t *testing.T) {
 	cond, err := NewScheduleCondition(nil, nil,
 		[]SchedulePeriod{mustPeriod(t, 11, 1, 2, 28)},
-		nil,
+		nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -248,7 +248,7 @@ func TestSchedule_Period_CrossYear_OtherSide(t *testing.T) {
 func TestSchedule_Period_CrossYear_Gap(t *testing.T) {
 	cond, err := NewScheduleCondition(nil, nil,
 		[]SchedulePeriod{mustPeriod(t, 11, 1, 2, 28)},
-		nil,
+		nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -261,7 +261,7 @@ func TestSchedule_Period_CrossYear_Gap(t *testing.T) {
 // --- Date Matching ---
 
 func TestSchedule_Date_ExactMatch(t *testing.T) {
-	cond, err := NewScheduleCondition(nil, nil, nil, []string{"2024-12-25"})
+	cond, err := NewScheduleCondition(nil, nil, nil, []string{"2024-12-25"}, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 
@@ -270,7 +270,7 @@ func TestSchedule_Date_ExactMatch(t *testing.T) {
 }
 
 func TestSchedule_Date_NoMatch(t *testing.T) {
-	cond, err := NewScheduleCondition(nil, nil, nil, []string{"2024-12-25"})
+	cond, err := NewScheduleCondition(nil, nil, nil, []string{"2024-12-25"}, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 
@@ -281,6 +281,7 @@ func TestSchedule_Date_NoMatch(t *testing.T) {
 func TestSchedule_Date_MultipleDates(t *testing.T) {
 	cond, err := NewScheduleCondition(nil, nil, nil,
 		[]string{"2024-12-25", "2024-12-31", "2025-01-01"},
+		nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -299,7 +300,7 @@ func TestSchedule_AND_TimeSlotAndDayOfWeek_BothMatch(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
 		[]int{1, 2, 3, 4, 5}, // Mon–Fri
-		nil, nil,
+		nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -314,7 +315,7 @@ func TestSchedule_AND_TimeSlotAndDayOfWeek_DayFails(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
 		[]int{1, 2, 3, 4, 5},
-		nil, nil,
+		nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -329,7 +330,7 @@ func TestSchedule_AND_TimeSlotAndDayOfWeek_TimeFails(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
 		[]int{1, 2, 3, 4, 5},
-		nil, nil,
+		nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -346,6 +347,7 @@ func TestSchedule_AND_AllFieldsMatch(t *testing.T) {
 		[]int{1, 2, 3, 4, 5},
 		[]SchedulePeriod{mustPeriod(t, 1, 1, 6, 30)},
 		[]string{"2024-06-17"},
+		nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -362,6 +364,7 @@ func TestSchedule_AND_AllFieldsOneFails(t *testing.T) {
 		[]int{1, 2, 3, 4, 5},
 		[]SchedulePeriod{mustPeriod(t, 7, 1, 12, 31)}, // Jul–Dec
 		[]string{"2024-06-17"},
+		nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -376,12 +379,12 @@ func TestSchedule_AND_AllFieldsOneFails(t *testing.T) {
 func TestSchedule_OR_FirstConditionMatches(t *testing.T) {
 	cond1, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 12, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	cond2, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 14, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond1, cond2}, nil, nil, nil, time.UTC)
@@ -394,12 +397,12 @@ func TestSchedule_OR_FirstConditionMatches(t *testing.T) {
 func TestSchedule_OR_SecondConditionMatches(t *testing.T) {
 	cond1, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 12, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	cond2, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 14, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond1, cond2}, nil, nil, nil, time.UTC)
@@ -412,12 +415,12 @@ func TestSchedule_OR_SecondConditionMatches(t *testing.T) {
 func TestSchedule_OR_NeitherConditionMatches(t *testing.T) {
 	cond1, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 12, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	cond2, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 14, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond1, cond2}, nil, nil, nil, time.UTC)
@@ -432,7 +435,7 @@ func TestSchedule_OR_NeitherConditionMatches(t *testing.T) {
 func TestSchedule_Exclude_IncludeMatchesNoExcludes(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -444,12 +447,12 @@ func TestSchedule_Exclude_IncludeMatchesNoExcludes(t *testing.T) {
 func TestSchedule_Exclude_IncludeAndExcludeBothMatch(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	excludeCond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 12, 0, 13, 0)}, // lunch hour excluded
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, []ScheduleCondition{excludeCond}, nil, nil, time.UTC)
@@ -462,12 +465,12 @@ func TestSchedule_Exclude_IncludeAndExcludeBothMatch(t *testing.T) {
 func TestSchedule_Exclude_IncludeMatchesExcludeDoesNot(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	excludeCond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 12, 0, 13, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, []ScheduleCondition{excludeCond}, nil, nil, time.UTC)
@@ -482,11 +485,11 @@ func TestSchedule_Exclude_WithDates_HolidayExcluded(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
 		[]int{1, 2, 3, 4, 5},
-		nil, nil,
+		nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	// Exclude specific holidays
-	excludeCond, err := NewScheduleCondition(nil, nil, nil, []string{"2024-12-25"})
+	excludeCond, err := NewScheduleCondition(nil, nil, nil, []string{"2024-12-25"}, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, []ScheduleCondition{excludeCond}, nil, nil, time.UTC)
 
@@ -505,7 +508,7 @@ func TestSchedule_Exclude_WithDates_HolidayExcluded(t *testing.T) {
 
 func TestSchedule_Bounds_BeforeStartTime(t *testing.T) {
 	start := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
-	cond, err := NewScheduleCondition(nil, nil, nil, nil)
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, &start, nil, time.UTC)
 
@@ -515,7 +518,7 @@ func TestSchedule_Bounds_BeforeStartTime(t *testing.T) {
 
 func TestSchedule_Bounds_AfterEndTime(t *testing.T) {
 	end := time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC)
-	cond, err := NewScheduleCondition(nil, nil, nil, nil)
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, &end, time.UTC)
 
@@ -531,7 +534,7 @@ func TestSchedule_Bounds_AfterEndTime(t *testing.T) {
 func TestSchedule_Bounds_WithinBounds(t *testing.T) {
 	start := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC)
-	cond, err := NewScheduleCondition(nil, nil, nil, nil)
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, &start, &end, time.UTC)
 
@@ -540,7 +543,7 @@ func TestSchedule_Bounds_WithinBounds(t *testing.T) {
 }
 
 func TestSchedule_Bounds_NoBoundsSet(t *testing.T) {
-	cond, err := NewScheduleCondition(nil, nil, nil, nil)
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 
@@ -558,7 +561,7 @@ func TestSchedule_Bounds_NoBoundsSet(t *testing.T) {
 func TestSchedule_Timezone_UTCDefault(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
-		nil, nil, nil,
+		nil, nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	// nil location defaults to UTC
@@ -572,7 +575,7 @@ func TestSchedule_Timezone_CustomTimezone_DayOfWeekChange(t *testing.T) {
 	// 23:00 UTC on Saturday → 01:00 Sunday in UTC+2
 	loc := time.FixedZone("UTC+2", 2*60*60)
 	// Condition: only Sundays
-	cond, err := NewScheduleCondition(nil, []int{0}, nil, nil) // Sunday=0
+	cond, err := NewScheduleCondition(nil, []int{0}, nil, nil, nil, nil) // Sunday=0
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, loc)
 
@@ -585,7 +588,7 @@ func TestSchedule_Timezone_CustomTimezone_DayOfWeekChange(t *testing.T) {
 func TestSchedule_Timezone_AffectsDateMatching(t *testing.T) {
 	// 23:30 UTC on Dec 24 = 00:30 Dec 25 in UTC+1
 	loc := time.FixedZone("UTC+1", 1*60*60)
-	cond, err := NewScheduleCondition(nil, nil, nil, []string{"2024-12-25"})
+	cond, err := NewScheduleCondition(nil, nil, nil, []string{"2024-12-25"}, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, loc)
 
@@ -600,7 +603,7 @@ func TestSchedule_Timezone_AffectsDateMatching(t *testing.T) {
 // --- Edge Cases ---
 
 func TestSchedule_EmptyCondition_MatchesEverything(t *testing.T) {
-	cond, err := NewScheduleCondition(nil, nil, nil, nil)
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 
@@ -619,17 +622,17 @@ func TestSchedule_NoConditions_NoMatch(t *testing.T) {
 // --- Constructor Validation ---
 
 func TestSchedule_InvalidDateFormat(t *testing.T) {
-	_, err := NewScheduleCondition(nil, nil, nil, []string{"25-12-2024"})
+	_, err := NewScheduleCondition(nil, nil, nil, []string{"25-12-2024"}, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid date format")
 }
 
 func TestSchedule_InvalidDayOfWeek(t *testing.T) {
-	_, err := NewScheduleCondition(nil, []int{7}, nil, nil)
+	_, err := NewScheduleCondition(nil, []int{7}, nil, nil, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid day of week")
 
-	_, err = NewScheduleCondition(nil, []int{-1}, nil, nil)
+	_, err = NewScheduleCondition(nil, []int{-1}, nil, nil, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid day of week")
 }
@@ -717,6 +720,151 @@ func TestSchedule_ValidPeriod(t *testing.T) {
 	require.Equal(t, 15, p.startDay)
 	require.Equal(t, 6, p.endMonth)
 	require.Equal(t, 30, p.endDay)
+}
+
+// --- Per-Condition Exclude Periods ---
+
+func TestSchedule_ExcludePeriods_BasicExclusion(t *testing.T) {
+	// Match all year, but exclude Dec 24-26
+	cond, err := NewScheduleCondition(nil, nil, nil, nil,
+		[]SchedulePeriod{mustPeriod(t, 12, 24, 12, 26)},
+		nil,
+	)
+	require.NoError(t, err)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
+
+	// Dec 25 → excluded
+	ts := time.Date(2024, 12, 25, 10, 0, 0, 0, time.UTC)
+	require.False(t, s.Matches(ts))
+
+	// Dec 23 → not excluded → matches
+	ts2 := time.Date(2024, 12, 23, 10, 0, 0, 0, time.UTC)
+	require.True(t, s.Matches(ts2))
+}
+
+func TestSchedule_ExcludePeriods_ScopedToCondition(t *testing.T) {
+	// This is the KEY use case: per-condition exclusions don't affect other conditions.
+	// Condition 1: Weekdays, exclude Dec 25
+	weekdayCond, err := NewScheduleCondition(
+		nil,
+		[]int{1, 2, 3, 4, 5}, // Mon–Fri
+		nil, nil,
+		[]SchedulePeriod{mustPeriod(t, 12, 25, 12, 25)}, // exclude Christmas
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Condition 2: Weekends (no exclusions)
+	weekendCond, err := NewScheduleCondition(
+		nil,
+		[]int{0, 6}, // Sat–Sun
+		nil, nil, nil, nil,
+	)
+	require.NoError(t, err)
+
+	s := NewSchedule([]ScheduleCondition{weekdayCond, weekendCond}, nil, nil, nil, time.UTC)
+
+	// Wednesday Dec 25, 2024 → weekday matches but excluded by excludePeriod.
+	// Weekend condition doesn't match (it's Wednesday).
+	// → no match
+	ts := time.Date(2024, 12, 25, 10, 0, 0, 0, time.UTC)
+	require.Equal(t, time.Wednesday, ts.Weekday())
+	require.False(t, s.Matches(ts))
+
+	// Thursday Dec 26, 2024 → weekday matches, not excluded → matches
+	ts2 := time.Date(2024, 12, 26, 10, 0, 0, 0, time.UTC)
+	require.Equal(t, time.Thursday, ts2.Weekday())
+	require.True(t, s.Matches(ts2))
+
+	// Saturday Dec 28, 2024 → weekend condition matches → matches
+	ts3 := time.Date(2024, 12, 28, 10, 0, 0, 0, time.UTC)
+	require.Equal(t, time.Saturday, ts3.Weekday())
+	require.True(t, s.Matches(ts3))
+}
+
+func TestSchedule_ExcludePeriods_MultipleExcludePeriods(t *testing.T) {
+	// Exclude both Christmas week and New Year's
+	cond, err := NewScheduleCondition(nil, nil, nil, nil,
+		[]SchedulePeriod{
+			mustPeriod(t, 12, 24, 12, 26),
+			mustPeriod(t, 12, 31, 1, 1), // cross-year
+		},
+		nil,
+	)
+	require.NoError(t, err)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
+
+	require.False(t, s.Matches(time.Date(2024, 12, 25, 10, 0, 0, 0, time.UTC))) // Christmas
+	require.False(t, s.Matches(time.Date(2024, 12, 31, 10, 0, 0, 0, time.UTC))) // NYE
+	require.False(t, s.Matches(time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)))   // New Year's
+	require.True(t, s.Matches(time.Date(2024, 12, 27, 10, 0, 0, 0, time.UTC)))  // between
+}
+
+// --- Per-Condition Exclude Dates ---
+
+func TestSchedule_ExcludeDates_BasicExclusion(t *testing.T) {
+	// Match all, but exclude specific date
+	cond, err := NewScheduleCondition(nil, nil, nil, nil,
+		nil, []string{"2024-12-25"},
+	)
+	require.NoError(t, err)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
+
+	require.False(t, s.Matches(time.Date(2024, 12, 25, 10, 0, 0, 0, time.UTC)))
+	require.True(t, s.Matches(time.Date(2024, 12, 26, 10, 0, 0, 0, time.UTC)))
+
+	// Same month/day next year is not excluded (dates are specific)
+	require.True(t, s.Matches(time.Date(2025, 12, 25, 10, 0, 0, 0, time.UTC)))
+}
+
+func TestSchedule_ExcludeDates_ScopedToCondition(t *testing.T) {
+	// Condition 1: Weekdays, exclude specific Christmas 2024
+	weekdayCond, err := NewScheduleCondition(
+		nil,
+		[]int{1, 2, 3, 4, 5},
+		nil, nil,
+		nil, []string{"2024-12-25"},
+	)
+	require.NoError(t, err)
+
+	// Condition 2: A holiday condition that explicitly includes Dec 25 with reduced hours
+	holidayCond, err := NewScheduleCondition(
+		[]ScheduleTimeSlot{mustTimeSlot(t, 10, 0, 14, 0)},
+		nil, nil,
+		[]string{"2024-12-25"},
+		nil, nil,
+	)
+	require.NoError(t, err)
+
+	s := NewSchedule([]ScheduleCondition{weekdayCond, holidayCond}, nil, nil, nil, time.UTC)
+
+	// Dec 25, 2024 at 11:00 → weekday excluded, but holiday condition matches → true
+	ts := time.Date(2024, 12, 25, 11, 0, 0, 0, time.UTC)
+	require.True(t, s.Matches(ts))
+
+	// Dec 25, 2024 at 16:00 → weekday excluded, holiday condition time slot doesn't match → false
+	ts2 := time.Date(2024, 12, 25, 16, 0, 0, 0, time.UTC)
+	require.False(t, s.Matches(ts2))
+}
+
+func TestSchedule_ExcludeDates_CombinedWithExcludePeriods(t *testing.T) {
+	// Exclude a period AND a specific date
+	cond, err := NewScheduleCondition(nil, nil, nil, nil,
+		[]SchedulePeriod{mustPeriod(t, 7, 1, 7, 31)}, // exclude all of July
+		[]string{"2024-12-25"},                        // also exclude Christmas
+	)
+	require.NoError(t, err)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
+
+	require.False(t, s.Matches(time.Date(2024, 7, 15, 10, 0, 0, 0, time.UTC)))  // July → excluded
+	require.False(t, s.Matches(time.Date(2024, 12, 25, 10, 0, 0, 0, time.UTC))) // Christmas → excluded
+	require.True(t, s.Matches(time.Date(2024, 6, 15, 10, 0, 0, 0, time.UTC)))   // June → fine
+}
+
+func TestSchedule_ExcludeDates_InvalidFormat(t *testing.T) {
+	_, err := NewScheduleCondition(nil, nil, nil, nil, nil, []string{"25-12-2024"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid excludeDate format")
 }
 
 // --- Test Helpers ---

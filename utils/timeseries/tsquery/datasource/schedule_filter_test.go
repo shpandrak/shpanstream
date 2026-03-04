@@ -21,7 +21,7 @@ func TestScheduleFilter_MixedMatching(t *testing.T) {
 	cond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{{fromMinutes: 9 * 60, toMinutes: 17 * 60}},
 		[]int{1, 2, 3, 4, 5},
-		nil, nil,
+		nil, nil, nil, nil,
 	)
 	require.NoError(t, err)
 	schedule := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
@@ -60,7 +60,7 @@ func TestScheduleFilter_AllPass(t *testing.T) {
 	require.NoError(t, err)
 
 	// Empty condition matches everything
-	cond, err := NewScheduleCondition(nil, nil, nil, nil)
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	schedule := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 	filter := NewScheduleFilter(schedule)
@@ -93,7 +93,7 @@ func TestScheduleFilter_AllFiltered(t *testing.T) {
 	require.NoError(t, err)
 
 	// Only Sundays
-	cond, err := NewScheduleCondition(nil, []int{0}, nil, nil)
+	cond, err := NewScheduleCondition(nil, []int{0}, nil, nil, nil, nil)
 	require.NoError(t, err)
 	schedule := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 	filter := NewScheduleFilter(schedule)
@@ -126,7 +126,7 @@ func TestScheduleFilter_EmptyStream(t *testing.T) {
 	fieldMeta, err := tsquery.NewFieldMeta("value", tsquery.DataTypeInteger, false)
 	require.NoError(t, err)
 
-	cond, err := NewScheduleCondition(nil, nil, nil, nil)
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	schedule := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 	filter := NewScheduleFilter(schedule)
@@ -159,7 +159,7 @@ func TestScheduleFilter_MetadataPreserved(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cond, err := NewScheduleCondition(nil, nil, nil, nil)
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	schedule := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
 	filter := NewScheduleFilter(schedule)
