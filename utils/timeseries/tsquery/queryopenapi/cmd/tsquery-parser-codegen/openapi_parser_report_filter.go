@@ -97,7 +97,7 @@ func parseAlignerReportFilter(apiAlignerFilter ApiAlignerFilter) (report.Filter,
 }
 
 func parseScheduleReportFilter(sf ApiScheduleFilter) (report.Filter, error) {
-	schedule, err := parseSchedule(sf.Schedule)
+	schedule, err := ParseSchedule(sf.Schedule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse schedule report filter: %w", err)
 	}
