@@ -17,7 +17,7 @@ func ParseFilter(pCtx *ParsingContext, rawFilter ApiQueryFilter) (datasource.Fil
 	}
 	switch typedFilter := rawFilterType.(type) {
 	case ApiAlignerFilter:
-		return parseAlignerFilter(typedFilter)
+		return ParseAlignerFilter(typedFilter)
 	case ApiConditionFilter:
 		return parseConditionFilter(pCtx, typedFilter)
 	case ApiFieldValueFilter:
@@ -87,7 +87,7 @@ func parseRateFilter(rateFilter ApiRateFilter) (datasource.Filter, error) {
 	return datasource.NewRateFilter(rateFilter.OverrideUnit, perSeconds, rateFilter.NonNegative, rateFilter.MaxCounterValue), nil
 }
 
-func parseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.AlignerFilter, error) {
+func ParseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.AlignerFilter, error) {
 	alignerPeriod, err := ParseAlignmentPeriod(apiAlignerFilter.AlignerPeriod)
 	if err != nil {
 		return datasource.AlignerFilter{}, err
@@ -182,14 +182,14 @@ func ParseAddFieldMeta(apiMeta ApiAddFieldMeta) tsquery.AddFieldMeta {
 }
 
 func parseScheduleFilter(sf ApiScheduleFilter) (datasource.Filter, error) {
-	schedule, err := parseSchedule(sf.Schedule)
+	schedule, err := ParseSchedule(sf.Schedule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse schedule filter: %w", err)
 	}
 	return datasource.NewScheduleFilter(schedule), nil
 }
 
-func parseSchedule(apiSchedule ApiSchedule) (datasource.Schedule, error) {
+func ParseSchedule(apiSchedule ApiSchedule) (datasource.Schedule, error) {
 	var location *time.Location
 	if apiSchedule.CustomTimezone != nil {
 		loc, err := time.LoadLocation(*apiSchedule.CustomTimezone)

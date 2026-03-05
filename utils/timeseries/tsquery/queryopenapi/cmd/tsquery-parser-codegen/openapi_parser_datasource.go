@@ -113,7 +113,7 @@ func parseReductionDatasource(
 	// Parse aligner filter (optional — nil means "no alignment")
 	var alignerFilter *datasource.AlignerFilter
 	if reductionDs.Aligner != nil {
-		af, err := parseAlignerFilter(*reductionDs.Aligner)
+		af, err := ParseAlignerFilter(*reductionDs.Aligner)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse aligner for reduction datasource: %w", err)
 		}
