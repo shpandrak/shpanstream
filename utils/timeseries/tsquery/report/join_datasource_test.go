@@ -3,11 +3,27 @@ package report
 import (
 	"context"
 	"github.com/shpandrak/shpanstream/stream"
+	"github.com/shpandrak/shpanstream/utils/timeseries"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
+
+// staticResultDatasource is a test helper that wraps a pre-built Result as a DataSource.
+type staticResultDatasource struct {
+	result Result
+}
+
+func (s staticResultDatasource) Execute(_ context.Context, from time.Time, to time.Time) (Result, error) {
+	return NewResult(
+		s.result.FieldsMeta(),
+		s.result.Stream().Filter(func(r timeseries.TsRecord[[]any]) bool {
+			return !r.Timestamp.Before(from) && r.Timestamp.Before(to)
+		}),
+	), nil
+}
 
 // Test data structures for join tests
 type CPUMetrics struct {
@@ -259,6 +275,11 @@ func TestJoinDatasource_FullJoin_ThreeStreams(t *testing.T) {
 	fieldsMeta := result.FieldsMeta()
 	require.Len(t, fieldsMeta, 6) // 2 CPU + 2 Memory + 2 Disk
 
+	// Full join: all fields should be marked as not required (optional)
+	for i := 0; i < 6; i++ {
+		assert.False(t, fieldsMeta[i].Required(), "field %d (%s) should be optional after full join", i, fieldsMeta[i].Urn())
+	}
+
 	// Collect results
 	records := result.Stream().MustCollect()
 
@@ -458,4 +479,288 @@ func TestJoinDatasource_TimeFiltering(t *testing.T) {
 
 	assert.Equal(t, baseTime.Add(1*time.Hour), records[0].Timestamp)
 	assert.Equal(t, baseTime.Add(2*time.Hour), records[1].Timestamp)
+}
+
+func TestJoinDatasource_LeftJoin_RequiredFields_MarkOptional(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create datasources with required=true fields to test the fix.
+	// This simulates real datasources (e.g. aggregation) that produce required fields.
+	cpuMeta, err := tsquery.NewFieldMeta("cpu:usage", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	memMeta, err := tsquery.NewFieldMeta("mem:used", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	cpuDS := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*cpuMeta},
+		stream.Just(
+			timeseries.TsRecord[[]any]{Timestamp: baseTime, Value: []any{10.0}},
+			timeseries.TsRecord[[]any]{Timestamp: baseTime.Add(1 * time.Hour), Value: []any{20.0}},
+			timeseries.TsRecord[[]any]{Timestamp: baseTime.Add(2 * time.Hour), Value: []any{30.0}},
+		),
+	)}
+
+	memDS := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*memMeta},
+		stream.Just(
+			// Only present at hour 1 — hour 0 and hour 2 will have nil
+			timeseries.TsRecord[[]any]{Timestamp: baseTime.Add(1 * time.Hour), Value: []any{1024.0}},
+		),
+	)}
+
+	joinDS := NewJoinDatasource(
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS).MustCollect()),
+		LeftJoin,
+	)
+
+	ctx := context.Background()
+	result, err := joinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
+	require.NoError(t, err)
+
+	// Left-side field should remain required
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 2)
+	assert.True(t, fieldsMeta[0].Required(), "left-side field should stay required")
+	assert.False(t, fieldsMeta[1].Required(), "right-side field should be marked optional after left join")
+
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 3)
+
+	// Hour 0: CPU only, memory is nil
+	assert.Equal(t, 10.0, records[0].Value[0])
+	assert.Nil(t, records[0].Value[1])
+
+	// Hour 1: both present
+	assert.Equal(t, 20.0, records[1].Value[0])
+	assert.Equal(t, 1024.0, records[1].Value[1])
+
+	// Hour 2: CPU only, memory is nil
+	assert.Equal(t, 30.0, records[2].Value[0])
+	assert.Nil(t, records[2].Value[1])
+}
+
+func TestJoinDatasource_LeftJoin_NumericExpressionWithNil_NoPanic(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Use required=true fields to reproduce the panic scenario from the bug report.
+	cpuMeta, err := tsquery.NewFieldMeta("cpu:usage", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	memMeta, err := tsquery.NewFieldMeta("mem:used", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	cpuDS := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*cpuMeta},
+		stream.Just(
+			timeseries.TsRecord[[]any]{Timestamp: baseTime, Value: []any{10.0}},
+			timeseries.TsRecord[[]any]{Timestamp: baseTime.Add(1 * time.Hour), Value: []any{20.0}},
+		),
+	)}
+
+	memDS := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*memMeta},
+		stream.Just(
+			// Only present at hour 1 — hour 0 will produce nil
+			timeseries.TsRecord[[]any]{Timestamp: baseTime.Add(1 * time.Hour), Value: []any{1024.0}},
+		),
+	)}
+
+	joinDS := NewJoinDatasource(
+		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS).MustCollect()),
+		LeftJoin,
+	)
+
+	ctx := context.Background()
+	joinResult, err := joinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
+	require.NoError(t, err)
+
+	// Add a computed field: cpu:usage + mem:used
+	// Before the fix, this would panic at hour 0 because mem:used is nil
+	// but its metadata incorrectly says Required=true, skipping nil-wrapping.
+	appendFilter := NewAppendFieldFilter(
+		NewNumericExpressionFieldValue(
+			NewRefFieldValue("cpu:usage"),
+			tsquery.BinaryNumericOperatorAdd,
+			NewRefFieldValue("mem:used"),
+		),
+		tsquery.AddFieldMeta{Urn: "total"},
+	)
+
+	filteredResult, err := appendFilter.Filter(ctx, joinResult)
+	require.NoError(t, err)
+
+	// Should not panic — this is the key assertion
+	records := filteredResult.Stream().MustCollect()
+	require.Len(t, records, 2)
+
+	// Hour 0: mem:used is nil → computed field should be nil
+	assert.Equal(t, 10.0, records[0].Value[0])
+	assert.Nil(t, records[0].Value[1])
+	assert.Nil(t, records[0].Value[2], "computed field should be nil when right-side operand is nil")
+
+	// Hour 1: both present → computed field should be 20.0 + 1024.0 = 1044.0
+	assert.Equal(t, 20.0, records[1].Value[0])
+	assert.Equal(t, 1024.0, records[1].Value[1])
+	assert.Equal(t, 1044.0, records[1].Value[2])
+}
+
+func TestJoinDatasource_FullJoin_NumericExpressionWithNil_NoPanic(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Use required=true fields to reproduce the panic scenario with full join.
+	// Both sides can have nil values in a full join.
+	aMeta, err := tsquery.NewFieldMeta("a:val", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	bMeta, err := tsquery.NewFieldMeta("b:val", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	ds1 := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*aMeta},
+		stream.Just(
+			timeseries.TsRecord[[]any]{Timestamp: baseTime, Value: []any{10.0}},
+			// hour 1: absent from ds1
+			timeseries.TsRecord[[]any]{Timestamp: baseTime.Add(2 * time.Hour), Value: []any{30.0}},
+		),
+	)}
+
+	ds2 := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*bMeta},
+		stream.Just(
+			// hour 0: absent from ds2
+			timeseries.TsRecord[[]any]{Timestamp: baseTime.Add(1 * time.Hour), Value: []any{2.0}},
+			timeseries.TsRecord[[]any]{Timestamp: baseTime.Add(2 * time.Hour), Value: []any{3.0}},
+		),
+	)}
+
+	joinDS := NewJoinDatasource(
+		NewListMultiDatasource(stream.Just[DataSource](ds1, ds2).MustCollect()),
+		FullJoin,
+	)
+
+	ctx := context.Background()
+	joinResult, err := joinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
+	require.NoError(t, err)
+
+	// Add a computed field: a:val + b:val
+	// Before the fix, this would panic when either side is nil
+	// but its metadata incorrectly says Required=true, skipping nil-wrapping.
+	appendFilter := NewAppendFieldFilter(
+		NewNumericExpressionFieldValue(
+			NewRefFieldValue("a:val"),
+			tsquery.BinaryNumericOperatorAdd,
+			NewRefFieldValue("b:val"),
+		),
+		tsquery.AddFieldMeta{Urn: "total"},
+	)
+
+	filteredResult, err := appendFilter.Filter(ctx, joinResult)
+	require.NoError(t, err)
+
+	// Should not panic — this is the key assertion
+	records := filteredResult.Stream().MustCollect()
+	require.Len(t, records, 3)
+
+	// Hour 0: b:val is nil → computed field should be nil
+	assert.Equal(t, 10.0, records[0].Value[0])
+	assert.Nil(t, records[0].Value[1])
+	assert.Nil(t, records[0].Value[2], "computed field should be nil when right-side operand is nil")
+
+	// Hour 1: a:val is nil → computed field should be nil
+	assert.Nil(t, records[1].Value[0])
+	assert.Equal(t, 2.0, records[1].Value[1])
+	assert.Nil(t, records[1].Value[2], "computed field should be nil when left-side operand is nil")
+
+	// Hour 2: both present → computed field should be 30.0 + 3.0 = 33.0
+	assert.Equal(t, 30.0, records[2].Value[0])
+	assert.Equal(t, 3.0, records[2].Value[1])
+	assert.Equal(t, 33.0, records[2].Value[2])
+}
+
+func TestJoinDatasource_FullJoin_RequiredFields_AllOptional(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Both datasources have required=true fields
+	f1, err := tsquery.NewFieldMeta("a:val", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+	f2, err := tsquery.NewFieldMeta("b:val", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	ds1 := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*f1},
+		stream.Just(
+			timeseries.TsRecord[[]any]{Timestamp: baseTime, Value: []any{1.0}},
+		),
+	)}
+	ds2 := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*f2},
+		stream.Just(
+			timeseries.TsRecord[[]any]{Timestamp: baseTime.Add(1 * time.Hour), Value: []any{2.0}},
+		),
+	)}
+
+	joinDS := NewJoinDatasource(
+		NewListMultiDatasource(stream.Just[DataSource](ds1, ds2).MustCollect()),
+		FullJoin,
+	)
+
+	ctx := context.Background()
+	result, err := joinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
+	require.NoError(t, err)
+
+	// Full join: ALL fields must be optional, even those originally required
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 2)
+	assert.False(t, fieldsMeta[0].Required(), "first field should be optional after full join")
+	assert.False(t, fieldsMeta[1].Required(), "second field should be optional after full join")
+
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 2)
+
+	// Hour 0: only ds1 has data
+	assert.Equal(t, 1.0, records[0].Value[0])
+	assert.Nil(t, records[0].Value[1])
+
+	// Hour 1: only ds2 has data
+	assert.Nil(t, records[1].Value[0])
+	assert.Equal(t, 2.0, records[1].Value[1])
+}
+
+func TestJoinDatasource_InnerJoin_RequiredFields_Unchanged(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Verify that InnerJoin does NOT change required status
+	f1, err := tsquery.NewFieldMeta("a:val", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+	f2, err := tsquery.NewFieldMeta("b:val", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	ds1 := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*f1},
+		stream.Just(
+			timeseries.TsRecord[[]any]{Timestamp: baseTime, Value: []any{1.0}},
+		),
+	)}
+	ds2 := staticResultDatasource{result: NewResult(
+		[]tsquery.FieldMeta{*f2},
+		stream.Just(
+			timeseries.TsRecord[[]any]{Timestamp: baseTime, Value: []any{2.0}},
+		),
+	)}
+
+	joinDS := NewJoinDatasource(
+		NewListMultiDatasource(stream.Just[DataSource](ds1, ds2).MustCollect()),
+		InnerJoin,
+	)
+
+	ctx := context.Background()
+	result, err := joinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
+	require.NoError(t, err)
+
+	// InnerJoin guarantees all fields are present — required should be preserved
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 2)
+	assert.True(t, fieldsMeta[0].Required(), "inner join should preserve required=true")
+	assert.True(t, fieldsMeta[1].Required(), "inner join should preserve required=true")
 }

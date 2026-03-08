@@ -59,6 +59,22 @@ func (mds JoinDatasource) Execute(ctx context.Context, from time.Time, to time.T
 			}
 		}
 	}
+
+	// Mark fields as optional based on join type to reflect runtime nullability
+	switch mds.joinType {
+	case LeftJoin:
+		// Right-side fields can be nil — mark as optional
+		leftFieldCount := idxToNumberOfExpectedFields[0]
+		for i := leftFieldCount; i < len(joinedFieldMeta); i++ {
+			joinedFieldMeta[i] = joinedFieldMeta[i].WithRequired(false)
+		}
+	case FullJoin:
+		// All fields can be nil — mark all as optional
+		for i := range joinedFieldMeta {
+			joinedFieldMeta[i] = joinedFieldMeta[i].WithRequired(false)
+		}
+	}
+
 	var joinedStreams stream.Stream[timeseries.TsRecord[[]any]]
 	switch mds.joinType {
 	case InnerJoin:

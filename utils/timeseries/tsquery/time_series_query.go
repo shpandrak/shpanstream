@@ -30,6 +30,11 @@ func (fm FieldMeta) Required() bool {
 	return fm.required
 }
 
+func (fm FieldMeta) WithRequired(required bool) FieldMeta {
+	fm.required = required
+	return fm
+}
+
 func (fm FieldMeta) Urn() string {
 	return fm.urn
 }
