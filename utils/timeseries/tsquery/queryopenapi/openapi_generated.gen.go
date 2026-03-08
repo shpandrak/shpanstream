@@ -971,6 +971,13 @@ type ApiReductionQueryDatasource struct {
 	EmptyDatasourceValue *ApiQueryFieldValue `json:"emptyDatasourceValue,omitempty"`
 	FieldMeta            ApiAddFieldMeta     `json:"fieldMeta"`
 
+	// IncludePartial When true, timestamps where only some datasources have data still produce
+	// a reduced result from the available values (full-join semantics). Missing
+	// datasources are skipped rather than causing the entire row to be dropped.
+	// When false (default), a reduced row is only produced when ALL datasources
+	// have data at that timestamp (inner-join semantics).
+	IncludePartial *bool `json:"includePartial,omitempty"`
+
 	// MultiDatasource Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
 	MultiDatasource ApiMultiDatasource              `json:"multiDatasource"`
 	ReductionType   ApiReductionType                `json:"reductionType"`
@@ -1086,16 +1093,16 @@ type ApiSchedule struct {
 // ApiScheduleCondition defines model for ApiScheduleCondition.
 type ApiScheduleCondition struct {
 	// Dates Explicit dates to match (e.g. holidays). Format YYYY-MM-DD.
-	Dates      []string              `json:"dates,omitempty"`
-	DaysOfWeek []int                 `json:"daysOfWeek,omitempty"`
-	Periods    []ApiSchedulePeriod   `json:"periods,omitempty"`
-	TimeSlots  []ApiScheduleTimeSlot `json:"timeSlots,omitempty"`
+	Dates      []string `json:"dates,omitempty"`
+	DaysOfWeek []int    `json:"daysOfWeek,omitempty"`
 
 	// ExcludeDates Exclude specific dates from this condition. Format YYYY-MM-DD. If the timestamp falls on any exclude date, this condition does not match.
 	ExcludeDates []string `json:"excludeDates,omitempty"`
 
 	// ExcludePeriods Exclude specific date ranges from this condition. If the timestamp falls within any exclude period, this condition does not match. Semantics: (include fields match) AND NOT (any excludePeriod matches).
-	ExcludePeriods []ApiSchedulePeriod `json:"excludePeriods,omitempty"`
+	ExcludePeriods []ApiSchedulePeriod   `json:"excludePeriods,omitempty"`
+	Periods        []ApiSchedulePeriod   `json:"periods,omitempty"`
+	TimeSlots      []ApiScheduleTimeSlot `json:"timeSlots,omitempty"`
 }
 
 // ApiScheduleFilter Filters timeseries rows based on whether their timestamp falls within a schedule. Only rows whose timestamp matches the schedule are kept.

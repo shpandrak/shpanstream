@@ -190,6 +190,14 @@ components:
             If provided, this field value is executed and its result is used as the reduction output.
             Common use cases: constant(0, integer) for sum, nil(decimal) for nullable result.
           $ref: '#/components/schemas/ApiQueryFieldValue'
+        includePartial:
+          type: boolean
+          description: |
+            When true, timestamps where only some datasources have data still produce
+            a reduced result from the available values (full-join semantics). Missing
+            datasources are skipped rather than causing the entire row to be dropped.
+            When false (default), a reduced row is only produced when ALL datasources
+            have data at that timestamp (inner-join semantics).
 
     ApiStaticQueryDatasource:
       type: object

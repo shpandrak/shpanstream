@@ -128,27 +128,33 @@ func parseReductionDatasource(
 	addFieldMeta := ParseAddFieldMeta(reductionDs.FieldMeta)
 
 	// Parse optional emptyDatasourceValue
+	var ds *datasource.ReductionDatasource
 	if reductionDs.EmptyDatasourceValue != nil {
 		emptyValue, err := ParseQueryField(pCtx, *reductionDs.EmptyDatasourceValue)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse emptyDatasourceValue for reduction: %w", err)
 		}
-		return datasource.NewReductionDatasourceWithEmptyFallback(
+		ds = datasource.NewReductionDatasourceWithEmptyFallback(
 			reductionDs.ReductionType,
 			alignerFilter,
 			multiDatasource,
 			addFieldMeta,
 			emptyValue,
-		), nil
+		)
+	} else {
+		ds = datasource.NewReductionDatasource(
+			reductionDs.ReductionType,
+			alignerFilter,
+			multiDatasource,
+			addFieldMeta,
+		)
 	}
 
-	// Create and return the reduction datasource (without empty fallback)
-	return datasource.NewReductionDatasource(
-		reductionDs.ReductionType,
-		alignerFilter,
-		multiDatasource,
-		addFieldMeta,
-	), nil
+	if reductionDs.IncludePartial != nil && *reductionDs.IncludePartial {
+		ds = ds.WithIncludePartial()
+	}
+
+	return ds, nil
 }
 
 func parseFilteredDatasource(

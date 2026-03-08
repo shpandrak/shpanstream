@@ -18,6 +18,7 @@ type ReductionDatasource struct {
 	multiDataSource      MultiDataSource
 	addFieldMeta         tsquery.AddFieldMeta
 	emptyDatasourceValue Value // Optional fallback when multiDataSource yields zero datasources
+	includePartial       bool  // When true, use full-join semantics — produce results from available datasources even when some have gaps
 }
 
 func NewReductionDatasource(
@@ -50,6 +51,14 @@ func NewReductionDatasourceWithEmptyFallback(
 		addFieldMeta:         addFieldMeta,
 		emptyDatasourceValue: emptyDatasourceValue,
 	}
+}
+
+// WithIncludePartial enables partial-join semantics on this datasource and returns it for chaining.
+// When enabled, timestamps where only some datasources have data still produce a reduced
+// result from the available values, instead of dropping the row (inner-join default).
+func (r *ReductionDatasource) WithIncludePartial() *ReductionDatasource {
+	r.includePartial = true
+	return r
 }
 
 func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to time.Time) (Result, error) {
@@ -184,8 +193,13 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 	// optimization for a single-datasource case: return the single stream directly
 	if len(streams) == 1 && r.reductionType.UseIdentityWhenSingleValue() {
 		outputDataStream = streams[0]
+	} else if r.includePartial {
+		// Full-join: produce results even when some datasources have gaps at a timestamp.
+		// Wrap the reducer to filter out nil values from FullJoinStreams before reducing.
+		partialReducer := wrapReducerForPartialJoin(reducerFunc)
+		outputDataStream = timeseries.FullJoinStreams(streams, partialReducer)
 	} else {
-		// Use InnerJoinStreams to reduce all values
+		// Inner-join (default): only produce results when ALL datasources have data
 		outputDataStream = timeseries.InnerJoinStreams(streams, reducerFunc)
 	}
 	return Result{
@@ -244,4 +258,22 @@ func (r ReductionDatasource) executeEmptyDatasourceFallback(ctx context.Context,
 		meta: *resultFieldMeta,
 		data: dataStream,
 	}, nil
+}
+
+// wrapReducerForPartialJoin wraps a reducer function to skip nil values from FullJoinStreams.
+// FullJoinStreams passes []*any to the joiner — nil where a datasource has no data at that timestamp.
+// The wrapper filters out nils and passes the remaining values to the original reducer.
+func wrapReducerForPartialJoin(innerReducer func([]any) any) func([]*any) any {
+	return func(values []*any) any {
+		nonNil := make([]any, 0, len(values))
+		for _, v := range values {
+			if v != nil {
+				nonNil = append(nonNil, *v)
+			}
+		}
+		if len(nonNil) == 0 {
+			return nil
+		}
+		return innerReducer(nonNil)
+	}
 }
