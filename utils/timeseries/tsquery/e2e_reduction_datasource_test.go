@@ -909,3 +909,251 @@ func TestReductionDatasource_FirstWithString(t *testing.T) {
 	require.Equal(t, "host-a", records[0].Value)
 	require.Equal(t, "host-a", records[1].Value)
 }
+
+// --- IncludePartial (Full-Join) Tests ---
+
+// TestReductionDatasource_IncludePartial_SumWithGaps verifies that includePartial
+// switches from inner-join to full-join, producing results even when some datasources
+// have gaps at certain timestamps.
+func TestReductionDatasource_IncludePartial_SumWithGaps(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	allTimestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+		baseTime.Add(2 * time.Hour),
+		baseTime.Add(3 * time.Hour),
+		baseTime.Add(4 * time.Hour),
+		baseTime.Add(5 * time.Hour),
+	}
+
+	// Sub-test: without includePartial (inner join) — only timestamps where ALL sources have data
+	t.Run("InnerJoin", func(t *testing.T) {
+		sourceA := createDatasource(t, "SourceA", tsquery.DataTypeDecimal, true, "",
+			allTimestamps, []any{10.0, 20.0, 30.0, 40.0, 50.0, 60.0})
+		sourceB := createDatasource(t, "SourceB", tsquery.DataTypeDecimal, true, "",
+			allTimestamps[:3], []any{100.0, 200.0, 300.0}) // gap at T4-T6
+		sourceC := createDatasource(t, "SourceC", tsquery.DataTypeDecimal, true, "",
+			allTimestamps, []any{1.0, 2.0, 3.0, 4.0, 5.0, 6.0})
+
+		multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{sourceA, sourceB, sourceC})
+		reductionDS := datasource.NewReductionDatasource(
+			tsquery.ReductionTypeSum, nil, multiDS,
+			tsquery.AddFieldMeta{Urn: "total"},
+		)
+
+		result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+		require.NoError(t, err)
+
+		records := result.Data().MustCollect()
+		require.Len(t, records, 3) // Only T1-T3 where all sources have data
+
+		require.Equal(t, 111.0, records[0].Value) // 10 + 100 + 1
+		require.Equal(t, 222.0, records[1].Value) // 20 + 200 + 2
+		require.Equal(t, 333.0, records[2].Value) // 30 + 300 + 3
+	})
+
+	// Sub-test: with includePartial (full join) — all 6 timestamps produce results
+	t.Run("FullJoin", func(t *testing.T) {
+		sourceA := createDatasource(t, "SourceA", tsquery.DataTypeDecimal, true, "",
+			allTimestamps, []any{10.0, 20.0, 30.0, 40.0, 50.0, 60.0})
+		sourceB := createDatasource(t, "SourceB", tsquery.DataTypeDecimal, true, "",
+			allTimestamps[:3], []any{100.0, 200.0, 300.0}) // gap at T4-T6
+		sourceC := createDatasource(t, "SourceC", tsquery.DataTypeDecimal, true, "",
+			allTimestamps, []any{1.0, 2.0, 3.0, 4.0, 5.0, 6.0})
+
+		multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{sourceA, sourceB, sourceC})
+		reductionDS := datasource.NewReductionDatasource(
+			tsquery.ReductionTypeSum, nil, multiDS,
+			tsquery.AddFieldMeta{Urn: "total"},
+		).WithIncludePartial()
+
+		result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+		require.NoError(t, err)
+
+		records := result.Data().MustCollect()
+		require.Len(t, records, 6) // All 6 timestamps
+
+		// T1-T3: all sources present → A+B+C
+		require.Equal(t, 111.0, records[0].Value) // 10 + 100 + 1
+		require.Equal(t, 222.0, records[1].Value) // 20 + 200 + 2
+		require.Equal(t, 333.0, records[2].Value) // 30 + 300 + 3
+
+		// T4-T6: only A and C present → A+C
+		require.Equal(t, 44.0, records[3].Value) // 40 + 4
+		require.Equal(t, 55.0, records[4].Value) // 50 + 5
+		require.Equal(t, 66.0, records[5].Value) // 60 + 6
+	})
+}
+
+// TestReductionDatasource_IncludePartial_AvgWithGaps verifies that with includePartial,
+// the average denominator is the count of *present* values, not total datasource count.
+func TestReductionDatasource_IncludePartial_AvgWithGaps(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	allTimestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+		baseTime.Add(2 * time.Hour),
+	}
+
+	// Source A: all 3 timestamps
+	sourceA := createDatasource(t, "SourceA", tsquery.DataTypeDecimal, true, "",
+		allTimestamps, []any{30.0, 60.0, 90.0})
+	// Source B: only first timestamp (gap at T2, T3)
+	sourceB := createDatasource(t, "SourceB", tsquery.DataTypeDecimal, true, "",
+		allTimestamps[:1], []any{60.0})
+	// Source C: all 3 timestamps
+	sourceC := createDatasource(t, "SourceC", tsquery.DataTypeDecimal, true, "",
+		allTimestamps, []any{90.0, 120.0, 150.0})
+
+	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{sourceA, sourceB, sourceC})
+	reductionDS := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeAvg, nil, multiDS,
+		tsquery.AddFieldMeta{Urn: "avg"},
+	).WithIncludePartial()
+
+	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 3)
+
+	// T1: all 3 present → (30+60+90)/3 = 60.0
+	require.InDelta(t, 60.0, records[0].Value.(float64), 0.00001)
+
+	// T2: A and C only → (60+120)/2 = 90.0, NOT (60+0+120)/3
+	require.InDelta(t, 90.0, records[1].Value.(float64), 0.00001)
+
+	// T3: A and C only → (90+150)/2 = 120.0
+	require.InDelta(t, 120.0, records[2].Value.(float64), 0.00001)
+}
+
+// TestReductionDatasource_IncludePartial_CountWithGaps verifies that with includePartial,
+// count reflects the number of datasources present at each timestamp.
+func TestReductionDatasource_IncludePartial_CountWithGaps(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	allTimestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+		baseTime.Add(2 * time.Hour),
+	}
+
+	// Source A: all 3 timestamps
+	sourceA := createDatasource(t, "SourceA", tsquery.DataTypeDecimal, true, "",
+		allTimestamps, []any{10.0, 20.0, 30.0})
+	// Source B: only first timestamp
+	sourceB := createDatasource(t, "SourceB", tsquery.DataTypeDecimal, true, "",
+		allTimestamps[:1], []any{100.0})
+	// Source C: all 3 timestamps
+	sourceC := createDatasource(t, "SourceC", tsquery.DataTypeDecimal, true, "",
+		allTimestamps, []any{1.0, 2.0, 3.0})
+
+	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{sourceA, sourceB, sourceC})
+	reductionDS := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeCount, nil, multiDS,
+		tsquery.AddFieldMeta{Urn: "count"},
+	).WithIncludePartial()
+
+	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 3)
+
+	// T1: all 3 present → count = 3
+	require.Equal(t, int64(3), records[0].Value)
+
+	// T2: A and C only → count = 2
+	require.Equal(t, int64(2), records[1].Value)
+
+	// T3: A and C only → count = 2
+	require.Equal(t, int64(2), records[2].Value)
+}
+
+// TestReductionDatasource_IncludePartial_NoOverlap verifies that with includePartial,
+// completely disjoint datasources still produce results at every timestamp.
+func TestReductionDatasource_IncludePartial_NoOverlap(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Source A: T1, T2 only
+	sourceA := createDatasource(t, "SourceA", tsquery.DataTypeDecimal, true, "",
+		[]time.Time{baseTime, baseTime.Add(1 * time.Hour)},
+		[]any{10.0, 20.0})
+
+	// Source B: T3, T4 only (completely disjoint from A)
+	sourceB := createDatasource(t, "SourceB", tsquery.DataTypeDecimal, true, "",
+		[]time.Time{baseTime.Add(2 * time.Hour), baseTime.Add(3 * time.Hour)},
+		[]any{30.0, 40.0})
+
+	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{sourceA, sourceB})
+	reductionDS := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeSum, nil, multiDS,
+		tsquery.AddFieldMeta{Urn: "total"},
+	).WithIncludePartial()
+
+	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 4) // All 4 timestamps produce results
+
+	// T1: only A → sum = 10.0
+	require.Equal(t, baseTime, records[0].Timestamp)
+	require.Equal(t, 10.0, records[0].Value)
+
+	// T2: only A → sum = 20.0
+	require.Equal(t, baseTime.Add(1*time.Hour), records[1].Timestamp)
+	require.Equal(t, 20.0, records[1].Value)
+
+	// T3: only B → sum = 30.0
+	require.Equal(t, baseTime.Add(2*time.Hour), records[2].Timestamp)
+	require.Equal(t, 30.0, records[2].Value)
+
+	// T4: only B → sum = 40.0
+	require.Equal(t, baseTime.Add(3*time.Hour), records[3].Timestamp)
+	require.Equal(t, 40.0, records[3].Value)
+}
+
+// TestReductionDatasource_IncludePartial_SingleDatasource verifies that includePartial
+// doesn't break the single-datasource identity optimization.
+func TestReductionDatasource_IncludePartial_SingleDatasource(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	timestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+		baseTime.Add(2 * time.Hour),
+	}
+
+	ds := createDatasource(t, "OnlyOne", tsquery.DataTypeInteger, true, "items",
+		timestamps, []any{int64(100), int64(200), int64(300)})
+
+	multiDS := datasource.NewListMultiDatasource([]datasource.DataSource{ds})
+
+	// Create reduction with includePartial AND single datasource
+	reductionDS := datasource.NewReductionDatasource(
+		tsquery.ReductionTypeSum, nil, multiDS,
+		tsquery.AddFieldMeta{Urn: "result"},
+	).WithIncludePartial()
+
+	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	// Identity optimization should still apply — data returned as-is
+	records := result.Data().MustCollect()
+	require.Len(t, records, 3)
+	require.Equal(t, int64(100), records[0].Value)
+	require.Equal(t, int64(200), records[1].Value)
+	require.Equal(t, int64(300), records[2].Value)
+
+	// Verify metadata
+	require.Equal(t, "result", result.Meta().Urn())
+	require.Equal(t, tsquery.DataTypeInteger, result.Meta().DataType())
+	require.Equal(t, "items", result.Meta().Unit())
+}
