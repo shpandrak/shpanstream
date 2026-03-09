@@ -34,8 +34,8 @@ func TestAlignedTimestampsStream_NonAlignedFrom(t *testing.T) {
 	// from=00:00:30, to=00:03:00, period=1min
 	// Should generate: 00:00, 00:01, 00:02
 	ap := NewFixedAlignmentPeriod(time.Minute, time.UTC)
-	from := time.Unix(30, 0).UTC()  // 30 seconds in
-	to := time.Unix(180, 0).UTC()   // 3 minutes
+	from := time.Unix(30, 0).UTC() // 30 seconds in
+	to := time.Unix(180, 0).UTC()  // 3 minutes
 
 	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
 	require.NoError(t, err)

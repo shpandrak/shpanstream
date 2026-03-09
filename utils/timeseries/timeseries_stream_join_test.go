@@ -282,8 +282,8 @@ func TestLeftJoinStreams_RightStreamStartsLater(t *testing.T) {
 	).MustCollect()
 
 	expected := []TsRecord[int]{
-		{Timestamp: unixInLoc(60, loc), Value: 1},   // No match
-		{Timestamp: unixInLoc(120, loc), Value: 2},  // No match
+		{Timestamp: unixInLoc(60, loc), Value: 1},    // No match
+		{Timestamp: unixInLoc(120, loc), Value: 2},   // No match
 		{Timestamp: unixInLoc(180, loc), Value: 303}, // Match: 3 + 300
 		{Timestamp: unixInLoc(240, loc), Value: 404}, // Match: 4 + 400
 	}
@@ -319,7 +319,7 @@ func TestLeftJoinStreams_NonMatchingTimestamps(t *testing.T) {
 	).MustCollect()
 
 	expected := []TsRecord[int]{
-		{Timestamp: unixInLoc(60, loc), Value: 1}, // No match
+		{Timestamp: unixInLoc(60, loc), Value: 1},  // No match
 		{Timestamp: unixInLoc(120, loc), Value: 2}, // No match
 		{Timestamp: unixInLoc(180, loc), Value: 3}, // No match
 	}
@@ -965,7 +965,7 @@ func TestFullJoinStreams_NilPointerDistinction(t *testing.T) {
 	// Test that nil pointers are properly distinguished from zero values
 	loc := time.UTC
 	stream1 := stream.Just(
-		TsRecord[int]{Timestamp: unixInLoc(60, loc), Value: 0},  // Zero value, not nil
+		TsRecord[int]{Timestamp: unixInLoc(60, loc), Value: 0}, // Zero value, not nil
 		TsRecord[int]{Timestamp: unixInLoc(120, loc), Value: 10},
 	)
 
@@ -991,8 +991,8 @@ func TestFullJoinStreams_NilPointerDistinction(t *testing.T) {
 	).MustCollect()
 
 	expected := []TsRecord[string]{
-		{Timestamp: unixInLoc(60, loc), Value: "AB"},  // Both have values (even though they're 0)
-		{Timestamp: unixInLoc(120, loc), Value: "A"},  // Only stream1 has value
+		{Timestamp: unixInLoc(60, loc), Value: "AB"}, // Both have values (even though they're 0)
+		{Timestamp: unixInLoc(120, loc), Value: "A"}, // Only stream1 has value
 	}
 
 	require.Equal(t, expected, result)

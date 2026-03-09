@@ -82,8 +82,8 @@ func TestDeltaFilter_Integer(t *testing.T) {
 	records := result.Data().MustCollect()
 	require.Len(t, records, 2)
 
-	require.Equal(t, int64(42), records[0].Value)  // 1042 - 1000
-	require.Equal(t, int64(58), records[1].Value)  // 1100 - 1042
+	require.Equal(t, int64(42), records[0].Value) // 1042 - 1000
+	require.Equal(t, int64(58), records[1].Value) // 1100 - 1042
 }
 
 func TestDeltaFilter_NegativeDelta(t *testing.T) {
@@ -229,9 +229,9 @@ func TestDeltaFilter_NonNegative_ResetToZero(t *testing.T) {
 	records := result.Data().MustCollect()
 	require.Len(t, records, 3)
 
-	require.Equal(t, 50.0, records[0].Value)  // 150 - 100 = 50
-	require.Equal(t, 0.0, records[1].Value)   // reset: current value = 0
-	require.Equal(t, 30.0, records[2].Value)  // 30 - 0 = 30
+	require.Equal(t, 50.0, records[0].Value) // 150 - 100 = 50
+	require.Equal(t, 0.0, records[1].Value)  // reset: current value = 0
+	require.Equal(t, 30.0, records[2].Value) // 30 - 0 = 30
 }
 
 func TestDeltaFilter_NonNegative_ResetToNonZero(t *testing.T) {
@@ -256,9 +256,9 @@ func TestDeltaFilter_NonNegative_ResetToNonZero(t *testing.T) {
 	records := result.Data().MustCollect()
 	require.Len(t, records, 3)
 
-	require.Equal(t, 50.0, records[0].Value)  // 150 - 100 = 50
-	require.Equal(t, 50.0, records[1].Value)  // reset: current value = 50
-	require.Equal(t, 30.0, records[2].Value)  // 80 - 50 = 30
+	require.Equal(t, 50.0, records[0].Value) // 150 - 100 = 50
+	require.Equal(t, 50.0, records[1].Value) // reset: current value = 50
+	require.Equal(t, 30.0, records[2].Value) // 80 - 50 = 30
 }
 
 func TestDeltaFilter_NonNegative_NegativeValueDropped(t *testing.T) {

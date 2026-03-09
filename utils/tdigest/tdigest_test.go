@@ -61,8 +61,8 @@ func TestUniformDistribution(t *testing.T) {
 
 	// For uniform 1..N, exact percentile (method 7) = 1 + phi*(N-1)
 	tests := []struct {
-		q       float64
-		maxErr  float64 // max relative error
+		q      float64
+		maxErr float64 // max relative error
 	}{
 		{0.50, 0.01},
 		{0.75, 0.01},

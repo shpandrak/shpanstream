@@ -851,7 +851,7 @@ func TestSchedule_ExcludeDates_CombinedWithExcludePeriods(t *testing.T) {
 	// Exclude a period AND a specific date
 	cond, err := NewScheduleCondition(nil, nil, nil, nil,
 		[]SchedulePeriod{mustPeriod(t, 7, 1, 7, 31)}, // exclude all of July
-		[]string{"2024-12-25"},                        // also exclude Christmas
+		[]string{"2024-12-25"},                       // also exclude Christmas
 	)
 	require.NoError(t, err)
 	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)

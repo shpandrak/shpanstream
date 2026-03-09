@@ -314,7 +314,7 @@ func (reductionType ReductionType) NewAccumulator(forDataType DataType) (Accumul
 
 // sumIntAccumulator accumulates integer sum.
 type sumIntAccumulator struct {
-	sum   int64
+	sum    int64
 	hasAny bool
 }
 
