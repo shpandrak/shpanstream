@@ -102,8 +102,8 @@ func TestRateFilter_VaryingTimeIntervals(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{
 		baseTime,
-		baseTime.Add(30 * time.Minute),  // 30 min interval
-		baseTime.Add(2 * time.Hour),     // 90 min interval
+		baseTime.Add(30 * time.Minute), // 30 min interval
+		baseTime.Add(2 * time.Hour),    // 90 min interval
 	}
 
 	// Values: 0, 30, 120 (same rate of 1 per minute)

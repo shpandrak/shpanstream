@@ -246,19 +246,19 @@ func TestAggregation_SingleRecord(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, fields, 7)
 
-	require.Equal(t, int64(42), fields[0].Value)                   // sum
-	require.InDelta(t, 42.0, fields[1].Value.(float64), 0.0001)    // avg
-	require.Equal(t, int64(42), fields[2].Value)                   // min
-	require.Equal(t, int64(42), fields[3].Value)                   // max
-	require.Equal(t, int64(42), fields[4].Value)                   // first
-	require.Equal(t, int64(42), fields[5].Value)                   // last
-	require.Equal(t, int64(1), fields[6].Value)                    // count
+	require.Equal(t, int64(42), fields[0].Value)                // sum
+	require.InDelta(t, 42.0, fields[1].Value.(float64), 0.0001) // avg
+	require.Equal(t, int64(42), fields[2].Value)                // min
+	require.Equal(t, int64(42), fields[3].Value)                // max
+	require.Equal(t, int64(42), fields[4].Value)                // first
+	require.Equal(t, int64(42), fields[5].Value)                // last
+	require.Equal(t, int64(1), fields[6].Value)                 // count
 
 	// All timestamp-bearing reductions should point to the single record's time
-	require.Equal(t, ts, *fields[2].Timestamp)  // min
-	require.Equal(t, ts, *fields[3].Timestamp)  // max
-	require.Equal(t, ts, *fields[4].Timestamp)  // first
-	require.Equal(t, ts, *fields[5].Timestamp)  // last
+	require.Equal(t, ts, *fields[2].Timestamp) // min
+	require.Equal(t, ts, *fields[3].Timestamp) // max
+	require.Equal(t, ts, *fields[4].Timestamp) // first
+	require.Equal(t, ts, *fields[5].Timestamp) // last
 }
 
 func TestAggregation_IntegerVsDecimal(t *testing.T) {
@@ -352,8 +352,8 @@ func TestAggregation_WithFilters(t *testing.T) {
 	require.Len(t, fields, 2)
 
 	// Delta produces 3 values of 10 each (20-10, 30-20, 40-30)
-	require.Equal(t, int64(30), fields[0].Value)  // sum = 10+10+10
-	require.Equal(t, int64(3), fields[1].Value)   // count = 3
+	require.Equal(t, int64(30), fields[0].Value) // sum = 10+10+10
+	require.Equal(t, int64(3), fields[1].Value)  // count = 3
 }
 
 func TestAggregation_NonNumericRejection(t *testing.T) {
@@ -780,13 +780,13 @@ func TestReductionDatasource_AllSevenReductions(t *testing.T) {
 	}
 
 	expectedValues := []any{
-		int64(60),  // sum: 10+20+30
-		20.0,       // avg: 60/3
-		int64(10),  // min
-		int64(30),  // max
-		int64(3),   // count
-		int64(10),  // first
-		int64(30),  // last
+		int64(60), // sum: 10+20+30
+		20.0,      // avg: 60/3
+		int64(10), // min
+		int64(30), // max
+		int64(3),  // count
+		int64(10), // first
+		int64(30), // last
 	}
 
 	for i, rt := range reductionTypes {
@@ -989,7 +989,7 @@ func TestExpressionAggregation_MultipleFields(t *testing.T) {
 	require.Len(t, fields, 3)
 
 	// total=60, cnt=3
-	require.InDelta(t, 120.0, fields[0].Value.(float64), 0.0001)  // 60*2
-	require.InDelta(t, 20.0, fields[1].Value.(float64), 0.0001)   // 60/3
-	require.Equal(t, 60.0, fields[2].Value)                        // passthrough
+	require.InDelta(t, 120.0, fields[0].Value.(float64), 0.0001) // 60*2
+	require.InDelta(t, 20.0, fields[1].Value.(float64), 0.0001)  // 60/3
+	require.Equal(t, 60.0, fields[2].Value)                      // passthrough
 }

@@ -12,7 +12,7 @@ import (
 var _ Filter = DeltaFilter{}
 
 type DeltaFilter struct {
-	nonNegative    bool
+	nonNegative     bool
 	maxCounterValue float64
 }
 
