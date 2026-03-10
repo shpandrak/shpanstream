@@ -49,7 +49,7 @@ func TestFilteredMultiDatasource_DeltaNonNegative_ThenReduce(t *testing.T) {
 
 	// Wrap with FilteredMultiDatasource applying delta(nonNegative=true)
 	filteredMultiDS := datasource.NewFilteredMultiDatasource(innerMultiDS, []datasource.Filter{
-		datasource.NewDeltaFilter(true, 0),
+		datasource.NewDeltaFilter(true, 0, false),
 	})
 
 	// Now reduce with sum using an aligner
@@ -65,7 +65,7 @@ func TestFilteredMultiDatasource_DeltaNonNegative_ThenReduce(t *testing.T) {
 
 	records := result.Data().MustCollect()
 
-	// Delta of Counter1 (nonNeg): skip first, then: 100, 100, 0 (reset from 300→0, so delta=0), 100
+	// Delta of Counter1 (nonNeg): skip first, then: 100, 100, 0 (decrease 300→0, clamped to 0), 100
 	// Delta of Counter2: skip first, then: 20, 30, 40, 50
 	// After alignment (1h, data already aligned), inner join:
 	// Hour 1: 100 + 20 = 120

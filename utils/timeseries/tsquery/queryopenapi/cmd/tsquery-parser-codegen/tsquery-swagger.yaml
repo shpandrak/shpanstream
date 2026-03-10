@@ -345,8 +345,9 @@ components:
       description: |
         Delta filter computes the difference between consecutive values (current - previous). Requires numeric, required field.
         When nonNegative is true, the filter handles counter resets: if the current value is negative, the point is dropped;
-        if the current value is less than the previous (reset detected), the delta is the current value (assuming reset from zero),
-        or if maxCounterValue is set, the delta is (maxCounterValue - previous + current) to handle counter wraparound.
+        if the current value is less than the previous (reset detected), the delta is clamped to 0. Set emitOnReset to true
+        to instead emit the current value as the delta (assuming reset from zero). If maxCounterValue is set, the delta is
+        (maxCounterValue - previous + current) to handle counter wraparound.
       required:
         - type
       properties:
@@ -356,12 +357,16 @@ components:
             - delta
         nonNegative:
           type: boolean
-          description: When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets.
+          description: When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets. By default, when a decrease is detected the delta is clamped to 0. Set emitOnReset to true to instead emit the current value as the delta (useful when actual counter resets are expected).
           x-go-type-skip-optional-pointer: true
         maxCounterValue:
           type: number
           format: double
           description: Maximum counter value for wraparound detection. Only used when nonNegative is true. When set, counter resets compute delta as (maxCounterValue - previous + current).
+          x-go-type-skip-optional-pointer: true
+        emitOnReset:
+          type: boolean
+          description: Only used when nonNegative is true. When false (default), a decrease in value emits 0 as the delta, which is safe for glitchy counters. When true, a decrease emits the current value as the delta, assuming the counter reset from zero. Mutually exclusive with maxCounterValue.
           x-go-type-skip-optional-pointer: true
 
     ApiRateFilter:
@@ -383,12 +388,16 @@ components:
           description: Time period in seconds for rate calculation. Rate is computed as (delta / time_diff_seconds) * perSeconds. Default is 1 (per-second). Use 3600 for per-hour rate.
         nonNegative:
           type: boolean
-          description: When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets.
+          description: When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets. By default, when a decrease is detected the delta is clamped to 0. Set emitOnReset to true to instead emit the current value as the delta (useful when actual counter resets are expected).
           x-go-type-skip-optional-pointer: true
         maxCounterValue:
           type: number
           format: double
           description: Maximum counter value for wraparound detection. Only used when nonNegative is true. When set, counter resets compute delta as (maxCounterValue - previous + current).
+          x-go-type-skip-optional-pointer: true
+        emitOnReset:
+          type: boolean
+          description: Only used when nonNegative is true. When false (default), a decrease in value emits 0 as the delta, which is safe for glitchy counters. When true, a decrease emits the current value as the delta, assuming the counter reset from zero. Mutually exclusive with maxCounterValue.
           x-go-type-skip-optional-pointer: true
 
     ApiTimestampExtractComponent:

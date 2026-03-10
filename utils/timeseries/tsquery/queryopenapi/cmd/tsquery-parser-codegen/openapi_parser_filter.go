@@ -73,18 +73,30 @@ func parseDeltaFilter(deltaFilter ApiDeltaFilter) (datasource.Filter, error) {
 	if deltaFilter.MaxCounterValue > 0 && !deltaFilter.NonNegative {
 		return nil, badInputErrorf(deltaFilter, "maxCounterValue can only be used when nonNegative is true")
 	}
-	return datasource.NewDeltaFilter(deltaFilter.NonNegative, deltaFilter.MaxCounterValue), nil
+	if deltaFilter.EmitOnReset && !deltaFilter.NonNegative {
+		return nil, badInputErrorf(deltaFilter, "emitOnReset can only be used when nonNegative is true")
+	}
+	if deltaFilter.EmitOnReset && deltaFilter.MaxCounterValue > 0 {
+		return nil, badInputErrorf(deltaFilter, "emitOnReset and maxCounterValue are mutually exclusive")
+	}
+	return datasource.NewDeltaFilter(deltaFilter.NonNegative, deltaFilter.MaxCounterValue, deltaFilter.EmitOnReset), nil
 }
 
 func parseRateFilter(rateFilter ApiRateFilter) (datasource.Filter, error) {
 	if rateFilter.MaxCounterValue > 0 && !rateFilter.NonNegative {
 		return nil, badInputErrorf(rateFilter, "maxCounterValue can only be used when nonNegative is true")
 	}
+	if rateFilter.EmitOnReset && !rateFilter.NonNegative {
+		return nil, badInputErrorf(rateFilter, "emitOnReset can only be used when nonNegative is true")
+	}
+	if rateFilter.EmitOnReset && rateFilter.MaxCounterValue > 0 {
+		return nil, badInputErrorf(rateFilter, "emitOnReset and maxCounterValue are mutually exclusive")
+	}
 	var perSeconds int
 	if rateFilter.PerSeconds != nil {
 		perSeconds = *rateFilter.PerSeconds
 	}
-	return datasource.NewRateFilter(rateFilter.OverrideUnit, perSeconds, rateFilter.NonNegative, rateFilter.MaxCounterValue), nil
+	return datasource.NewRateFilter(rateFilter.OverrideUnit, perSeconds, rateFilter.NonNegative, rateFilter.MaxCounterValue, rateFilter.EmitOnReset), nil
 }
 
 func ParseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.AlignerFilter, error) {

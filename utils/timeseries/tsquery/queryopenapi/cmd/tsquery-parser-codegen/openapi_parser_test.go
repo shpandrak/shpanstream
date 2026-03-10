@@ -303,7 +303,7 @@ func TestParseReductionDatasource_WithPipeline(t *testing.T) {
 	// Create a reduction datasource (sum)
 	reductionDs := ApiReductionQueryDatasource{
 		ReductionType:   tsquery.ReductionTypeSum,
-		Aligner: &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
+		Aligner:         &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 		MultiDatasource: multiDs,
 		FieldMeta: ApiAddFieldMeta{
 			Uri: "summed",
@@ -1342,7 +1342,7 @@ func TestParseDatasource_Reduction_AllTypes(t *testing.T) {
 
 			reductionDs := ApiReductionQueryDatasource{
 				ReductionType:   tt.reductionType,
-				Aligner: &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
+				Aligner:         &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 				MultiDatasource: multiDs,
 				FieldMeta: ApiAddFieldMeta{
 					Uri: "reduced",
@@ -1416,7 +1416,7 @@ func TestParseDatasource_CustomAlignmentPeriod(t *testing.T) {
 
 	reductionDs := ApiReductionQueryDatasource{
 		ReductionType:   tsquery.ReductionTypeSum,
-		Aligner: &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
+		Aligner:         &ApiAlignerFilter{AlignerPeriod: alignmentPeriod},
 		MultiDatasource: multiDs,
 		FieldMeta: ApiAddFieldMeta{
 			Uri: "summed",
@@ -1441,8 +1441,8 @@ func TestParseDatasource_CustomAlignmentPeriod(t *testing.T) {
 func TestParseCustomAlignmentPeriod_WithOffset(t *testing.T) {
 	period := ApiCustomAlignmentPeriod{
 		ZoneId:           "UTC",
-		DurationInMillis: 3600000,  // 1 hour
-		OffsetInMillis:   900000,   // 15 minutes
+		DurationInMillis: 3600000, // 1 hour
+		OffsetInMillis:   900000,  // 15 minutes
 	}
 	ap, err := parseCustomAlignmentPeriod(period)
 	require.NoError(t, err)
@@ -1556,7 +1556,7 @@ func TestParseFilter_DeltaFilter_NonNegative(t *testing.T) {
 		Data: []ApiMeasurementValue{
 			{Timestamp: baseTime, Value: 100.0},
 			{Timestamp: baseTime.Add(1 * time.Hour), Value: 150.0},
-			{Timestamp: baseTime.Add(2 * time.Hour), Value: 50.0},  // reset
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 50.0}, // reset
 			{Timestamp: baseTime.Add(3 * time.Hour), Value: 80.0},
 		},
 	}
@@ -1591,7 +1591,7 @@ func TestParseFilter_DeltaFilter_NonNegative(t *testing.T) {
 	require.Len(t, records, 3)
 
 	assert.Equal(t, 50.0, records[0].Value) // 150 - 100
-	assert.Equal(t, 50.0, records[1].Value) // reset: current value = 50
+	assert.Equal(t, 0.0, records[1].Value)  // decrease detected: clamped to 0
 	assert.Equal(t, 30.0, records[2].Value) // 80 - 50 = 30
 }
 
@@ -2681,13 +2681,13 @@ func TestParseTimestampExtractFieldValue(t *testing.T) {
 			Required: true,
 		},
 		Data: []ApiMeasurementValue{
-			{Timestamp: baseTime, Value: 1},                          // Mon
-			{Timestamp: baseTime.Add(24 * time.Hour), Value: 2},      // Tue
-			{Timestamp: baseTime.Add(48 * time.Hour), Value: 3},      // Wed
-			{Timestamp: baseTime.Add(72 * time.Hour), Value: 4},      // Thu
-			{Timestamp: baseTime.Add(96 * time.Hour), Value: 5},      // Fri
-			{Timestamp: baseTime.Add(120 * time.Hour), Value: 6},     // Sat
-			{Timestamp: baseTime.Add(144 * time.Hour), Value: 7},     // Sun
+			{Timestamp: baseTime, Value: 1},                      // Mon
+			{Timestamp: baseTime.Add(24 * time.Hour), Value: 2},  // Tue
+			{Timestamp: baseTime.Add(48 * time.Hour), Value: 3},  // Wed
+			{Timestamp: baseTime.Add(72 * time.Hour), Value: 4},  // Thu
+			{Timestamp: baseTime.Add(96 * time.Hour), Value: 5},  // Fri
+			{Timestamp: baseTime.Add(120 * time.Hour), Value: 6}, // Sat
+			{Timestamp: baseTime.Add(144 * time.Hour), Value: 7}, // Sun
 		},
 	}
 

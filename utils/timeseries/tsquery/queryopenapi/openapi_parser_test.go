@@ -1589,7 +1589,7 @@ func TestParseFilter_DeltaFilter_NonNegative(t *testing.T) {
 	require.Len(t, records, 3)
 
 	assert.Equal(t, 50.0, records[0].Value) // 150 - 100
-	assert.Equal(t, 50.0, records[1].Value) // reset: current value = 50
+	assert.Equal(t, 0.0, records[1].Value)  // decrease detected: clamped to 0
 	assert.Equal(t, 30.0, records[2].Value) // 80 - 50 = 30
 }
 
