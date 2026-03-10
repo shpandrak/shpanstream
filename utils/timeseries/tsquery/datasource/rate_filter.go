@@ -16,14 +16,16 @@ type RateFilter struct {
 	perSeconds      int
 	nonNegative     bool
 	maxCounterValue float64
+	emitOnReset     bool
 }
 
-func NewRateFilter(overrideUnit string, perSeconds int, nonNegative bool, maxCounterValue float64) RateFilter {
+func NewRateFilter(overrideUnit string, perSeconds int, nonNegative bool, maxCounterValue float64, emitOnReset bool) RateFilter {
 	return RateFilter{
 		overrideUnit:    overrideUnit,
 		perSeconds:      perSeconds,
 		nonNegative:     nonNegative,
 		maxCounterValue: maxCounterValue,
+		emitOnReset:     emitOnReset,
 	}
 }
 
@@ -59,7 +61,7 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 
 	var computeDelta counterDeltaFunc
 	if rf.nonNegative {
-		computeDelta = newNonNegativeCounterDeltaFunc(rf.maxCounterValue)
+		computeDelta = newNonNegativeCounterDeltaFunc(rf.maxCounterValue, rf.emitOnReset)
 	} else {
 		computeDelta = func(currVal, prevVal float64) (float64, bool) {
 			return currVal - prevVal, true

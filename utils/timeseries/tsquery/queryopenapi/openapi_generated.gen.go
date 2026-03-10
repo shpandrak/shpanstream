@@ -6,9 +6,9 @@ package queryopenapi
 import (
 	"encoding/json"
 	"errors"
+	"time"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
-	"time"
 )
 
 // Defines values for ApiAlignerFilterType.
@@ -550,13 +550,17 @@ type ApiCustomAlignmentPeriodType string
 
 // ApiDeltaFilter Delta filter computes the difference between consecutive values (current - previous). Requires numeric, required field.
 // When nonNegative is true, the filter handles counter resets: if the current value is negative, the point is dropped;
-// if the current value is less than the previous (reset detected), the delta is the current value (assuming reset from zero),
-// or if maxCounterValue is set, the delta is (maxCounterValue - previous + current) to handle counter wraparound.
+// if the current value is less than the previous (reset detected), the delta is clamped to 0. Set emitOnReset to true
+// to instead emit the current value as the delta (assuming reset from zero). If maxCounterValue is set, the delta is
+// (maxCounterValue - previous + current) to handle counter wraparound.
 type ApiDeltaFilter struct {
+	// EmitOnReset Only used when nonNegative is true. When false (default), a decrease in value emits 0 as the delta, which is safe for glitchy counters. When true, a decrease emits the current value as the delta, assuming the counter reset from zero. Mutually exclusive with maxCounterValue.
+	EmitOnReset bool `json:"emitOnReset,omitempty"`
+
 	// MaxCounterValue Maximum counter value for wraparound detection. Only used when nonNegative is true. When set, counter resets compute delta as (maxCounterValue - previous + current).
 	MaxCounterValue float64 `json:"maxCounterValue,omitempty"`
 
-	// NonNegative When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets.
+	// NonNegative When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets. By default, when a decrease is detected the delta is clamped to 0. Set emitOnReset to true to instead emit the current value as the delta (useful when actual counter resets are expected).
 	NonNegative bool               `json:"nonNegative,omitempty"`
 	Type        ApiDeltaFilterType `json:"type"`
 }
@@ -937,10 +941,13 @@ type ApiQueryResult struct {
 
 // ApiRateFilter Rate filter computes the rate of change (delta / time_diff_in_seconds). Requires numeric, required field. Output is always decimal.
 type ApiRateFilter struct {
+	// EmitOnReset Only used when nonNegative is true. When false (default), a decrease in value emits 0 as the delta, which is safe for glitchy counters. When true, a decrease emits the current value as the delta, assuming the counter reset from zero. Mutually exclusive with maxCounterValue.
+	EmitOnReset bool `json:"emitOnReset,omitempty"`
+
 	// MaxCounterValue Maximum counter value for wraparound detection. Only used when nonNegative is true. When set, counter resets compute delta as (maxCounterValue - previous + current).
 	MaxCounterValue float64 `json:"maxCounterValue,omitempty"`
 
-	// NonNegative When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets.
+	// NonNegative When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets. By default, when a decrease is detected the delta is clamped to 0. Set emitOnReset to true to instead emit the current value as the delta (useful when actual counter resets are expected).
 	NonNegative bool `json:"nonNegative,omitempty"`
 
 	// OverrideUnit Unit for the rate output. If not specified, unit will be empty.
@@ -1265,6 +1272,7 @@ func (t *ApiAggregation) FromApiFromDatasourceAggregation(v ApiFromDatasourceAgg
 	return err
 }
 
+
 // AsApiFromReportAggregation returns the union data inside the ApiAggregation as a ApiFromReportAggregation
 func (t ApiAggregation) AsApiFromReportAggregation() (ApiFromReportAggregation, error) {
 	var body ApiFromReportAggregation
@@ -1279,6 +1287,7 @@ func (t *ApiAggregation) FromApiFromReportAggregation(v ApiFromReportAggregation
 	t.union = b
 	return err
 }
+
 
 // AsApiCompositeAggregation returns the union data inside the ApiAggregation as a ApiCompositeAggregation
 func (t ApiAggregation) AsApiCompositeAggregation() (ApiCompositeAggregation, error) {
@@ -1295,6 +1304,7 @@ func (t *ApiAggregation) FromApiCompositeAggregation(v ApiCompositeAggregation) 
 	return err
 }
 
+
 // AsApiExpressionAggregation returns the union data inside the ApiAggregation as a ApiExpressionAggregation
 func (t ApiAggregation) AsApiExpressionAggregation() (ApiExpressionAggregation, error) {
 	var body ApiExpressionAggregation
@@ -1309,6 +1319,7 @@ func (t *ApiAggregation) FromApiExpressionAggregation(v ApiExpressionAggregation
 	t.union = b
 	return err
 }
+
 
 func (t ApiAggregation) Discriminator() (string, error) {
 	var discriminator struct {
@@ -1362,6 +1373,7 @@ func (t *ApiAggregationFieldValue) FromApiRefAggregationFieldValue(v ApiRefAggre
 	return err
 }
 
+
 // AsApiConstantAggregationFieldValue returns the union data inside the ApiAggregationFieldValue as a ApiConstantAggregationFieldValue
 func (t ApiAggregationFieldValue) AsApiConstantAggregationFieldValue() (ApiConstantAggregationFieldValue, error) {
 	var body ApiConstantAggregationFieldValue
@@ -1376,6 +1388,7 @@ func (t *ApiAggregationFieldValue) FromApiConstantAggregationFieldValue(v ApiCon
 	t.union = b
 	return err
 }
+
 
 // AsApiNumericExpressionAggregationFieldValue returns the union data inside the ApiAggregationFieldValue as a ApiNumericExpressionAggregationFieldValue
 func (t ApiAggregationFieldValue) AsApiNumericExpressionAggregationFieldValue() (ApiNumericExpressionAggregationFieldValue, error) {
@@ -1392,6 +1405,7 @@ func (t *ApiAggregationFieldValue) FromApiNumericExpressionAggregationFieldValue
 	return err
 }
 
+
 // AsApiUnaryNumericOperatorAggregationFieldValue returns the union data inside the ApiAggregationFieldValue as a ApiUnaryNumericOperatorAggregationFieldValue
 func (t ApiAggregationFieldValue) AsApiUnaryNumericOperatorAggregationFieldValue() (ApiUnaryNumericOperatorAggregationFieldValue, error) {
 	var body ApiUnaryNumericOperatorAggregationFieldValue
@@ -1407,6 +1421,7 @@ func (t *ApiAggregationFieldValue) FromApiUnaryNumericOperatorAggregationFieldVa
 	return err
 }
 
+
 // AsApiCastAggregationFieldValue returns the union data inside the ApiAggregationFieldValue as a ApiCastAggregationFieldValue
 func (t ApiAggregationFieldValue) AsApiCastAggregationFieldValue() (ApiCastAggregationFieldValue, error) {
 	var body ApiCastAggregationFieldValue
@@ -1421,6 +1436,7 @@ func (t *ApiAggregationFieldValue) FromApiCastAggregationFieldValue(v ApiCastAgg
 	t.union = b
 	return err
 }
+
 
 func (t ApiAggregationFieldValue) Discriminator() (string, error) {
 	var discriminator struct {
@@ -1476,6 +1492,7 @@ func (t *ApiAlignmentPeriod) FromApiCalendarAlignmentPeriod(v ApiCalendarAlignme
 	return err
 }
 
+
 // AsApiCustomAlignmentPeriod returns the union data inside the ApiAlignmentPeriod as a ApiCustomAlignmentPeriod
 func (t ApiAlignmentPeriod) AsApiCustomAlignmentPeriod() (ApiCustomAlignmentPeriod, error) {
 	var body ApiCustomAlignmentPeriod
@@ -1490,6 +1507,7 @@ func (t *ApiAlignmentPeriod) FromApiCustomAlignmentPeriod(v ApiCustomAlignmentPe
 	t.union = b
 	return err
 }
+
 
 func (t ApiAlignmentPeriod) Discriminator() (string, error) {
 	var discriminator struct {
@@ -1539,6 +1557,7 @@ func (t *ApiMultiDatasource) FromApiListMultiDatasource(v ApiListMultiDatasource
 	return err
 }
 
+
 // AsApiFilteredMultiDatasource returns the union data inside the ApiMultiDatasource as a ApiFilteredMultiDatasource
 func (t ApiMultiDatasource) AsApiFilteredMultiDatasource() (ApiFilteredMultiDatasource, error) {
 	var body ApiFilteredMultiDatasource
@@ -1553,6 +1572,7 @@ func (t *ApiMultiDatasource) FromApiFilteredMultiDatasource(v ApiFilteredMultiDa
 	t.union = b
 	return err
 }
+
 
 func (t ApiMultiDatasource) Discriminator() (string, error) {
 	var discriminator struct {
@@ -1602,6 +1622,7 @@ func (t *ApiQueryDatasource) FromApiFilteredQueryDatasource(v ApiFilteredQueryDa
 	return err
 }
 
+
 // AsApiReductionQueryDatasource returns the union data inside the ApiQueryDatasource as a ApiReductionQueryDatasource
 func (t ApiQueryDatasource) AsApiReductionQueryDatasource() (ApiReductionQueryDatasource, error) {
 	var body ApiReductionQueryDatasource
@@ -1616,6 +1637,7 @@ func (t *ApiQueryDatasource) FromApiReductionQueryDatasource(v ApiReductionQuery
 	t.union = b
 	return err
 }
+
 
 // AsApiStaticQueryDatasource returns the union data inside the ApiQueryDatasource as a ApiStaticQueryDatasource
 func (t ApiQueryDatasource) AsApiStaticQueryDatasource() (ApiStaticQueryDatasource, error) {
@@ -1632,6 +1654,7 @@ func (t *ApiQueryDatasource) FromApiStaticQueryDatasource(v ApiStaticQueryDataso
 	return err
 }
 
+
 // AsApiFromReportQueryDatasource returns the union data inside the ApiQueryDatasource as a ApiFromReportQueryDatasource
 func (t ApiQueryDatasource) AsApiFromReportQueryDatasource() (ApiFromReportQueryDatasource, error) {
 	var body ApiFromReportQueryDatasource
@@ -1646,6 +1669,7 @@ func (t *ApiQueryDatasource) FromApiFromReportQueryDatasource(v ApiFromReportQue
 	t.union = b
 	return err
 }
+
 
 func (t ApiQueryDatasource) Discriminator() (string, error) {
 	var discriminator struct {
@@ -1699,6 +1723,7 @@ func (t *ApiQueryFieldValue) FromApiConstantQueryFieldValue(v ApiConstantQueryFi
 	return err
 }
 
+
 // AsApiConditionQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiConditionQueryFieldValue
 func (t ApiQueryFieldValue) AsApiConditionQueryFieldValue() (ApiConditionQueryFieldValue, error) {
 	var body ApiConditionQueryFieldValue
@@ -1713,6 +1738,7 @@ func (t *ApiQueryFieldValue) FromApiConditionQueryFieldValue(v ApiConditionQuery
 	t.union = b
 	return err
 }
+
 
 // AsApiLogicalExpressionQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiLogicalExpressionQueryFieldValue
 func (t ApiQueryFieldValue) AsApiLogicalExpressionQueryFieldValue() (ApiLogicalExpressionQueryFieldValue, error) {
@@ -1729,6 +1755,7 @@ func (t *ApiQueryFieldValue) FromApiLogicalExpressionQueryFieldValue(v ApiLogica
 	return err
 }
 
+
 // AsApiRefQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiRefQueryFieldValue
 func (t ApiQueryFieldValue) AsApiRefQueryFieldValue() (ApiRefQueryFieldValue, error) {
 	var body ApiRefQueryFieldValue
@@ -1743,6 +1770,7 @@ func (t *ApiQueryFieldValue) FromApiRefQueryFieldValue(v ApiRefQueryFieldValue) 
 	t.union = b
 	return err
 }
+
 
 // AsApiSelectorQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiSelectorQueryFieldValue
 func (t ApiQueryFieldValue) AsApiSelectorQueryFieldValue() (ApiSelectorQueryFieldValue, error) {
@@ -1759,6 +1787,7 @@ func (t *ApiQueryFieldValue) FromApiSelectorQueryFieldValue(v ApiSelectorQueryFi
 	return err
 }
 
+
 // AsApiNvlQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiNvlQueryFieldValue
 func (t ApiQueryFieldValue) AsApiNvlQueryFieldValue() (ApiNvlQueryFieldValue, error) {
 	var body ApiNvlQueryFieldValue
@@ -1773,6 +1802,7 @@ func (t *ApiQueryFieldValue) FromApiNvlQueryFieldValue(v ApiNvlQueryFieldValue) 
 	t.union = b
 	return err
 }
+
 
 // AsApiCastQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiCastQueryFieldValue
 func (t ApiQueryFieldValue) AsApiCastQueryFieldValue() (ApiCastQueryFieldValue, error) {
@@ -1789,6 +1819,7 @@ func (t *ApiQueryFieldValue) FromApiCastQueryFieldValue(v ApiCastQueryFieldValue
 	return err
 }
 
+
 // AsApiNumericExpressionQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiNumericExpressionQueryFieldValue
 func (t ApiQueryFieldValue) AsApiNumericExpressionQueryFieldValue() (ApiNumericExpressionQueryFieldValue, error) {
 	var body ApiNumericExpressionQueryFieldValue
@@ -1803,6 +1834,7 @@ func (t *ApiQueryFieldValue) FromApiNumericExpressionQueryFieldValue(v ApiNumeri
 	t.union = b
 	return err
 }
+
 
 // AsApiUnaryNumericOperatorQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiUnaryNumericOperatorQueryFieldValue
 func (t ApiQueryFieldValue) AsApiUnaryNumericOperatorQueryFieldValue() (ApiUnaryNumericOperatorQueryFieldValue, error) {
@@ -1819,6 +1851,7 @@ func (t *ApiQueryFieldValue) FromApiUnaryNumericOperatorQueryFieldValue(v ApiUna
 	return err
 }
 
+
 // AsApiNilQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiNilQueryFieldValue
 func (t ApiQueryFieldValue) AsApiNilQueryFieldValue() (ApiNilQueryFieldValue, error) {
 	var body ApiNilQueryFieldValue
@@ -1833,6 +1866,7 @@ func (t *ApiQueryFieldValue) FromApiNilQueryFieldValue(v ApiNilQueryFieldValue) 
 	t.union = b
 	return err
 }
+
 
 // AsApiRowTimestampQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiRowTimestampQueryFieldValue
 func (t ApiQueryFieldValue) AsApiRowTimestampQueryFieldValue() (ApiRowTimestampQueryFieldValue, error) {
@@ -1849,6 +1883,7 @@ func (t *ApiQueryFieldValue) FromApiRowTimestampQueryFieldValue(v ApiRowTimestam
 	return err
 }
 
+
 // AsApiTimestampExtractQueryFieldValue returns the union data inside the ApiQueryFieldValue as a ApiTimestampExtractQueryFieldValue
 func (t ApiQueryFieldValue) AsApiTimestampExtractQueryFieldValue() (ApiTimestampExtractQueryFieldValue, error) {
 	var body ApiTimestampExtractQueryFieldValue
@@ -1863,6 +1898,7 @@ func (t *ApiQueryFieldValue) FromApiTimestampExtractQueryFieldValue(v ApiTimesta
 	t.union = b
 	return err
 }
+
 
 func (t ApiQueryFieldValue) Discriminator() (string, error) {
 	var discriminator struct {
@@ -1932,6 +1968,7 @@ func (t *ApiQueryFilter) FromApiAlignerFilter(v ApiAlignerFilter) error {
 	return err
 }
 
+
 // AsApiConditionFilter returns the union data inside the ApiQueryFilter as a ApiConditionFilter
 func (t ApiQueryFilter) AsApiConditionFilter() (ApiConditionFilter, error) {
 	var body ApiConditionFilter
@@ -1946,6 +1983,7 @@ func (t *ApiQueryFilter) FromApiConditionFilter(v ApiConditionFilter) error {
 	t.union = b
 	return err
 }
+
 
 // AsApiFieldValueFilter returns the union data inside the ApiQueryFilter as a ApiFieldValueFilter
 func (t ApiQueryFilter) AsApiFieldValueFilter() (ApiFieldValueFilter, error) {
@@ -1962,6 +2000,7 @@ func (t *ApiQueryFilter) FromApiFieldValueFilter(v ApiFieldValueFilter) error {
 	return err
 }
 
+
 // AsApiOverrideFieldMetadataFilter returns the union data inside the ApiQueryFilter as a ApiOverrideFieldMetadataFilter
 func (t ApiQueryFilter) AsApiOverrideFieldMetadataFilter() (ApiOverrideFieldMetadataFilter, error) {
 	var body ApiOverrideFieldMetadataFilter
@@ -1976,6 +2015,7 @@ func (t *ApiQueryFilter) FromApiOverrideFieldMetadataFilter(v ApiOverrideFieldMe
 	t.union = b
 	return err
 }
+
 
 // AsApiDeltaFilter returns the union data inside the ApiQueryFilter as a ApiDeltaFilter
 func (t ApiQueryFilter) AsApiDeltaFilter() (ApiDeltaFilter, error) {
@@ -1992,6 +2032,7 @@ func (t *ApiQueryFilter) FromApiDeltaFilter(v ApiDeltaFilter) error {
 	return err
 }
 
+
 // AsApiRateFilter returns the union data inside the ApiQueryFilter as a ApiRateFilter
 func (t ApiQueryFilter) AsApiRateFilter() (ApiRateFilter, error) {
 	var body ApiRateFilter
@@ -2007,6 +2048,7 @@ func (t *ApiQueryFilter) FromApiRateFilter(v ApiRateFilter) error {
 	return err
 }
 
+
 // AsApiScheduleFilter returns the union data inside the ApiQueryFilter as a ApiScheduleFilter
 func (t ApiQueryFilter) AsApiScheduleFilter() (ApiScheduleFilter, error) {
 	var body ApiScheduleFilter
@@ -2021,6 +2063,7 @@ func (t *ApiQueryFilter) FromApiScheduleFilter(v ApiScheduleFilter) error {
 	t.union = b
 	return err
 }
+
 
 func (t ApiQueryFilter) Discriminator() (string, error) {
 	var discriminator struct {
@@ -2080,6 +2123,7 @@ func (t *ApiReportDatasource) FromApiStaticReportDatasource(v ApiStaticReportDat
 	return err
 }
 
+
 // AsApiJoinReportDatasource returns the union data inside the ApiReportDatasource as a ApiJoinReportDatasource
 func (t ApiReportDatasource) AsApiJoinReportDatasource() (ApiJoinReportDatasource, error) {
 	var body ApiJoinReportDatasource
@@ -2094,6 +2138,7 @@ func (t *ApiReportDatasource) FromApiJoinReportDatasource(v ApiJoinReportDatasou
 	t.union = b
 	return err
 }
+
 
 // AsApiFromDatasourceReportDatasource returns the union data inside the ApiReportDatasource as a ApiFromDatasourceReportDatasource
 func (t ApiReportDatasource) AsApiFromDatasourceReportDatasource() (ApiFromDatasourceReportDatasource, error) {
@@ -2110,6 +2155,7 @@ func (t *ApiReportDatasource) FromApiFromDatasourceReportDatasource(v ApiFromDat
 	return err
 }
 
+
 // AsApiFilteredReportDatasource returns the union data inside the ApiReportDatasource as a ApiFilteredReportDatasource
 func (t ApiReportDatasource) AsApiFilteredReportDatasource() (ApiFilteredReportDatasource, error) {
 	var body ApiFilteredReportDatasource
@@ -2124,6 +2170,7 @@ func (t *ApiReportDatasource) FromApiFilteredReportDatasource(v ApiFilteredRepor
 	t.union = b
 	return err
 }
+
 
 func (t ApiReportDatasource) Discriminator() (string, error) {
 	var discriminator struct {
@@ -2177,6 +2224,7 @@ func (t *ApiReportFieldValue) FromApiConstantReportFieldValue(v ApiConstantRepor
 	return err
 }
 
+
 // AsApiConditionReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiConditionReportFieldValue
 func (t ApiReportFieldValue) AsApiConditionReportFieldValue() (ApiConditionReportFieldValue, error) {
 	var body ApiConditionReportFieldValue
@@ -2191,6 +2239,7 @@ func (t *ApiReportFieldValue) FromApiConditionReportFieldValue(v ApiConditionRep
 	t.union = b
 	return err
 }
+
 
 // AsApiLogicalExpressionReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiLogicalExpressionReportFieldValue
 func (t ApiReportFieldValue) AsApiLogicalExpressionReportFieldValue() (ApiLogicalExpressionReportFieldValue, error) {
@@ -2207,6 +2256,7 @@ func (t *ApiReportFieldValue) FromApiLogicalExpressionReportFieldValue(v ApiLogi
 	return err
 }
 
+
 // AsApiRefReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiRefReportFieldValue
 func (t ApiReportFieldValue) AsApiRefReportFieldValue() (ApiRefReportFieldValue, error) {
 	var body ApiRefReportFieldValue
@@ -2221,6 +2271,7 @@ func (t *ApiReportFieldValue) FromApiRefReportFieldValue(v ApiRefReportFieldValu
 	t.union = b
 	return err
 }
+
 
 // AsApiSelectorReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiSelectorReportFieldValue
 func (t ApiReportFieldValue) AsApiSelectorReportFieldValue() (ApiSelectorReportFieldValue, error) {
@@ -2237,6 +2288,7 @@ func (t *ApiReportFieldValue) FromApiSelectorReportFieldValue(v ApiSelectorRepor
 	return err
 }
 
+
 // AsApiNvlReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiNvlReportFieldValue
 func (t ApiReportFieldValue) AsApiNvlReportFieldValue() (ApiNvlReportFieldValue, error) {
 	var body ApiNvlReportFieldValue
@@ -2251,6 +2303,7 @@ func (t *ApiReportFieldValue) FromApiNvlReportFieldValue(v ApiNvlReportFieldValu
 	t.union = b
 	return err
 }
+
 
 // AsApiCastReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiCastReportFieldValue
 func (t ApiReportFieldValue) AsApiCastReportFieldValue() (ApiCastReportFieldValue, error) {
@@ -2267,6 +2320,7 @@ func (t *ApiReportFieldValue) FromApiCastReportFieldValue(v ApiCastReportFieldVa
 	return err
 }
 
+
 // AsApiNumericExpressionReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiNumericExpressionReportFieldValue
 func (t ApiReportFieldValue) AsApiNumericExpressionReportFieldValue() (ApiNumericExpressionReportFieldValue, error) {
 	var body ApiNumericExpressionReportFieldValue
@@ -2281,6 +2335,7 @@ func (t *ApiReportFieldValue) FromApiNumericExpressionReportFieldValue(v ApiNume
 	t.union = b
 	return err
 }
+
 
 // AsApiUnaryNumericOperatorReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiUnaryNumericOperatorReportFieldValue
 func (t ApiReportFieldValue) AsApiUnaryNumericOperatorReportFieldValue() (ApiUnaryNumericOperatorReportFieldValue, error) {
@@ -2297,6 +2352,7 @@ func (t *ApiReportFieldValue) FromApiUnaryNumericOperatorReportFieldValue(v ApiU
 	return err
 }
 
+
 // AsApiReduceReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiReduceReportFieldValue
 func (t ApiReportFieldValue) AsApiReduceReportFieldValue() (ApiReduceReportFieldValue, error) {
 	var body ApiReduceReportFieldValue
@@ -2311,6 +2367,7 @@ func (t *ApiReportFieldValue) FromApiReduceReportFieldValue(v ApiReduceReportFie
 	t.union = b
 	return err
 }
+
 
 // AsApiNilReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiNilReportFieldValue
 func (t ApiReportFieldValue) AsApiNilReportFieldValue() (ApiNilReportFieldValue, error) {
@@ -2327,6 +2384,7 @@ func (t *ApiReportFieldValue) FromApiNilReportFieldValue(v ApiNilReportFieldValu
 	return err
 }
 
+
 // AsApiRowTimestampReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiRowTimestampReportFieldValue
 func (t ApiReportFieldValue) AsApiRowTimestampReportFieldValue() (ApiRowTimestampReportFieldValue, error) {
 	var body ApiRowTimestampReportFieldValue
@@ -2342,6 +2400,7 @@ func (t *ApiReportFieldValue) FromApiRowTimestampReportFieldValue(v ApiRowTimest
 	return err
 }
 
+
 // AsApiTimestampExtractReportFieldValue returns the union data inside the ApiReportFieldValue as a ApiTimestampExtractReportFieldValue
 func (t ApiReportFieldValue) AsApiTimestampExtractReportFieldValue() (ApiTimestampExtractReportFieldValue, error) {
 	var body ApiTimestampExtractReportFieldValue
@@ -2356,6 +2415,7 @@ func (t *ApiReportFieldValue) FromApiTimestampExtractReportFieldValue(v ApiTimes
 	t.union = b
 	return err
 }
+
 
 func (t ApiReportFieldValue) Discriminator() (string, error) {
 	var discriminator struct {
@@ -2427,6 +2487,7 @@ func (t *ApiReportFilter) FromApiAlignerFilter(v ApiAlignerFilter) error {
 	return err
 }
 
+
 // AsApiConditionReportFilter returns the union data inside the ApiReportFilter as a ApiConditionReportFilter
 func (t ApiReportFilter) AsApiConditionReportFilter() (ApiConditionReportFilter, error) {
 	var body ApiConditionReportFilter
@@ -2441,6 +2502,7 @@ func (t *ApiReportFilter) FromApiConditionReportFilter(v ApiConditionReportFilte
 	t.union = b
 	return err
 }
+
 
 // AsApiAppendFieldReportFilter returns the union data inside the ApiReportFilter as a ApiAppendFieldReportFilter
 func (t ApiReportFilter) AsApiAppendFieldReportFilter() (ApiAppendFieldReportFilter, error) {
@@ -2457,6 +2519,7 @@ func (t *ApiReportFilter) FromApiAppendFieldReportFilter(v ApiAppendFieldReportF
 	return err
 }
 
+
 // AsApiDropFieldsReportFilter returns the union data inside the ApiReportFilter as a ApiDropFieldsReportFilter
 func (t ApiReportFilter) AsApiDropFieldsReportFilter() (ApiDropFieldsReportFilter, error) {
 	var body ApiDropFieldsReportFilter
@@ -2471,6 +2534,7 @@ func (t *ApiReportFilter) FromApiDropFieldsReportFilter(v ApiDropFieldsReportFil
 	t.union = b
 	return err
 }
+
 
 // AsApiSingleFieldReportFilter returns the union data inside the ApiReportFilter as a ApiSingleFieldReportFilter
 func (t ApiReportFilter) AsApiSingleFieldReportFilter() (ApiSingleFieldReportFilter, error) {
@@ -2487,6 +2551,7 @@ func (t *ApiReportFilter) FromApiSingleFieldReportFilter(v ApiSingleFieldReportF
 	return err
 }
 
+
 // AsApiProjectionReportFilter returns the union data inside the ApiReportFilter as a ApiProjectionReportFilter
 func (t ApiReportFilter) AsApiProjectionReportFilter() (ApiProjectionReportFilter, error) {
 	var body ApiProjectionReportFilter
@@ -2502,6 +2567,7 @@ func (t *ApiReportFilter) FromApiProjectionReportFilter(v ApiProjectionReportFil
 	return err
 }
 
+
 // AsApiScheduleFilter returns the union data inside the ApiReportFilter as a ApiScheduleFilter
 func (t ApiReportFilter) AsApiScheduleFilter() (ApiScheduleFilter, error) {
 	var body ApiScheduleFilter
@@ -2516,6 +2582,7 @@ func (t *ApiReportFilter) FromApiScheduleFilter(v ApiScheduleFilter) error {
 	t.union = b
 	return err
 }
+
 
 func (t ApiReportFilter) Discriminator() (string, error) {
 	var discriminator struct {
@@ -2575,6 +2642,7 @@ func (t *ApiReportMultiDatasource) FromApiListReportMultiDatasource(v ApiListRep
 	return err
 }
 
+
 // AsApiFromMultiDatasourceReportMultiDatasource returns the union data inside the ApiReportMultiDatasource as a ApiFromMultiDatasourceReportMultiDatasource
 func (t ApiReportMultiDatasource) AsApiFromMultiDatasourceReportMultiDatasource() (ApiFromMultiDatasourceReportMultiDatasource, error) {
 	var body ApiFromMultiDatasourceReportMultiDatasource
@@ -2590,6 +2658,7 @@ func (t *ApiReportMultiDatasource) FromApiFromMultiDatasourceReportMultiDatasour
 	return err
 }
 
+
 // AsApiFilteredReportMultiDatasource returns the union data inside the ApiReportMultiDatasource as a ApiFilteredReportMultiDatasource
 func (t ApiReportMultiDatasource) AsApiFilteredReportMultiDatasource() (ApiFilteredReportMultiDatasource, error) {
 	var body ApiFilteredReportMultiDatasource
@@ -2604,6 +2673,7 @@ func (t *ApiReportMultiDatasource) FromApiFilteredReportMultiDatasource(v ApiFil
 	t.union = b
 	return err
 }
+
 
 func (t ApiReportMultiDatasource) Discriminator() (string, error) {
 	var discriminator struct {

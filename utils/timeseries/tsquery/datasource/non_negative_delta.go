@@ -5,7 +5,7 @@ package datasource
 // Returns (delta, shouldEmit). shouldEmit=false means drop the point.
 type counterDeltaFunc func(currVal, prevVal float64) (delta float64, emit bool)
 
-func newNonNegativeCounterDeltaFunc(maxCounterValue float64) counterDeltaFunc {
+func newNonNegativeCounterDeltaFunc(maxCounterValue float64, emitOnReset bool) counterDeltaFunc {
 	if maxCounterValue > 0 {
 		return func(currVal, prevVal float64) (float64, bool) {
 			if currVal < 0 {
@@ -17,12 +17,23 @@ func newNonNegativeCounterDeltaFunc(maxCounterValue float64) counterDeltaFunc {
 			return currVal - prevVal, true
 		}
 	}
+	if emitOnReset {
+		return func(currVal, prevVal float64) (float64, bool) {
+			if currVal < 0 {
+				return 0, false
+			}
+			if currVal < prevVal {
+				return currVal, true
+			}
+			return currVal - prevVal, true
+		}
+	}
 	return func(currVal, prevVal float64) (float64, bool) {
 		if currVal < 0 {
 			return 0, false
 		}
 		if currVal < prevVal {
-			return currVal, true
+			return 0, true
 		}
 		return currVal - prevVal, true
 	}

@@ -14,10 +14,11 @@ var _ Filter = DeltaFilter{}
 type DeltaFilter struct {
 	nonNegative     bool
 	maxCounterValue float64
+	emitOnReset     bool
 }
 
-func NewDeltaFilter(nonNegative bool, maxCounterValue float64) DeltaFilter {
-	return DeltaFilter{nonNegative: nonNegative, maxCounterValue: maxCounterValue}
+func NewDeltaFilter(nonNegative bool, maxCounterValue float64, emitOnReset bool) DeltaFilter {
+	return DeltaFilter{nonNegative: nonNegative, maxCounterValue: maxCounterValue, emitOnReset: emitOnReset}
 }
 
 func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
@@ -42,7 +43,7 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 	var prevItem *timeseries.TsRecord[any]
 
 	if df.nonNegative {
-		computeDelta := newNonNegativeCounterDeltaFunc(df.maxCounterValue)
+		computeDelta := newNonNegativeCounterDeltaFunc(df.maxCounterValue, df.emitOnReset)
 		return Result{
 			meta: result.meta,
 			data: stream.MapWhileFilteringWithErr(
