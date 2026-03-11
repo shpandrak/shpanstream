@@ -35,7 +35,16 @@ utils/timeseries/tsquery/queryopenapi/codegen/testdata/
 
 Stop if the script fails.
 
-### 4. Test codegen testdata module
+### 4. Regenerate OpenAPI code
+
+Run `bash generate-openapi.sh` from:
+```
+utils/timeseries/tsquery/queryopenapi/
+```
+
+Stop if the script fails.
+
+### 5. Test codegen testdata module
 
 Run `go test ./...` from:
 ```
@@ -44,7 +53,7 @@ utils/timeseries/tsquery/queryopenapi/codegen/testdata/
 
 This directory has its own `go.mod`. Stop if tests fail.
 
-### 5. Full build and test
+### 6. Full build and test
 
 From the repository root, run:
 ```
@@ -54,11 +63,11 @@ go test ./...
 
 Stop if either command fails.
 
-### 6. Show changes for review
+### 7. Show changes for review
 
 Run `git status` and `git diff --stat` and display the output so the user can review what changed.
 
-### 7. Commit (ask for confirmation)
+### 8. Commit (ask for confirmation)
 
 **Stop and ask the user for confirmation before proceeding.** Show a suggested commit message like:
 
@@ -66,13 +75,13 @@ Run `git status` and `git diff --stat` and display the output so the user can re
 
 Let the user approve, modify, or provide their own message. Then stage all changes and commit.
 
-### 8. Tag
+### 9. Tag
 
 Create both tags:
 - `vVERSION` — repo-level tag
 - `utils/timeseries/tsquery/queryopenapi/cmd/tsquery-parser-codegen/vVERSION` — tool-scoped tag
 
-### 9. Push (ask for confirmation)
+### 10. Push (ask for confirmation)
 
 **Stop and ask the user for confirmation before pushing.** Then push the commit and both tags to origin:
 ```
