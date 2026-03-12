@@ -28,6 +28,8 @@ func ParseFilter(pCtx *ParsingContext, rawFilter ApiQueryFilter) (datasource.Fil
 		return parseRateFilter(typedFilter)
 	case ApiScheduleFilter:
 		return parseScheduleFilter(typedFilter)
+	case ApiTimeShiftFilter:
+		return parseTimeShiftFilter(typedFilter)
 	}
 	return wrapAndReturn(pCtx.plugin.ParseFilter(pCtx, rawFilter))("failed parsing filter with plugin parser")
 }
@@ -189,6 +191,13 @@ func ParseAddFieldMeta(apiMeta ApiAddFieldMeta) tsquery.AddFieldMeta {
 		CustomMeta:   apiMeta.CustomMetadata,
 		OverrideUnit: apiMeta.OverrideUnit,
 	}
+}
+
+func parseTimeShiftFilter(tf ApiTimeShiftFilter) (datasource.Filter, error) {
+	if tf.OffsetSeconds == 0 {
+		return nil, badInputErrorf(tf, "offsetSeconds must be non-zero")
+	}
+	return datasource.NewTimeShiftFilter(tf.OffsetSeconds), nil
 }
 
 func parseScheduleFilter(sf ApiScheduleFilter) (datasource.Filter, error) {

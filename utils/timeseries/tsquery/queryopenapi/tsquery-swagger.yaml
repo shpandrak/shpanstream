@@ -229,6 +229,7 @@ components:
           delta: '#/components/schemas/ApiDeltaFilter'
           rate: '#/components/schemas/ApiRateFilter'
           schedule: '#/components/schemas/ApiScheduleFilter'
+          timeShift: '#/components/schemas/ApiTimeShiftFilter'
       oneOf:
         - $ref: '#/components/schemas/ApiAlignerFilter'
         - $ref: '#/components/schemas/ApiConditionFilter'
@@ -237,6 +238,7 @@ components:
         - $ref: '#/components/schemas/ApiDeltaFilter'
         - $ref: '#/components/schemas/ApiRateFilter'
         - $ref: '#/components/schemas/ApiScheduleFilter'
+        - $ref: '#/components/schemas/ApiTimeShiftFilter'
 
     ApiAlignmentPeriod:
       type: object
@@ -1320,6 +1322,7 @@ components:
           singleField: '#/components/schemas/ApiSingleFieldReportFilter'
           projection: '#/components/schemas/ApiProjectionReportFilter'
           schedule: '#/components/schemas/ApiScheduleFilter'
+          timeShift: '#/components/schemas/ApiTimeShiftFilter'
       oneOf:
         - $ref: '#/components/schemas/ApiAlignerFilter'
         - $ref: '#/components/schemas/ApiConditionReportFilter'
@@ -1328,6 +1331,7 @@ components:
         - $ref: '#/components/schemas/ApiSingleFieldReportFilter'
         - $ref: '#/components/schemas/ApiProjectionReportFilter'
         - $ref: '#/components/schemas/ApiScheduleFilter'
+        - $ref: '#/components/schemas/ApiTimeShiftFilter'
 
     ApiConditionReportFilter:
       type: object
@@ -1887,3 +1891,24 @@ components:
             - schedule
         schedule:
           $ref: '#/components/schemas/ApiSchedule'
+
+    ApiTimeShiftFilter:
+      type: object
+      description: >-
+        Shifts all timestamps in the stream by a fixed offset.
+        Positive values shift forward, negative values shift backward.
+        This filter only adjusts output timestamps - it does not change the query time range.
+      required:
+        - type
+        - offsetSeconds
+      properties:
+        type:
+          type: string
+          enum:
+            - timeShift
+        offsetSeconds:
+          type: integer
+          format: int64
+          description: >-
+            Seconds to shift timestamps. Positive = forward, negative = backward.
+            Example: -3600 shifts end-of-hour to start-of-hour.

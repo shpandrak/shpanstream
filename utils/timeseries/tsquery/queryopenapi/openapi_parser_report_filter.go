@@ -27,6 +27,8 @@ func ParseReportFilter(pCtx *ParsingContext, rawFilter ApiReportFilter) (report.
 		return parseProjectionReportFilter(typedFilter)
 	case ApiScheduleFilter:
 		return parseScheduleReportFilter(typedFilter)
+	case ApiTimeShiftFilter:
+		return parseTimeShiftReportFilter(typedFilter)
 	}
 	return wrapAndReturnReportFilter(pCtx.plugin.ParseReportFilter(pCtx, rawFilter))("failed parsing report filter with plugin parser")
 }
@@ -92,6 +94,13 @@ func parseAlignerReportFilter(apiAlignerFilter ApiAlignerFilter) (report.Filter,
 		return report.NewInterpolatingAlignerFilter(alignerPeriod, *apiAlignerFilter.FillMode), nil
 	}
 	return report.NewAlignerFilter(alignerPeriod), nil
+}
+
+func parseTimeShiftReportFilter(tf ApiTimeShiftFilter) (report.Filter, error) {
+	if tf.OffsetSeconds == 0 {
+		return nil, badInputErrorf(tf, "offsetSeconds must be non-zero")
+	}
+	return report.NewTimeShiftFilter(tf.OffsetSeconds), nil
 }
 
 func parseScheduleReportFilter(sf ApiScheduleFilter) (report.Filter, error) {

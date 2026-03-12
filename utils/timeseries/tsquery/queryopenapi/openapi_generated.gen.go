@@ -310,6 +310,11 @@ const (
 	ApiStaticReportDatasourceTypeStatic ApiStaticReportDatasourceType = "static"
 )
 
+// Defines values for ApiTimeShiftFilterType.
+const (
+	ApiTimeShiftFilterTypeTimeShift ApiTimeShiftFilterType = "timeShift"
+)
+
 // Defines values for ApiTimestampExtractQueryFieldValueType.
 const (
 	ApiTimestampExtractQueryFieldValueTypeTimestampExtract ApiTimestampExtractQueryFieldValueType = "timestampExtract"
@@ -1197,6 +1202,16 @@ type ApiStaticReportDatasource struct {
 // ApiStaticReportDatasourceType defines model for ApiStaticReportDatasource.Type.
 type ApiStaticReportDatasourceType string
 
+// ApiTimeShiftFilter Shifts all timestamps in the stream by a fixed offset. Positive values shift forward, negative values shift backward. This filter only adjusts output timestamps - it does not change the query time range.
+type ApiTimeShiftFilter struct {
+	// OffsetSeconds Seconds to shift timestamps. Positive = forward, negative = backward. Example: -3600 shifts end-of-hour to start-of-hour.
+	OffsetSeconds int64                  `json:"offsetSeconds"`
+	Type          ApiTimeShiftFilterType `json:"type"`
+}
+
+// ApiTimeShiftFilterType defines model for ApiTimeShiftFilter.Type.
+type ApiTimeShiftFilterType string
+
 // ApiTimestampExtractComponent defines model for ApiTimestampExtractComponent.
 type ApiTimestampExtractComponent = tsquery.TimestampExtractComponent
 
@@ -2072,6 +2087,22 @@ func (t *ApiQueryFilter) FromApiScheduleFilter(v ApiScheduleFilter) error {
 }
 
 
+// AsApiTimeShiftFilter returns the union data inside the ApiQueryFilter as a ApiTimeShiftFilter
+func (t ApiQueryFilter) AsApiTimeShiftFilter() (ApiTimeShiftFilter, error) {
+	var body ApiTimeShiftFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiTimeShiftFilter overwrites any union data inside the ApiQueryFilter as the provided ApiTimeShiftFilter
+func (t *ApiQueryFilter) FromApiTimeShiftFilter(v ApiTimeShiftFilter) error {
+	v.Type = "timeShift"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiQueryFilter) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -2100,6 +2131,8 @@ func (t ApiQueryFilter) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiRateFilter()
 	case "schedule":
 		return t.AsApiScheduleFilter()
+	case "timeShift":
+		return t.AsApiTimeShiftFilter()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
@@ -2591,6 +2624,22 @@ func (t *ApiReportFilter) FromApiScheduleFilter(v ApiScheduleFilter) error {
 }
 
 
+// AsApiTimeShiftFilter returns the union data inside the ApiReportFilter as a ApiTimeShiftFilter
+func (t ApiReportFilter) AsApiTimeShiftFilter() (ApiTimeShiftFilter, error) {
+	var body ApiTimeShiftFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiTimeShiftFilter overwrites any union data inside the ApiReportFilter as the provided ApiTimeShiftFilter
+func (t *ApiReportFilter) FromApiTimeShiftFilter(v ApiTimeShiftFilter) error {
+	v.Type = "timeShift"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 func (t ApiReportFilter) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -2619,6 +2668,8 @@ func (t ApiReportFilter) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiScheduleFilter()
 	case "singleField":
 		return t.AsApiSingleFieldReportFilter()
+	case "timeShift":
+		return t.AsApiTimeShiftFilter()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
