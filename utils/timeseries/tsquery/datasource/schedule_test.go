@@ -2012,6 +2012,241 @@ func TestMatchesPeriod_Efficient_StopsEarly(t *testing.T) {
 	))
 }
 
+// --- Getter and String tests ---
+
+func TestScheduleTimeSlot_Getters(t *testing.T) {
+	slot := mustTimeSlot(t, 9, 30, 17, 45)
+	require.Equal(t, 9, slot.FromHour())
+	require.Equal(t, 30, slot.FromMinute())
+	require.Equal(t, 17, slot.ToHour())
+	require.Equal(t, 45, slot.ToMinute())
+}
+
+func TestScheduleTimeSlot_String(t *testing.T) {
+	require.Equal(t, "09:00-17:00", mustTimeSlot(t, 9, 0, 17, 0).String())
+	require.Equal(t, "22:30-06:15", mustTimeSlot(t, 22, 30, 6, 15).String())
+	require.Equal(t, "00:00-23:59", mustTimeSlot(t, 0, 0, 23, 59).String())
+}
+
+func TestScheduleTimeSlot_Description(t *testing.T) {
+	slot := mustTimeSlot(t, 9, 0, 17, 0)
+	require.Equal(t, "", slot.Description)
+	slot.Description = "Business hours"
+	require.Equal(t, "Business hours", slot.Description)
+}
+
+func TestSchedulePeriod_Getters(t *testing.T) {
+	p := mustPeriod(t, 3, 1, 6, 30)
+	require.Equal(t, 3, p.StartMonth())
+	require.Equal(t, 1, p.StartDay())
+	require.Equal(t, 6, p.EndMonth())
+	require.Equal(t, 30, p.EndDay())
+}
+
+func TestSchedulePeriod_String(t *testing.T) {
+	require.Equal(t, "Mar 01 - Jun 30", mustPeriod(t, 3, 1, 6, 30).String())
+	require.Equal(t, "Nov 15 - Feb 28", mustPeriod(t, 11, 15, 2, 28).String())
+	require.Equal(t, "Jan 01 - Dec 31", mustPeriod(t, 1, 1, 12, 31).String())
+}
+
+func TestSchedulePeriod_Description(t *testing.T) {
+	p := mustPeriod(t, 6, 1, 8, 31)
+	require.Equal(t, "", p.Description)
+	p.Description = "Summer season"
+	require.Equal(t, "Summer season", p.Description)
+}
+
+func TestScheduleCondition_Description(t *testing.T) {
+	cond, err := NewScheduleCondition(
+		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
+		[]int{1, 2, 3, 4, 5}, nil, nil, nil, nil,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "", cond.Description)
+	cond.Description = "Weekday business hours"
+	require.Equal(t, "Weekday business hours", cond.Description)
+}
+
+func TestSchedule_LocationGetter(t *testing.T) {
+	tokyo, _ := time.LoadLocation("Asia/Tokyo")
+	s := NewSchedule(nil, nil, nil, nil, tokyo)
+	require.Equal(t, tokyo, s.Location())
+
+	// nil defaults to UTC
+	s2 := NewSchedule(nil, nil, nil, nil, nil)
+	require.Equal(t, time.UTC, s2.Location())
+}
+
+func TestSchedule_StartEndTimeGetters(t *testing.T) {
+	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	s := NewSchedule(nil, nil, &start, &end, nil)
+	require.Equal(t, &start, s.StartTime())
+	require.Equal(t, &end, s.EndTime())
+
+	// nil when not set
+	s2 := NewSchedule(nil, nil, nil, nil, nil)
+	require.Nil(t, s2.StartTime())
+	require.Nil(t, s2.EndTime())
+}
+
+func TestScheduleCondition_Getters(t *testing.T) {
+	slot := mustTimeSlot(t, 9, 0, 17, 0)
+	period := mustPeriod(t, 3, 1, 6, 30)
+	exPeriod := mustPeriod(t, 4, 10, 4, 15)
+	cond, err := NewScheduleCondition(
+		[]ScheduleTimeSlot{slot},
+		[]int{1, 2, 3, 4, 5},
+		[]SchedulePeriod{period},
+		[]string{"2026-12-25"},
+		[]SchedulePeriod{exPeriod},
+		[]string{"2026-04-12"},
+	)
+	require.NoError(t, err)
+
+	require.Equal(t, []ScheduleTimeSlot{slot}, cond.TimeSlots())
+	require.ElementsMatch(t, []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}, cond.DaysOfWeek())
+	require.Equal(t, []SchedulePeriod{period}, cond.Periods())
+	require.Equal(t, []string{"2026-12-25"}, cond.Dates())
+	require.Equal(t, []SchedulePeriod{exPeriod}, cond.ExcludePeriods())
+	require.Equal(t, []string{"2026-04-12"}, cond.ExcludeDates())
+}
+
+func TestScheduleCondition_Getters_Empty(t *testing.T) {
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+
+	require.Empty(t, cond.TimeSlots())
+	require.Nil(t, cond.DaysOfWeek())
+	require.Empty(t, cond.Periods())
+	require.Nil(t, cond.Dates())
+	require.Empty(t, cond.ExcludePeriods())
+	require.Nil(t, cond.ExcludeDates())
+}
+
+func TestSchedule_ConditionsGetters(t *testing.T) {
+	incl, err := NewScheduleCondition(
+		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
+		nil, nil, nil, nil, nil,
+	)
+	require.NoError(t, err)
+	excl, err := NewScheduleCondition(
+		nil, nil, nil, []string{"2026-12-25"}, nil, nil,
+	)
+	require.NoError(t, err)
+
+	s := NewSchedule([]ScheduleCondition{incl}, []ScheduleCondition{excl}, nil, nil, nil)
+	require.Len(t, s.Conditions(), 1)
+	require.Len(t, s.ExcludeConditions(), 1)
+}
+
+// --- NextMatch ---
+
+func TestNextMatch_BasicMatch(t *testing.T) {
+	// 09:00–17:00 every day
+	cond, err := NewScheduleCondition(
+		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
+		nil, nil, nil, nil, nil,
+	)
+	require.NoError(t, err)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
+
+	from := time.Date(2024, 6, 15, 7, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
+	result := s.NextMatch(from, to)
+	require.NotNil(t, result)
+	require.Equal(t, time.Date(2024, 6, 15, 9, 0, 0, 0, time.UTC), *result)
+}
+
+func TestNextMatch_EmptySchedule(t *testing.T) {
+	// No conditions → no match
+	s := NewSchedule(nil, nil, nil, nil, time.UTC)
+
+	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
+	require.Nil(t, s.NextMatch(from, to))
+}
+
+func TestNextMatch_NoMatchInRange(t *testing.T) {
+	// 09:00–17:00 every day, but query range is 18:00–23:00
+	cond, err := NewScheduleCondition(
+		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
+		nil, nil, nil, nil, nil,
+	)
+	require.NoError(t, err)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
+
+	from := time.Date(2024, 6, 15, 18, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 6, 15, 23, 0, 0, 0, time.UTC)
+	require.Nil(t, s.NextMatch(from, to))
+}
+
+func TestNextMatch_BoundsClipping(t *testing.T) {
+	// Schedule starts at 2024-06-15 12:00. Query from before that.
+	cond, err := NewScheduleCondition(nil, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+	startTime := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, &startTime, nil, time.UTC)
+
+	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
+	result := s.NextMatch(from, to)
+	require.NotNil(t, result)
+	require.Equal(t, time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC), *result)
+}
+
+// --- TotalDuration ---
+
+func TestTotalDuration_BasicDuration(t *testing.T) {
+	// 09:00–17:00 = 8 hours
+	cond, err := NewScheduleCondition(
+		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
+		nil, nil, nil, nil, nil,
+	)
+	require.NoError(t, err)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
+
+	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
+	require.Equal(t, 8*time.Hour, s.TotalDuration(from, to))
+}
+
+func TestTotalDuration_EmptySchedule(t *testing.T) {
+	s := NewSchedule(nil, nil, nil, nil, time.UTC)
+
+	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
+	require.Equal(t, time.Duration(0), s.TotalDuration(from, to))
+}
+
+func TestTotalDuration_BoundsClipping(t *testing.T) {
+	// 09:00–17:00, but query only 10:00–12:00 → 2 hours
+	cond, err := NewScheduleCondition(
+		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
+		nil, nil, nil, nil, nil,
+	)
+	require.NoError(t, err)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
+
+	from := time.Date(2024, 6, 15, 10, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	require.Equal(t, 2*time.Hour, s.TotalDuration(from, to))
+}
+
+func TestTotalDuration_MultiDay(t *testing.T) {
+	// 09:00–17:00, query spans 2 full days → 16 hours
+	cond, err := NewScheduleCondition(
+		[]ScheduleTimeSlot{mustTimeSlot(t, 9, 0, 17, 0)},
+		nil, nil, nil, nil, nil,
+	)
+	require.NoError(t, err)
+	s := NewSchedule([]ScheduleCondition{cond}, nil, nil, nil, time.UTC)
+
+	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 6, 17, 0, 0, 0, 0, time.UTC)
+	require.Equal(t, 16*time.Hour, s.TotalDuration(from, to))
+}
+
 // --- Test Helpers ---
 
 func mustTimeSlot(t *testing.T, fromHour, fromMinute, toHour, toMinute int) ScheduleTimeSlot {
