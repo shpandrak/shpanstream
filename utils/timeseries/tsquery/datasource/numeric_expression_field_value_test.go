@@ -111,7 +111,75 @@ func TestNumericExpressionField_DecimalOperations(t *testing.T) {
 	}
 }
 
-func TestNumericExpressionField_IncompatibleTypes(t *testing.T) {
+func TestNumericExpressionField_IntDecimalPromotion(t *testing.T) {
+	ctx := context.Background()
+	intMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	decMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
+
+	tests := []struct {
+		name     string
+		v1       any
+		v1Meta   tsquery.ValueMeta
+		v2       any
+		v2Meta   tsquery.ValueMeta
+		operator tsquery.BinaryNumericOperatorType
+		expected float64
+	}{
+		{"Add", int64(10), intMeta, 5.5, decMeta, tsquery.BinaryNumericOperatorAdd, 15.5},
+		{"Sub", int64(10), intMeta, 5.5, decMeta, tsquery.BinaryNumericOperatorSub, 4.5},
+		{"Mul", int64(10), intMeta, 2.5, decMeta, tsquery.BinaryNumericOperatorMul, 25.0},
+		{"Div", int64(10), intMeta, 4.0, decMeta, tsquery.BinaryNumericOperatorDiv, 2.5},
+		{"Pow", int64(2), intMeta, 3.0, decMeta, tsquery.BinaryNumericOperatorPow, 8.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			field1 := NewConstantFieldValue(tt.v1Meta, tt.v1)
+			field2 := NewConstantFieldValue(tt.v2Meta, tt.v2)
+
+			expr := NewNumericExpressionFieldValue(field1, tt.operator, field2)
+			result, err := executeAndGetValueForNumericTest(ctx, expr)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNumericExpressionField_DecimalIntPromotion(t *testing.T) {
+	ctx := context.Background()
+	intMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	decMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
+
+	tests := []struct {
+		name     string
+		v1       any
+		v1Meta   tsquery.ValueMeta
+		v2       any
+		v2Meta   tsquery.ValueMeta
+		operator tsquery.BinaryNumericOperatorType
+		expected float64
+	}{
+		{"Add", 5.5, decMeta, int64(10), intMeta, tsquery.BinaryNumericOperatorAdd, 15.5},
+		{"Sub", 10.5, decMeta, int64(5), intMeta, tsquery.BinaryNumericOperatorSub, 5.5},
+		{"Mul", 2.5, decMeta, int64(10), intMeta, tsquery.BinaryNumericOperatorMul, 25.0},
+		{"Div", 10.0, decMeta, int64(4), intMeta, tsquery.BinaryNumericOperatorDiv, 2.5},
+		{"Pow", 2.0, decMeta, int64(3), intMeta, tsquery.BinaryNumericOperatorPow, 8.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			field1 := NewConstantFieldValue(tt.v1Meta, tt.v1)
+			field2 := NewConstantFieldValue(tt.v2Meta, tt.v2)
+
+			expr := NewNumericExpressionFieldValue(field1, tt.operator, field2)
+			result, err := executeAndGetValueForNumericTest(ctx, expr)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNumericExpressionField_IntDecimalPromotion_OutputType(t *testing.T) {
 	ctx := context.Background()
 	intMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
 	decMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
@@ -120,9 +188,73 @@ func TestNumericExpressionField_IncompatibleTypes(t *testing.T) {
 	field2 := NewConstantFieldValue(decMeta, 5.5)
 
 	expr := NewNumericExpressionFieldValue(field1, tsquery.BinaryNumericOperatorAdd, field2)
+	exprMeta, err := executeAndGetMetaForNumericTest(ctx, expr)
+	require.NoError(t, err)
+	require.Equal(t, tsquery.DataTypeDecimal, exprMeta.DataType)
+}
+
+func TestNumericExpressionField_IntDecimalModulo_Error(t *testing.T) {
+	ctx := context.Background()
+	intMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	decMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
+
+	field1 := NewConstantFieldValue(intMeta, int64(10))
+	field2 := NewConstantFieldValue(decMeta, 3.0)
+
+	expr := NewNumericExpressionFieldValue(field1, tsquery.BinaryNumericOperatorMod, field2)
 	_, _, err := expr.Execute(ctx, tsquery.FieldMeta{})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "incompatible datatypes")
+	require.Contains(t, err.Error(), "mod operator is only supported for integer fields")
+}
+
+func TestNumericExpressionField_DecimalIntModulo_Error(t *testing.T) {
+	ctx := context.Background()
+	intMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	decMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
+
+	field1 := NewConstantFieldValue(decMeta, 10.0)
+	field2 := NewConstantFieldValue(intMeta, int64(3))
+
+	expr := NewNumericExpressionFieldValue(field1, tsquery.BinaryNumericOperatorMod, field2)
+	_, _, err := expr.Execute(ctx, tsquery.FieldMeta{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mod operator is only supported for integer fields")
+}
+
+func TestNumericExpressionField_IntDecimalPromotion_Chained(t *testing.T) {
+	ctx := context.Background()
+	intMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	decMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
+
+	// (int + decimal) * int → decimal
+	field1 := NewConstantFieldValue(intMeta, int64(10))
+	field2 := NewConstantFieldValue(decMeta, 5.5)
+	field3 := NewConstantFieldValue(intMeta, int64(2))
+
+	expr1 := NewNumericExpressionFieldValue(field1, tsquery.BinaryNumericOperatorAdd, field2)
+	expr2 := NewNumericExpressionFieldValue(expr1, tsquery.BinaryNumericOperatorMul, field3)
+
+	result, err := executeAndGetValueForNumericTest(ctx, expr2)
+	require.NoError(t, err)
+	require.Equal(t, float64(31.0), result)
+
+	exprMeta, err := executeAndGetMetaForNumericTest(ctx, expr2)
+	require.NoError(t, err)
+	require.Equal(t, tsquery.DataTypeDecimal, exprMeta.DataType)
+}
+
+func TestNumericExpressionField_IntDecimalPromotion_OptionalNil(t *testing.T) {
+	ctx := context.Background()
+	intMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeInteger, Required: false}
+	decMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: false}
+
+	field1 := NewConstantFieldValue(intMeta, nil)
+	field2 := NewConstantFieldValue(decMeta, 5.5)
+
+	expr := NewNumericExpressionFieldValue(field1, tsquery.BinaryNumericOperatorAdd, field2)
+	result, err := executeAndGetValueForNumericTest(ctx, expr)
+	require.NoError(t, err)
+	require.Nil(t, result)
 }
 
 func TestNumericExpressionField_NonNumericTypes(t *testing.T) {

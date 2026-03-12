@@ -81,6 +81,19 @@ func (dt DataType) IsNumeric() bool {
 	return dt == DataTypeInteger || dt == DataTypeDecimal
 }
 
+// PromoteNumericTypes returns the promoted type when both types are numeric.
+// Returns (promoted type, needs promotion). If types are equal or not both numeric,
+// needsPromotion is false.
+func PromoteNumericTypes(dt1, dt2 DataType) (DataType, bool) {
+	if dt1 == dt2 {
+		return dt1, false
+	}
+	if dt1.IsNumeric() && dt2.IsNumeric() {
+		return DataTypeDecimal, true
+	}
+	return dt1, false
+}
+
 func (dt DataType) ToFloat64(val any) (float64, error) {
 	switch dt {
 	case DataTypeInteger:
