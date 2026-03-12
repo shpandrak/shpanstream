@@ -55,9 +55,17 @@ These map cleanly to our composable filter/reduction architecture.
 
 ---
 
-### D. Time Shift (HIGH priority, LOW effort)
+### D. Time Shift
 
-**What:** Shift timestamps by a duration. PromQL `offset`, Graphite `timeShift()`, Flux `timeShift()`. Supported by 4/5 frameworks.
+#### D1. Timestamp Adjustment Filter — IMPLEMENTED
+
+A `TimeShiftFilter` (query filter + report filter) shifts all output timestamps by a fixed offset in seconds. Positive = forward, negative = backward. Type-agnostic (works on any data type). Use case: data reported at end-of-period displayed at start-of-period (e.g., `offsetSeconds: -3600`).
+
+**Files:** `datasource/time_shift_filter.go`, `report/time_shift_report_filter.go`, OpenAPI `ApiTimeShiftFilter`.
+
+#### D2. Historical Comparison Datasource Wrapper (HIGH priority, LOW effort)
+
+**What:** Fetch data from a different time range for overlay comparison. PromQL `offset`, Graphite `timeShift()`, Flux `timeShift()`. Supported by 4/5 frameworks.
 
 **Why it matters:** Week-over-week and day-over-day comparisons are fundamental monitoring patterns. `rate(x[5m]) / rate(x[5m] offset 1w)` is a canonical query. Without time shift, users can't do historical comparison within the query layer.
 
@@ -214,7 +222,7 @@ These are worth understanding as model exercises.
 2. **Additional reductions** (first, last, spread, stddev, variance) - extends existing enum
 3. **Clamp** (min/max bounding) - new unary operators
 4. **Power operator** + **sign function** - trivial additions
-5. **Time shift** datasource wrapper
+5. **Time shift** — timestamp adjustment filter ✓ done; datasource wrapper for historical comparison still pending
 
 ### Wave 2: High-Value Features (each 3-5 days)
 6. **Sliding window filter** - the big one, unlocks moving avg/sum/min/max
