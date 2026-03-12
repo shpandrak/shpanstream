@@ -13,6 +13,10 @@ import (
 type ScheduleTimeSlot struct {
 	fromMinutes int // fromHourOfDay*60 + fromMinuteOfHour (0–1439)
 	toMinutes   int // toHourOfDay*60 + toMinuteOfHour     (0–1439)
+
+	// Description is an optional human-readable label (e.g. "Peak hours", "Night shift").
+	// Empty string means no description. Not used in matching logic.
+	Description string
 }
 
 // SchedulePeriod holds month/day boundaries for calendar-period matching.
@@ -21,6 +25,10 @@ type SchedulePeriod struct {
 	startDay   int // 1–31
 	endMonth   int // 1–12
 	endDay     int // 1–31
+
+	// Description is an optional human-readable label (e.g. "Summer season", "Q4").
+	// Empty string means no description. Not used in matching logic.
+	Description string
 }
 
 // maxDaysInMonth returns the maximum valid day for a given month (1–12).
@@ -75,6 +83,42 @@ func NewSchedulePeriod(startMonth, startDay, endMonth, endDay int) (SchedulePeri
 	return SchedulePeriod{startMonth: startMonth, startDay: startDay, endMonth: endMonth, endDay: endDay}, nil
 }
 
+// FromHour returns the starting hour (0–23).
+func (s ScheduleTimeSlot) FromHour() int { return s.fromMinutes / 60 }
+
+// FromMinute returns the starting minute (0–59).
+func (s ScheduleTimeSlot) FromMinute() int { return s.fromMinutes % 60 }
+
+// ToHour returns the ending hour (0–23).
+func (s ScheduleTimeSlot) ToHour() int { return s.toMinutes / 60 }
+
+// ToMinute returns the ending minute (0–59).
+func (s ScheduleTimeSlot) ToMinute() int { return s.toMinutes % 60 }
+
+// String returns the time slot as "HH:MM-HH:MM".
+func (s ScheduleTimeSlot) String() string {
+	return fmt.Sprintf("%02d:%02d-%02d:%02d", s.fromMinutes/60, s.fromMinutes%60, s.toMinutes/60, s.toMinutes%60)
+}
+
+// StartMonth returns the start month (1–12).
+func (p SchedulePeriod) StartMonth() int { return p.startMonth }
+
+// StartDay returns the start day of month (1–31).
+func (p SchedulePeriod) StartDay() int { return p.startDay }
+
+// EndMonth returns the end month (1–12).
+func (p SchedulePeriod) EndMonth() int { return p.endMonth }
+
+// EndDay returns the end day of month (1–31).
+func (p SchedulePeriod) EndDay() int { return p.endDay }
+
+// String returns the period as "Mon DD - Mon DD" (e.g. "Mar 01 - Jun 30").
+func (p SchedulePeriod) String() string {
+	return fmt.Sprintf("%s %02d - %s %02d",
+		time.Month(p.startMonth).String()[:3], p.startDay,
+		time.Month(p.endMonth).String()[:3], p.endDay)
+}
+
 // ScheduleCondition is the pre-processed form of a single condition.
 // Within a condition all specified field-types are AND'd.
 // Items within a field-type (multiple timeSlots, multiple periods) are OR'd.
@@ -89,7 +133,65 @@ type ScheduleCondition struct {
 
 	excludePeriods []SchedulePeriod
 	excludeDates   map[string]bool // set of "2006-01-02" strings for O(1) lookup
+
+	// Description is an optional human-readable label (e.g. "Business hours", "Holiday exclusion").
+	// Empty string means no description. Not used in matching logic.
+	Description string
 }
+
+// TimeSlots returns the time slot constraints. Empty means no time-of-day constraint.
+func (c ScheduleCondition) TimeSlots() []ScheduleTimeSlot { return c.timeSlots }
+
+// DaysOfWeek returns the active days as a slice of time.Weekday values.
+// Nil means no day-of-week constraint (all days match).
+func (c ScheduleCondition) DaysOfWeek() []time.Weekday {
+	if !c.hasDaysOfWeek {
+		return nil
+	}
+	days := make([]time.Weekday, 0, 7)
+	for i, active := range c.daysOfWeek {
+		if active {
+			days = append(days, time.Weekday(i))
+		}
+	}
+	return days
+}
+
+// Periods returns the calendar period constraints. Empty means no period constraint.
+func (c ScheduleCondition) Periods() []SchedulePeriod { return c.periods }
+
+// Dates returns the explicit include dates as "YYYY-MM-DD" strings. Nil means no date constraint.
+func (c ScheduleCondition) Dates() []string {
+	if len(c.dates) == 0 {
+		return nil
+	}
+	dates := make([]string, 0, len(c.dates))
+	for d := range c.dates {
+		dates = append(dates, d)
+	}
+	return dates
+}
+
+// ExcludePeriods returns the per-condition exclude period constraints.
+func (c ScheduleCondition) ExcludePeriods() []SchedulePeriod { return c.excludePeriods }
+
+// ExcludeDates returns the per-condition exclude dates as "YYYY-MM-DD" strings.
+func (c ScheduleCondition) ExcludeDates() []string {
+	if len(c.excludeDates) == 0 {
+		return nil
+	}
+	dates := make([]string, 0, len(c.excludeDates))
+	for d := range c.excludeDates {
+		dates = append(dates, d)
+	}
+	return dates
+}
+
+// Conditions returns the include conditions.
+func (s Schedule) Conditions() []ScheduleCondition { return s.conditions }
+
+// ExcludeConditions returns the exclude conditions.
+func (s Schedule) ExcludeConditions() []ScheduleCondition { return s.excludeConditions }
 
 // Schedule is the pre-processed, ready-to-evaluate schedule.
 type Schedule struct {
@@ -119,6 +221,15 @@ func NewSchedule(
 		location:          location,
 	}
 }
+
+// Location returns the schedule's timezone (never nil; defaults to UTC).
+func (s Schedule) Location() *time.Location { return s.location }
+
+// StartTime returns the optional schedule start time. Nil means unbounded.
+func (s Schedule) StartTime() *time.Time { return s.startTime }
+
+// EndTime returns the optional schedule end time. Nil means unbounded.
+func (s Schedule) EndTime() *time.Time { return s.endTime }
 
 // NewScheduleCondition creates a pre-processed schedule condition.
 // daysOfWeek values must be 0–6 (matching time.Weekday). dates/excludeDates must be "2006-01-02" format.
@@ -398,6 +509,32 @@ func (s Schedule) ActiveWindows(from, to time.Time) stream.Stream[TimeWindow] {
 func (s Schedule) MatchesPeriod(from, to time.Time) bool {
 	empty, _ := s.ActiveWindows(from, to).IsEmpty(context.Background())
 	return !empty
+}
+
+// NextMatch returns the first minute in [from, to) that matches the schedule,
+// or nil if no match exists. Lazy: skips non-matching days in O(1) and stops
+// at the first match.
+func (s Schedule) NextMatch(from, to time.Time) *time.Time {
+	w := s.ActiveWindows(from, to).FindFirst().MustGetOptional()
+	if w == nil {
+		return nil
+	}
+	return &w.From
+}
+
+// TotalDuration returns the total active time in [from, to) as a time.Duration.
+// No in-memory collection — accumulates a single duration while consuming.
+// Returns 0 for empty schedules.
+func (s Schedule) TotalDuration(from, to time.Time) time.Duration {
+	total, _ := stream.Reduce(
+		context.Background(),
+		s.ActiveWindows(from, to),
+		time.Duration(0),
+		func(acc time.Duration, w TimeWindow) time.Duration {
+			return acc + w.To.Sub(w.From)
+		},
+	)
+	return total
 }
 
 // activeWindowsIter returns a Go iterator that yields active time windows.

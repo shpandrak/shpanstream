@@ -244,6 +244,7 @@ func parseScheduleCondition(apiCond ApiScheduleCondition) (datasource.ScheduleCo
 		if err != nil {
 			return datasource.ScheduleCondition{}, fmt.Errorf("failed to parse schedule time slot: %w", err)
 		}
+		slot.Description = ts.Description
 		timeSlots = append(timeSlots, slot)
 	}
 
@@ -253,6 +254,7 @@ func parseScheduleCondition(apiCond ApiScheduleCondition) (datasource.ScheduleCo
 		if err != nil {
 			return datasource.ScheduleCondition{}, fmt.Errorf("failed to parse schedule period: %w", err)
 		}
+		period.Description = p.Description
 		periods = append(periods, period)
 	}
 
@@ -262,8 +264,14 @@ func parseScheduleCondition(apiCond ApiScheduleCondition) (datasource.ScheduleCo
 		if err != nil {
 			return datasource.ScheduleCondition{}, fmt.Errorf("failed to parse schedule exclude period: %w", err)
 		}
+		period.Description = p.Description
 		excludePeriods = append(excludePeriods, period)
 	}
 
-	return datasource.NewScheduleCondition(timeSlots, apiCond.DaysOfWeek, periods, apiCond.Dates, excludePeriods, apiCond.ExcludeDates)
+	cond, err := datasource.NewScheduleCondition(timeSlots, apiCond.DaysOfWeek, periods, apiCond.Dates, excludePeriods, apiCond.ExcludeDates)
+	if err != nil {
+		return datasource.ScheduleCondition{}, err
+	}
+	cond.Description = apiCond.Description
+	return cond, nil
 }

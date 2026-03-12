@@ -1103,6 +1103,9 @@ type ApiScheduleCondition struct {
 	Dates      []string `json:"dates,omitempty"`
 	DaysOfWeek []int    `json:"daysOfWeek,omitempty"`
 
+	// Description Optional human-readable label for this condition (e.g. "Business hours", "Holiday exclusion").
+	Description string `json:"description,omitempty"`
+
 	// ExcludeDates Exclude specific dates from this condition. Format YYYY-MM-DD. If the timestamp falls on any exclude date, this condition does not match.
 	ExcludeDates []string `json:"excludeDates,omitempty"`
 
@@ -1123,18 +1126,22 @@ type ApiScheduleFilterType string
 
 // ApiSchedulePeriod defines model for ApiSchedulePeriod.
 type ApiSchedulePeriod struct {
-	EndDayOfMonth   int `json:"endDayOfMonth"`
-	EndMonth        int `json:"endMonth"`
-	StartDayOfMonth int `json:"startDayOfMonth"`
-	StartMonth      int `json:"startMonth"`
+	// Description Optional human-readable label for this period (e.g. "Summer season", "Q4").
+	Description     string `json:"description,omitempty"`
+	EndDayOfMonth   int    `json:"endDayOfMonth"`
+	EndMonth        int    `json:"endMonth"`
+	StartDayOfMonth int    `json:"startDayOfMonth"`
+	StartMonth      int    `json:"startMonth"`
 }
 
 // ApiScheduleTimeSlot defines model for ApiScheduleTimeSlot.
 type ApiScheduleTimeSlot struct {
-	FromHourOfDay    int `json:"fromHourOfDay"`
-	FromMinuteOfHour int `json:"fromMinuteOfHour"`
-	ToHourOfDay      int `json:"toHourOfDay"`
-	ToMinuteOfHour   int `json:"toMinuteOfHour"`
+	// Description Optional human-readable label for this time slot (e.g. "Peak hours", "Night shift").
+	Description      string `json:"description,omitempty"`
+	FromHourOfDay    int    `json:"fromHourOfDay"`
+	FromMinuteOfHour int    `json:"fromMinuteOfHour"`
+	ToHourOfDay      int    `json:"toHourOfDay"`
+	ToMinuteOfHour   int    `json:"toMinuteOfHour"`
 }
 
 // ApiSelectorQueryFieldValue defines model for ApiSelectorQueryFieldValue.
