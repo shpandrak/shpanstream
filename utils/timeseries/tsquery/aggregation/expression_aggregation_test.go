@@ -163,21 +163,121 @@ func TestNumericExpression_NilPropagation(t *testing.T) {
 	require.Nil(t, val)
 }
 
-func TestNumericExpression_TypeMismatch(t *testing.T) {
+func TestNumericExpression_IntDecimalPromotion(t *testing.T) {
+	tests := []struct {
+		name     string
+		v1       any
+		dt1      tsquery.DataType
+		v2       any
+		dt2      tsquery.DataType
+		op       tsquery.BinaryNumericOperatorType
+		expected float64
+	}{
+		{"Add", int64(10), tsquery.DataTypeInteger, 5.5, tsquery.DataTypeDecimal, tsquery.BinaryNumericOperatorAdd, 15.5},
+		{"Sub", int64(10), tsquery.DataTypeInteger, 5.5, tsquery.DataTypeDecimal, tsquery.BinaryNumericOperatorSub, 4.5},
+		{"Mul", int64(10), tsquery.DataTypeInteger, 2.5, tsquery.DataTypeDecimal, tsquery.BinaryNumericOperatorMul, 25.0},
+		{"Div", int64(10), tsquery.DataTypeInteger, 4.0, tsquery.DataTypeDecimal, tsquery.BinaryNumericOperatorDiv, 2.5},
+		{"Pow", int64(2), tsquery.DataTypeInteger, 3.0, tsquery.DataTypeDecimal, tsquery.BinaryNumericOperatorPow, 8.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved := resolvedFields(
+				rf("a", tt.v1, tt.dt1),
+				rf("b", tt.v2, tt.dt2),
+			)
+			expr := NewNumericExpressionAggregationValue(
+				NewRefAggregationValue("a"),
+				tt.op,
+				NewRefAggregationValue("b"),
+			)
+			val, dt, err := expr.Evaluate(resolved)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, val)
+			require.Equal(t, tsquery.DataTypeDecimal, dt)
+		})
+	}
+}
+
+func TestNumericExpression_DecimalIntPromotion(t *testing.T) {
+	tests := []struct {
+		name     string
+		v1       any
+		dt1      tsquery.DataType
+		v2       any
+		dt2      tsquery.DataType
+		op       tsquery.BinaryNumericOperatorType
+		expected float64
+	}{
+		{"Add", 5.5, tsquery.DataTypeDecimal, int64(10), tsquery.DataTypeInteger, tsquery.BinaryNumericOperatorAdd, 15.5},
+		{"Sub", 10.5, tsquery.DataTypeDecimal, int64(5), tsquery.DataTypeInteger, tsquery.BinaryNumericOperatorSub, 5.5},
+		{"Mul", 2.5, tsquery.DataTypeDecimal, int64(10), tsquery.DataTypeInteger, tsquery.BinaryNumericOperatorMul, 25.0},
+		{"Div", 10.0, tsquery.DataTypeDecimal, int64(4), tsquery.DataTypeInteger, tsquery.BinaryNumericOperatorDiv, 2.5},
+		{"Pow", 2.0, tsquery.DataTypeDecimal, int64(3), tsquery.DataTypeInteger, tsquery.BinaryNumericOperatorPow, 8.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved := resolvedFields(
+				rf("a", tt.v1, tt.dt1),
+				rf("b", tt.v2, tt.dt2),
+			)
+			expr := NewNumericExpressionAggregationValue(
+				NewRefAggregationValue("a"),
+				tt.op,
+				NewRefAggregationValue("b"),
+			)
+			val, dt, err := expr.Evaluate(resolved)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, val)
+			require.Equal(t, tsquery.DataTypeDecimal, dt)
+		})
+	}
+}
+
+func TestNumericExpression_IntDecimalPromotion_OutputType(t *testing.T) {
 	resolved := resolvedFields(
 		rf("a", int64(10), tsquery.DataTypeInteger),
 		rf("b", 5.0, tsquery.DataTypeDecimal),
 	)
-
 	expr := NewNumericExpressionAggregationValue(
 		NewRefAggregationValue("a"),
 		tsquery.BinaryNumericOperatorAdd,
 		NewRefAggregationValue("b"),
 	)
+	_, dt, err := expr.Evaluate(resolved)
+	require.NoError(t, err)
+	require.Equal(t, tsquery.DataTypeDecimal, dt)
+}
 
+func TestNumericExpression_IntDecimalModulo_Error(t *testing.T) {
+	resolved := resolvedFields(
+		rf("a", int64(10), tsquery.DataTypeInteger),
+		rf("b", 3.0, tsquery.DataTypeDecimal),
+	)
+	expr := NewNumericExpressionAggregationValue(
+		NewRefAggregationValue("a"),
+		tsquery.BinaryNumericOperatorMod,
+		NewRefAggregationValue("b"),
+	)
 	_, _, err := expr.Evaluate(resolved)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "type mismatch")
+	require.Contains(t, err.Error(), "mod operator is only supported for integer fields")
+}
+
+func TestNumericExpression_IntDecimalPromotion_NilPropagation(t *testing.T) {
+	resolved := resolvedFields(
+		rf("a", nil, tsquery.DataTypeInteger),
+		rf("b", 5.0, tsquery.DataTypeDecimal),
+	)
+	expr := NewNumericExpressionAggregationValue(
+		NewRefAggregationValue("a"),
+		tsquery.BinaryNumericOperatorAdd,
+		NewRefAggregationValue("b"),
+	)
+	val, _, err := expr.Evaluate(resolved)
+	require.NoError(t, err)
+	require.Nil(t, val)
 }
 
 // --- UnaryNumericOperatorAggregationValue tests ---
@@ -417,7 +517,7 @@ func TestResolveType_NumericExpression_SameTypes(t *testing.T) {
 	require.Equal(t, tsquery.DataTypeInteger, dt)
 }
 
-func TestResolveType_NumericExpression_TypeMismatch(t *testing.T) {
+func TestResolveType_IntDecimalPromotion(t *testing.T) {
 	sourceTypes := map[string]tsquery.DataType{
 		"a": tsquery.DataTypeInteger,
 		"b": tsquery.DataTypeDecimal,
@@ -427,9 +527,24 @@ func TestResolveType_NumericExpression_TypeMismatch(t *testing.T) {
 		tsquery.BinaryNumericOperatorAdd,
 		NewRefAggregationValue("b"),
 	)
+	dt, err := expr.ResolveType(sourceTypes)
+	require.NoError(t, err)
+	require.Equal(t, tsquery.DataTypeDecimal, dt)
+}
+
+func TestResolveType_IntDecimalModulo_Error(t *testing.T) {
+	sourceTypes := map[string]tsquery.DataType{
+		"a": tsquery.DataTypeInteger,
+		"b": tsquery.DataTypeDecimal,
+	}
+	expr := NewNumericExpressionAggregationValue(
+		NewRefAggregationValue("a"),
+		tsquery.BinaryNumericOperatorMod,
+		NewRefAggregationValue("b"),
+	)
 	_, err := expr.ResolveType(sourceTypes)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "type mismatch")
+	require.Contains(t, err.Error(), "mod operator is only supported for integer fields")
 }
 
 func TestResolveType_UnaryOperator(t *testing.T) {
@@ -579,4 +694,149 @@ func TestExpressionAggregation_EmptySource(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, fields, 1)
 	require.Nil(t, fields[0].Value, "nil source value should propagate through expression")
+}
+
+// --- Nil propagation type correctness (MISSING 1) ---
+
+func TestNumericExpression_IntDecimalPromotion_NilType(t *testing.T) {
+	// When nil propagates through a mixed int+decimal expression,
+	// the returned DataType must be decimal (matching ResolveType).
+	tests := []struct {
+		name string
+		v1   any
+		dt1  tsquery.DataType
+		v2   any
+		dt2  tsquery.DataType
+	}{
+		{"int_nil+decimal", nil, tsquery.DataTypeInteger, 5.0, tsquery.DataTypeDecimal},
+		{"int+decimal_nil", int64(5), tsquery.DataTypeInteger, nil, tsquery.DataTypeDecimal},
+		{"decimal_nil+int", nil, tsquery.DataTypeDecimal, int64(5), tsquery.DataTypeInteger},
+		{"decimal+int_nil", 5.0, tsquery.DataTypeDecimal, nil, tsquery.DataTypeInteger},
+		{"both_nil_int_decimal", nil, tsquery.DataTypeInteger, nil, tsquery.DataTypeDecimal},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved := resolvedFields(
+				rf("a", tt.v1, tt.dt1),
+				rf("b", tt.v2, tt.dt2),
+			)
+			expr := NewNumericExpressionAggregationValue(
+				NewRefAggregationValue("a"),
+				tsquery.BinaryNumericOperatorAdd,
+				NewRefAggregationValue("b"),
+			)
+			val, dt, err := expr.Evaluate(resolved)
+			require.NoError(t, err)
+			require.Nil(t, val)
+			require.Equal(t, tsquery.DataTypeDecimal, dt, "nil propagation must return promoted type")
+		})
+	}
+}
+
+// --- Modulo error tests (MISSING 2 & 3) ---
+
+func TestNumericExpression_DecimalIntModulo_Error(t *testing.T) {
+	resolved := resolvedFields(
+		rf("a", 10.0, tsquery.DataTypeDecimal),
+		rf("b", int64(3), tsquery.DataTypeInteger),
+	)
+	expr := NewNumericExpressionAggregationValue(
+		NewRefAggregationValue("a"),
+		tsquery.BinaryNumericOperatorMod,
+		NewRefAggregationValue("b"),
+	)
+	_, _, err := expr.Evaluate(resolved)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mod operator is only supported for integer fields")
+}
+
+func TestNumericExpression_DecimalDecimalModulo_Error(t *testing.T) {
+	resolved := resolvedFields(
+		rf("a", 10.0, tsquery.DataTypeDecimal),
+		rf("b", 3.0, tsquery.DataTypeDecimal),
+	)
+	expr := NewNumericExpressionAggregationValue(
+		NewRefAggregationValue("a"),
+		tsquery.BinaryNumericOperatorMod,
+		NewRefAggregationValue("b"),
+	)
+	_, _, err := expr.Evaluate(resolved)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mod operator is only supported for integer fields")
+}
+
+// --- Evaluate/ResolveType consistency (MISSING 4) ---
+
+func TestNumericExpression_EvaluateResolveTypeConsistency(t *testing.T) {
+	// For each operator with mixed int+decimal operands, Evaluate and ResolveType
+	// must agree on the returned DataType.
+	operators := []tsquery.BinaryNumericOperatorType{
+		tsquery.BinaryNumericOperatorAdd,
+		tsquery.BinaryNumericOperatorSub,
+		tsquery.BinaryNumericOperatorMul,
+		tsquery.BinaryNumericOperatorDiv,
+		tsquery.BinaryNumericOperatorPow,
+	}
+
+	sourceTypes := map[string]tsquery.DataType{
+		"a": tsquery.DataTypeInteger,
+		"b": tsquery.DataTypeDecimal,
+	}
+	resolved := resolvedFields(
+		rf("a", int64(10), tsquery.DataTypeInteger),
+		rf("b", 5.0, tsquery.DataTypeDecimal),
+	)
+
+	for _, op := range operators {
+		t.Run(string(op), func(t *testing.T) {
+			expr := NewNumericExpressionAggregationValue(
+				NewRefAggregationValue("a"),
+				op,
+				NewRefAggregationValue("b"),
+			)
+
+			resolvedType, err := expr.ResolveType(sourceTypes)
+			require.NoError(t, err)
+
+			_, evalType, err := expr.Evaluate(resolved)
+			require.NoError(t, err)
+
+			require.Equal(t, resolvedType, evalType, "Evaluate and ResolveType must return the same DataType")
+		})
+	}
+}
+
+// --- Reviewer suggestions: same-type nil propagation type assertion ---
+
+func TestNumericExpression_NilPropagation_ReturnsCorrectType(t *testing.T) {
+	resolved := resolvedFields(
+		rf("a", nil, tsquery.DataTypeInteger),
+		rf("b", int64(5), tsquery.DataTypeInteger),
+	)
+	expr := NewNumericExpressionAggregationValue(
+		NewRefAggregationValue("a"),
+		tsquery.BinaryNumericOperatorAdd,
+		NewRefAggregationValue("b"),
+	)
+	val, dt, err := expr.Evaluate(resolved)
+	require.NoError(t, err)
+	require.Nil(t, val)
+	require.Equal(t, tsquery.DataTypeInteger, dt, "same-type nil propagation should return integer")
+}
+
+// --- Reviewer suggestion: ResolveType decimal+int (reverse direction) ---
+
+func TestResolveType_DecimalIntPromotion(t *testing.T) {
+	sourceTypes := map[string]tsquery.DataType{
+		"a": tsquery.DataTypeDecimal,
+		"b": tsquery.DataTypeInteger,
+	}
+	expr := NewNumericExpressionAggregationValue(
+		NewRefAggregationValue("a"),
+		tsquery.BinaryNumericOperatorAdd,
+		NewRefAggregationValue("b"),
+	)
+	dt, err := expr.ResolveType(sourceTypes)
+	require.NoError(t, err)
+	require.Equal(t, tsquery.DataTypeDecimal, dt)
 }

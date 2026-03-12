@@ -50,23 +50,49 @@ func (nef NumericExpressionFieldValue) Execute(ctx context.Context, fieldsMeta [
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("op2 field has non-numeric data type: %s", dt2)
 	}
 
-	// Check that both operands have the same data type
+	// Auto-promote numeric types (int → decimal)
+	promotedType := dt1
 	if dt1 != dt2 {
-		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf(
-			"incompatible datatypes for fields : %s %s %s",
-			dt1,
-			nef.op,
-			dt2,
-		)
+		promoted, ok := tsquery.PromoteNumericTypes(dt1, dt2)
+		if !ok {
+			return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf(
+				"incompatible datatypes for fields : %s %s %s",
+				dt1,
+				nef.op,
+				dt2,
+			)
+		}
+		promotedType = promoted
+		// Wrap the integer operand's supplier to cast int64 → float64
+		if dt1 == tsquery.DataTypeInteger {
+			orig := op1ValueSupplier
+			op1ValueSupplier = func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error) {
+				v, err := orig(ctx, currRow)
+				if err != nil || v == nil {
+					return v, err
+				}
+				return float64(v.(int64)), nil
+			}
+		}
+		if dt2 == tsquery.DataTypeInteger {
+			orig := op2ValueSupplier
+			op2ValueSupplier = func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error) {
+				v, err := orig(ctx, currRow)
+				if err != nil || v == nil {
+					return v, err
+				}
+				return float64(v.(int64)), nil
+			}
+		}
 	}
 
 	// Check modulo operator constraint
-	if nef.op == tsquery.BinaryNumericOperatorMod && dt1 != tsquery.DataTypeInteger {
-		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("mod operator is only supported for integer fields. got %s", dt1)
+	if nef.op == tsquery.BinaryNumericOperatorMod && promotedType != tsquery.DataTypeInteger {
+		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("mod operator is only supported for integer fields. got %s", promotedType)
 	}
 
 	// Get the function implementation
-	funcImpl, err := nef.op.GetFuncImpl(dt1)
+	funcImpl, err := nef.op.GetFuncImpl(promotedType)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("failed to get function implementation: %w", err)
 	}
@@ -78,7 +104,7 @@ func (nef NumericExpressionFieldValue) Execute(ctx context.Context, fieldsMeta [
 
 	// Merge CustomMeta from both operands, op1 takes precedence on conflicts
 	fvm := tsquery.ValueMeta{
-		DataType:   dt1,
+		DataType:   promotedType,
 		Unit:       updatedUnit,
 		Required:   op1Meta.Required && op2Meta.Required,
 		CustomMeta: tsquery.MergeCustomMeta(op2Meta.CustomMeta, op1Meta.CustomMeta),

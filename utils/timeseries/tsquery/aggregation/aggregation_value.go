@@ -87,21 +87,43 @@ func (n *NumericExpressionAggregationValue) Evaluate(resolved map[string]Resolve
 		return nil, "", fmt.Errorf("failed to evaluate op2: %w", err)
 	}
 
-	// Nil propagation: if either operand is nil, result is nil
-	if v1 == nil || v2 == nil {
-		return nil, dt1, nil
-	}
-
+	// Auto-promote numeric types (int → decimal) — compute promoted type before nil check
+	// so that nil propagation returns the correct type consistent with ResolveType.
+	promotedType := dt1
 	if dt1 != dt2 {
-		return nil, "", fmt.Errorf("type mismatch in numeric expression: %s vs %s", dt1, dt2)
+		promoted, ok := tsquery.PromoteNumericTypes(dt1, dt2)
+		if !ok {
+			return nil, "", fmt.Errorf("type mismatch in numeric expression: %s vs %s", dt1, dt2)
+		}
+		promotedType = promoted
 	}
 
-	funcImpl, err := n.op.GetFuncImpl(dt1)
+	// Nil propagation: if either operand is nil, result is nil with the promoted type
+	if v1 == nil || v2 == nil {
+		return nil, promotedType, nil
+	}
+
+	// Cast integer operand values to float64 (only when promotion happened)
+	if dt1 != dt2 {
+		if dt1 == tsquery.DataTypeInteger {
+			v1 = float64(v1.(int64))
+		}
+		if dt2 == tsquery.DataTypeInteger {
+			v2 = float64(v2.(int64))
+		}
+	}
+
+	// Check modulo operator constraint
+	if n.op == tsquery.BinaryNumericOperatorMod && promotedType != tsquery.DataTypeInteger {
+		return nil, "", fmt.Errorf("mod operator is only supported for integer fields. got %s", promotedType)
+	}
+
+	funcImpl, err := n.op.GetFuncImpl(promotedType)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get function for operator %s on type %s: %w", n.op, dt1, err)
+		return nil, "", fmt.Errorf("failed to get function for operator %s on type %s: %w", n.op, promotedType, err)
 	}
 
-	return funcImpl(v1, v2), dt1, nil
+	return funcImpl(v1, v2), promotedType, nil
 }
 
 func (n *NumericExpressionAggregationValue) ResolveType(sourceTypes map[string]tsquery.DataType) (tsquery.DataType, error) {
@@ -113,10 +135,22 @@ func (n *NumericExpressionAggregationValue) ResolveType(sourceTypes map[string]t
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve type for op2: %w", err)
 	}
+	// Auto-promote numeric types (int → decimal)
+	promotedType := dt1
 	if dt1 != dt2 {
-		return "", fmt.Errorf("type mismatch in numeric expression: %s vs %s", dt1, dt2)
+		promoted, ok := tsquery.PromoteNumericTypes(dt1, dt2)
+		if !ok {
+			return "", fmt.Errorf("type mismatch in numeric expression: %s vs %s", dt1, dt2)
+		}
+		promotedType = promoted
 	}
-	return dt1, nil
+
+	// Check modulo operator constraint
+	if n.op == tsquery.BinaryNumericOperatorMod && promotedType != tsquery.DataTypeInteger {
+		return "", fmt.Errorf("mod operator is only supported for integer fields. got %s", promotedType)
+	}
+
+	return promotedType, nil
 }
 
 // --- UnaryNumericOperatorAggregationValue ---

@@ -41,17 +41,43 @@ func (cf ConditionFieldValue) Execute(
 	dt1 := operand1Meta.DataType
 	dt2 := operand2Meta.DataType
 
-	// Check that both operands have the same data type
+	// Auto-promote numeric types (int → decimal)
+	resolvedType := dt1
 	if dt1 != dt2 {
-		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf(
-			"operand types do not match: %s vs %s when executing condition field",
-			dt1,
-			dt2,
-		)
+		promoted, ok := tsquery.PromoteNumericTypes(dt1, dt2)
+		if !ok {
+			return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf(
+				"operand types do not match: %s vs %s when executing condition field",
+				dt1,
+				dt2,
+			)
+		}
+		resolvedType = promoted
+		// Wrap the integer operand's supplier to cast int64 → float64
+		if dt1 == tsquery.DataTypeInteger {
+			orig := operand1Supplier
+			operand1Supplier = func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error) {
+				v, err := orig(ctx, currRow)
+				if err != nil || v == nil {
+					return v, err
+				}
+				return float64(v.(int64)), nil
+			}
+		}
+		if dt2 == tsquery.DataTypeInteger {
+			orig := operand2Supplier
+			operand2Supplier = func(ctx context.Context, currRow timeseries.TsRecord[[]any]) (any, error) {
+				v, err := orig(ctx, currRow)
+				if err != nil || v == nil {
+					return v, err
+				}
+				return float64(v.(int64)), nil
+			}
+		}
 	}
 
 	// Get the comparison function implementation
-	compareFunc, err := cf.operatorType.GetFuncImpl(dt1)
+	compareFunc, err := cf.operatorType.GetFuncImpl(resolvedType)
 	if err != nil {
 		return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf("failed to get comparison function: %w", err)
 	}
