@@ -3,6 +3,8 @@ package datasource
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
@@ -12,13 +14,19 @@ import (
 var _ Filter = DeltaFilter{}
 
 type DeltaFilter struct {
-	nonNegative     bool
-	maxCounterValue float64
-	emitOnReset     bool
+	nonNegative        bool
+	maxCounterValue    float64
+	emitOnReset        bool
+	optMaxGapDuration  *time.Duration
 }
 
-func NewDeltaFilter(nonNegative bool, maxCounterValue float64, emitOnReset bool) DeltaFilter {
-	return DeltaFilter{nonNegative: nonNegative, maxCounterValue: maxCounterValue, emitOnReset: emitOnReset}
+func NewDeltaFilter(nonNegative bool, maxCounterValue float64, emitOnReset bool, optMaxGapDuration *time.Duration) DeltaFilter {
+	return DeltaFilter{
+		nonNegative:       nonNegative,
+		maxCounterValue:   maxCounterValue,
+		emitOnReset:       emitOnReset,
+		optMaxGapDuration: optMaxGapDuration,
+	}
 }
 
 func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
@@ -51,6 +59,12 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 				func(item timeseries.TsRecord[any]) (*timeseries.TsRecord[any], error) {
 					// Skipping the first item, just storing the reference
 					if prevItem == nil {
+						prevItem = &item
+						return nil, nil
+					}
+
+					// Gap detection: if gap exceeds threshold, treat as new baseline
+					if df.optMaxGapDuration != nil && item.Timestamp.Sub(prevItem.Timestamp) > *df.optMaxGapDuration {
 						prevItem = &item
 						return nil, nil
 					}
@@ -101,6 +115,12 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 			func(item timeseries.TsRecord[any]) (*timeseries.TsRecord[any], error) {
 				// Skipping the first item, just storing the reference
 				if prevItem == nil {
+					prevItem = &item
+					return nil, nil
+				}
+
+				// Gap detection: if gap exceeds threshold, treat as new baseline
+				if df.optMaxGapDuration != nil && item.Timestamp.Sub(prevItem.Timestamp) > *df.optMaxGapDuration {
 					prevItem = &item
 					return nil, nil
 				}

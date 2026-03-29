@@ -49,7 +49,7 @@ func TestFilteredMultiDatasource_DeltaNonNegative_ThenReduce(t *testing.T) {
 
 	// Wrap with FilteredMultiDatasource applying delta(nonNegative=true)
 	filteredMultiDS := datasource.NewFilteredMultiDatasource(innerMultiDS, []datasource.Filter{
-		datasource.NewDeltaFilter(true, 0, false),
+		datasource.NewDeltaFilter(true, 0, false, nil),
 	})
 
 	// Now reduce with sum using an aligner

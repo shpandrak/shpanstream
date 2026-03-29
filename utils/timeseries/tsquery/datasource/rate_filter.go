@@ -3,6 +3,8 @@ package datasource
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
@@ -12,20 +14,22 @@ import (
 var _ Filter = RateFilter{}
 
 type RateFilter struct {
-	overrideUnit    string
-	perSeconds      int
-	nonNegative     bool
-	maxCounterValue float64
-	emitOnReset     bool
+	overrideUnit       string
+	perSeconds         int
+	nonNegative        bool
+	maxCounterValue    float64
+	emitOnReset        bool
+	optMaxGapDuration  *time.Duration
 }
 
-func NewRateFilter(overrideUnit string, perSeconds int, nonNegative bool, maxCounterValue float64, emitOnReset bool) RateFilter {
+func NewRateFilter(overrideUnit string, perSeconds int, nonNegative bool, maxCounterValue float64, emitOnReset bool, optMaxGapDuration *time.Duration) RateFilter {
 	return RateFilter{
-		overrideUnit:    overrideUnit,
-		perSeconds:      perSeconds,
-		nonNegative:     nonNegative,
-		maxCounterValue: maxCounterValue,
-		emitOnReset:     emitOnReset,
+		overrideUnit:      overrideUnit,
+		perSeconds:        perSeconds,
+		nonNegative:       nonNegative,
+		maxCounterValue:   maxCounterValue,
+		emitOnReset:       emitOnReset,
+		optMaxGapDuration: optMaxGapDuration,
 	}
 }
 
@@ -76,6 +80,12 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 			func(item timeseries.TsRecord[any]) (*timeseries.TsRecord[any], error) {
 				// Skipping the first item, just storing the reference
 				if prevItem == nil {
+					prevItem = &item
+					return nil, nil
+				}
+
+				// Gap detection: if gap exceeds threshold, treat as new baseline
+				if rf.optMaxGapDuration != nil && item.Timestamp.Sub(prevItem.Timestamp) > *rf.optMaxGapDuration {
 					prevItem = &item
 					return nil, nil
 				}

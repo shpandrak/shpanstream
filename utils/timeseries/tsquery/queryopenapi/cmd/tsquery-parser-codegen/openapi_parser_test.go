@@ -3553,3 +3553,155 @@ func TestExpressionAggregation_WithCompositeSource(t *testing.T) {
 	// energy_sum=300.0, cost_sum=200.0, ratio = 300/200 = 1.5
 	require.InDelta(t, 1.5, fields[0].Value.(float64), 0.0001)
 }
+
+// =====================
+// TimeShift Filter Tests (E2E: API types → parse → execute)
+// =====================
+
+func TestParseFilter_TimeShiftFilter(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 1, 0, 0, 0, time.UTC)
+
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "EnergyReading",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+			Unit:     "kWh",
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 100.0},
+			{Timestamp: baseTime.Add(1 * time.Hour), Value: 200.0},
+			{Timestamp: baseTime.Add(2 * time.Hour), Value: 300.0},
+		},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	// Shift back 1 hour
+	var tsFilter ApiQueryFilter
+	require.NoError(t, tsFilter.FromApiTimeShiftFilter(ApiTimeShiftFilter{
+		Type:          ApiTimeShiftFilterTypeTimeShift,
+		OffsetSeconds: -3600,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{tsFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+	require.NotNil(t, ds)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime.Add(-1*time.Hour), baseTime.Add(3*time.Hour))
+	require.NoError(t, err)
+
+	meta := result.Meta()
+	assert.Equal(t, "EnergyReading", meta.Urn())
+	assert.Equal(t, tsquery.DataTypeDecimal, meta.DataType())
+	assert.Equal(t, "kWh", meta.Unit())
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 3)
+
+	// Timestamps shifted back 1 hour
+	assert.Equal(t, time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), records[0].Timestamp)
+	assert.Equal(t, time.Date(2025, 1, 1, 1, 0, 0, 0, time.UTC), records[1].Timestamp)
+	assert.Equal(t, time.Date(2025, 1, 1, 2, 0, 0, 0, time.UTC), records[2].Timestamp)
+
+	// Values unchanged
+	assert.Equal(t, 100.0, records[0].Value)
+	assert.Equal(t, 200.0, records[1].Value)
+	assert.Equal(t, 300.0, records[2].Value)
+}
+
+func TestParseFilter_TimeShiftFilter_ZeroOffset_Rejected(t *testing.T) {
+	staticDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "value",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{},
+	}
+
+	var apiDs ApiQueryDatasource
+	require.NoError(t, apiDs.FromApiStaticQueryDatasource(staticDs))
+
+	var tsFilter ApiQueryFilter
+	require.NoError(t, tsFilter.FromApiTimeShiftFilter(ApiTimeShiftFilter{
+		Type:          ApiTimeShiftFilterTypeTimeShift,
+		OffsetSeconds: 0,
+	}))
+
+	filteredDs := ApiFilteredQueryDatasource{
+		Datasource: apiDs,
+		Filters:    []ApiQueryFilter{tsFilter},
+	}
+
+	var finalApiDs ApiQueryDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredQueryDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	_, err := ParseDatasource(pCtx, finalApiDs)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "offsetSeconds must be non-zero")
+}
+
+func TestParseReportFilter_TimeShiftFilter(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 1, 0, 0, 0, time.UTC)
+
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "energy", DataType: tsquery.DataTypeDecimal, Required: true, Unit: "kWh"},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{100.0}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{200.0}},
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	var tsFilter ApiReportFilter
+	require.NoError(t, tsFilter.FromApiTimeShiftFilter(ApiTimeShiftFilter{
+		Type:          ApiTimeShiftFilterTypeTimeShift,
+		OffsetSeconds: -3600,
+	}))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{tsFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime.Add(-1*time.Hour), baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 2)
+
+	assert.Equal(t, time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), records[0].Timestamp)
+	assert.Equal(t, time.Date(2025, 1, 1, 1, 0, 0, 0, time.UTC), records[1].Timestamp)
+
+	assert.Equal(t, 100.0, records[0].Value[0])
+	assert.Equal(t, 200.0, records[1].Value[0])
+}

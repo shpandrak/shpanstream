@@ -25,7 +25,7 @@ func TestRateFilter_Decimal(t *testing.T) {
 		timestamps, []any{100.0, 150.0, 180.0})
 
 	// Apply rate filter with unit override
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("kW", 0, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("kW", 0, false, 0, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestRateFilter_Integer(t *testing.T) {
 	ds := createDatasource(t, "Counter", tsquery.DataTypeInteger, true, "count",
 		timestamps, []any{int64(1000), int64(4600)})
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("count/s", 0, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("count/s", 0, false, 0, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func TestRateFilter_NoUnitOverride(t *testing.T) {
 		timestamps, []any{100.0, 200.0})
 
 	// Empty string for unit override
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestRateFilter_VaryingTimeIntervals(t *testing.T) {
 	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "",
 		timestamps, []any{0.0, 30.0, 120.0})
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("per_second", 0, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("per_second", 0, false, 0, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestRateFilter_NegativeRate(t *testing.T) {
 	ds := createDatasource(t, "Temperature", tsquery.DataTypeDecimal, true, "celsius",
 		timestamps, []any{100.0, 50.0})
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("celsius/s", 0, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("celsius/s", 0, false, 0, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestRateFilter_EmptyStream(t *testing.T) {
 	ds, err := datasource.NewStaticDatasource(*fieldMeta, stream.Empty[timeseries.TsRecord[any]]())
 	require.NoError(t, err)
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -174,7 +174,7 @@ func TestRateFilter_SingleItem(t *testing.T) {
 	ds := createDatasource(t, "Single", tsquery.DataTypeDecimal, true, "",
 		[]time.Time{baseTime}, []any{42.0})
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestRateFilter_ErrorOnStringDataType(t *testing.T) {
 	ds := createDatasource(t, "StringField", tsquery.DataTypeString, true, "",
 		[]time.Time{baseTime}, []any{"hello"})
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false, nil))
 
 	_, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
@@ -212,7 +212,7 @@ func TestRateFilter_PerSeconds(t *testing.T) {
 		timestamps, []any{100.0, 150.0, 180.0})
 
 	// perSeconds=3600 means rate per hour
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("kW", 3600, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("kW", 3600, false, 0, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -243,7 +243,7 @@ func TestRateFilter_NonNegative(t *testing.T) {
 	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "count",
 		timestamps, []any{100.0, 200.0, 50.0, 150.0})
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("count/s", 0, true, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("count/s", 0, true, 0, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -278,7 +278,7 @@ func TestRateFilter_NonNegative_EmitOnReset(t *testing.T) {
 	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "count",
 		timestamps, []any{100.0, 200.0, 50.0, 150.0})
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("count/s", 0, true, 0, true))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("count/s", 0, true, 0, true, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -309,7 +309,7 @@ func TestRateFilter_NonNegativeWithMaxCounterValue(t *testing.T) {
 	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "count",
 		timestamps, []any{900.0, 100.0, 300.0})
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("count/s", 0, true, 1000, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("count/s", 0, true, 1000, false, nil))
 
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -333,9 +333,94 @@ func TestRateFilter_ErrorOnOptionalField(t *testing.T) {
 	ds := createDatasource(t, "OptionalField", tsquery.DataTypeDecimal, false, "",
 		[]time.Time{baseTime}, []any{42.0})
 
-	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false))
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("", 0, false, 0, false, nil))
 
 	_, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "required")
+}
+
+// --- MaxGapDuration tests ---
+
+func TestRateFilter_MaxGapDuration_DropsLargeGap(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	timestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+		baseTime.Add(10 * time.Hour), // 9h gap
+		baseTime.Add(11 * time.Hour),
+	}
+
+	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+		timestamps, []any{100.0, 200.0, 500.0, 520.0})
+
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("kW", 0, false, 0, false, durationPtr(2*time.Hour)))
+
+	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2)
+
+	// Rate 1: (200 - 100) / 3600s = 100/3600
+	require.InDelta(t, 100.0/3600.0, records[0].Value.(float64), 1e-10)
+	require.Equal(t, baseTime.Add(1*time.Hour), records[0].Timestamp)
+
+	// Rate at 10h dropped (9h gap > 2h), 500 becomes new baseline
+	// Rate 2: (520 - 500) / 3600s = 20/3600
+	require.InDelta(t, 20.0/3600.0, records[1].Value.(float64), 1e-10)
+	require.Equal(t, baseTime.Add(11*time.Hour), records[1].Timestamp)
+}
+
+func TestRateFilter_MaxGapDuration_NormalSpacingPasses(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	timestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+		baseTime.Add(2 * time.Hour),
+	}
+
+	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+		timestamps, []any{100.0, 200.0, 350.0})
+
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("kW", 0, false, 0, false, durationPtr(2*time.Hour)))
+
+	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2) // all rates emitted
+
+	require.InDelta(t, 100.0/3600.0, records[0].Value.(float64), 1e-10)
+	require.InDelta(t, 150.0/3600.0, records[1].Value.(float64), 1e-10)
+}
+
+func TestRateFilter_MaxGapDuration_WithNonNegative(t *testing.T) {
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	timestamps := []time.Time{
+		baseTime,
+		baseTime.Add(1 * time.Hour),
+		baseTime.Add(10 * time.Hour), // 9h gap
+		baseTime.Add(11 * time.Hour),
+	}
+
+	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "count",
+		timestamps, []any{100.0, 200.0, 500.0, 520.0})
+
+	filtered := datasource.NewFilteredDataSource(ds, datasource.NewRateFilter("count/s", 0, true, 0, false, durationPtr(2*time.Hour)))
+
+	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	records := result.Data().MustCollect()
+	require.Len(t, records, 2)
+
+	// Rate 1: (200-100)/3600
+	require.InDelta(t, 100.0/3600.0, records[0].Value.(float64), 1e-10)
+	// Rate at 10h dropped, 500 becomes baseline
+	// Rate 2: (520-500)/3600
+	require.InDelta(t, 20.0/3600.0, records[1].Value.(float64), 1e-10)
 }

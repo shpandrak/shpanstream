@@ -370,6 +370,15 @@ components:
           type: boolean
           description: Only used when nonNegative is true. When false (default), a decrease in value emits 0 as the delta, which is safe for glitchy counters. When true, a decrease emits the current value as the delta, assuming the counter reset from zero. Mutually exclusive with maxCounterValue.
           x-go-type-skip-optional-pointer: true
+        maxGapDuration:
+          type: string
+          description: >
+            Maximum allowed time duration between consecutive raw readings.
+            If the gap between two readings exceeds this duration, the delta point is dropped
+            and the post-gap reading becomes a new baseline for subsequent delta computation.
+            Format: Go duration string (e.g., "30m", "2h", "1h30m").
+            When not set or empty, no gap detection is applied.
+          x-go-type-skip-optional-pointer: true
 
     ApiRateFilter:
       type: object
@@ -400,6 +409,15 @@ components:
         emitOnReset:
           type: boolean
           description: Only used when nonNegative is true. When false (default), a decrease in value emits 0 as the delta, which is safe for glitchy counters. When true, a decrease emits the current value as the delta, assuming the counter reset from zero. Mutually exclusive with maxCounterValue.
+          x-go-type-skip-optional-pointer: true
+        maxGapDuration:
+          type: string
+          description: >
+            Maximum allowed time duration between consecutive raw readings.
+            If the gap between two readings exceeds this duration, the rate point is dropped
+            and the post-gap reading becomes a new baseline for subsequent rate computation.
+            Format: Go duration string (e.g., "30m", "2h", "1h30m").
+            When not set or empty, no gap detection is applied.
           x-go-type-skip-optional-pointer: true
 
     ApiTimestampExtractComponent:
