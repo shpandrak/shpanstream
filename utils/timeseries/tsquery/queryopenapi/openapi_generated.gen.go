@@ -565,6 +565,9 @@ type ApiDeltaFilter struct {
 	// MaxCounterValue Maximum counter value for wraparound detection. Only used when nonNegative is true. When set, counter resets compute delta as (maxCounterValue - previous + current).
 	MaxCounterValue float64 `json:"maxCounterValue,omitempty"`
 
+	// MaxGapDuration Maximum allowed time duration between consecutive raw readings. If the gap between two readings exceeds this duration, the delta point is dropped and the post-gap reading becomes a new baseline for subsequent delta computation. Format: Go duration string (e.g., "30m", "2h", "1h30m"). When not set or empty, no gap detection is applied.
+	MaxGapDuration string `json:"maxGapDuration,omitempty"`
+
 	// NonNegative When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets. By default, when a decrease is detected the delta is clamped to 0. Set emitOnReset to true to instead emit the current value as the delta (useful when actual counter resets are expected).
 	NonNegative bool               `json:"nonNegative,omitempty"`
 	Type        ApiDeltaFilterType `json:"type"`
@@ -951,6 +954,9 @@ type ApiRateFilter struct {
 
 	// MaxCounterValue Maximum counter value for wraparound detection. Only used when nonNegative is true. When set, counter resets compute delta as (maxCounterValue - previous + current).
 	MaxCounterValue float64 `json:"maxCounterValue,omitempty"`
+
+	// MaxGapDuration Maximum allowed time duration between consecutive raw readings. If the gap between two readings exceeds this duration, the rate point is dropped and the post-gap reading becomes a new baseline for subsequent rate computation. Format: Go duration string (e.g., "30m", "2h", "1h30m"). When not set or empty, no gap detection is applied.
+	MaxGapDuration string `json:"maxGapDuration,omitempty"`
 
 	// NonNegative When true, handles counter resets by clamping negative deltas. Decreases are treated as counter resets. By default, when a decrease is detected the delta is clamped to 0. Set emitOnReset to true to instead emit the current value as the delta (useful when actual counter resets are expected).
 	NonNegative bool `json:"nonNegative,omitempty"`

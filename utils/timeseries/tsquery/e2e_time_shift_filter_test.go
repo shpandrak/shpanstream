@@ -213,7 +213,7 @@ func TestTimeShiftFilter_CompositionWithDelta(t *testing.T) {
 		timestamps, []any{100.0, 250.0, 400.0})
 
 	// First apply delta, then time shift
-	withDelta := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false))
+	withDelta := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, nil))
 	withShift := datasource.NewFilteredDataSource(withDelta, datasource.NewTimeShiftFilter(-3600))
 
 	result, err := withShift.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))

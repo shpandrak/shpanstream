@@ -79,7 +79,18 @@ func parseDeltaFilter(deltaFilter ApiDeltaFilter) (datasource.Filter, error) {
 	if deltaFilter.EmitOnReset && deltaFilter.MaxCounterValue > 0 {
 		return nil, badInputErrorf(deltaFilter, "emitOnReset and maxCounterValue are mutually exclusive")
 	}
-	return datasource.NewDeltaFilter(deltaFilter.NonNegative, deltaFilter.MaxCounterValue, deltaFilter.EmitOnReset), nil
+	var optMaxGapDuration *time.Duration
+	if deltaFilter.MaxGapDuration != "" {
+		maxGapDuration, err := time.ParseDuration(deltaFilter.MaxGapDuration)
+		if err != nil {
+			return nil, badInputErrorf(deltaFilter, "invalid maxGapDuration: %v", err)
+		}
+		if maxGapDuration <= 0 {
+			return nil, badInputErrorf(deltaFilter, "maxGapDuration must be positive")
+		}
+		optMaxGapDuration = &maxGapDuration
+	}
+	return datasource.NewDeltaFilter(deltaFilter.NonNegative, deltaFilter.MaxCounterValue, deltaFilter.EmitOnReset, optMaxGapDuration), nil
 }
 
 func parseRateFilter(rateFilter ApiRateFilter) (datasource.Filter, error) {
@@ -96,7 +107,18 @@ func parseRateFilter(rateFilter ApiRateFilter) (datasource.Filter, error) {
 	if rateFilter.PerSeconds != nil {
 		perSeconds = *rateFilter.PerSeconds
 	}
-	return datasource.NewRateFilter(rateFilter.OverrideUnit, perSeconds, rateFilter.NonNegative, rateFilter.MaxCounterValue, rateFilter.EmitOnReset), nil
+	var optMaxGapDuration *time.Duration
+	if rateFilter.MaxGapDuration != "" {
+		maxGapDuration, err := time.ParseDuration(rateFilter.MaxGapDuration)
+		if err != nil {
+			return nil, badInputErrorf(rateFilter, "invalid maxGapDuration: %v", err)
+		}
+		if maxGapDuration <= 0 {
+			return nil, badInputErrorf(rateFilter, "maxGapDuration must be positive")
+		}
+		optMaxGapDuration = &maxGapDuration
+	}
+	return datasource.NewRateFilter(rateFilter.OverrideUnit, perSeconds, rateFilter.NonNegative, rateFilter.MaxCounterValue, rateFilter.EmitOnReset, optMaxGapDuration), nil
 }
 
 func ParseAlignerFilter(apiAlignerFilter ApiAlignerFilter) (datasource.AlignerFilter, error) {

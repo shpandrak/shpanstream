@@ -337,7 +337,7 @@ func TestAggregation_WithFilters(t *testing.T) {
 	rawDS := createDatasource(t, "energy", tsquery.DataTypeInteger, true, "kWh", timestamps, values)
 
 	// Apply a delta filter: delta produces 3 values: 10, 10, 10
-	filteredDS := datasource.NewFilteredDataSource(rawDS, datasource.NewDeltaFilter(false, 0, false))
+	filteredDS := datasource.NewFilteredDataSource(rawDS, datasource.NewDeltaFilter(false, 0, false, nil))
 
 	agg := aggregation.NewFromDatasourceAggregation(filteredDS, []aggregation.AggregationFieldDef{
 		{ReductionType: tsquery.ReductionTypeSum},
