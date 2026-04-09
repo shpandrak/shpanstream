@@ -47,9 +47,10 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 		)
 	}
 
-	newMeta, err := tsquery.NewFieldMetaWithCustomData(
+	newMeta, err := tsquery.NewFieldMetaFull(
 		result.meta.Urn(),
 		tsquery.DataTypeDecimal,
+		tsquery.MetricKindRate,
 		true,
 		rf.overrideUnit,
 		result.meta.CustomMeta(),

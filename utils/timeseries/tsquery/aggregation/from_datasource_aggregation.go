@@ -135,7 +135,13 @@ func buildFieldMeta(field AggregationFieldDef, sourceMeta tsquery.FieldMeta, res
 		customMeta = field.AddFieldMeta.CustomMeta
 	}
 
-	return tsquery.NewFieldMetaWithCustomData(urn, resultDataType, sourceMeta.Required(), unit, customMeta)
+	// Determine metric kind: aggregation produces a scalar; default gauge, respect override
+	metricKind := tsquery.MetricKindGauge
+	if field.AddFieldMeta != nil && field.AddFieldMeta.OverrideMetricKind != "" {
+		metricKind = field.AddFieldMeta.OverrideMetricKind
+	}
+
+	return tsquery.NewFieldMetaFull(urn, resultDataType, metricKind, sourceMeta.Required(), unit, customMeta)
 }
 
 func validateFieldUrns(fields []AggregationFieldDef, sourceMeta tsquery.FieldMeta, multipleFields bool) error {

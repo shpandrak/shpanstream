@@ -10,6 +10,7 @@ type Record timeseries.TsRecord[[]any]
 type FieldMeta struct {
 	urn        string
 	dataType   DataType
+	metricKind MetricKind
 	unit       string
 	required   bool
 	customMeta map[string]any
@@ -32,6 +33,18 @@ func (fm FieldMeta) Required() bool {
 
 func (fm FieldMeta) WithRequired(required bool) FieldMeta {
 	fm.required = required
+	return fm
+}
+
+func (fm FieldMeta) MetricKind() MetricKind {
+	if fm.metricKind == "" {
+		return MetricKindGauge
+	}
+	return fm.metricKind
+}
+
+func (fm FieldMeta) WithMetricKind(kind MetricKind) FieldMeta {
+	fm.metricKind = kind
 	return fm
 }
 
@@ -62,16 +75,31 @@ func NewFieldMetaWithCustomData(
 	unit string,
 	customMeta map[string]any,
 ) (*FieldMeta, error) {
+	return NewFieldMetaFull(urn, dataType, "", required, unit, customMeta)
+}
+
+func NewFieldMetaFull(
+	urn string,
+	dataType DataType,
+	metricKind MetricKind,
+	required bool,
+	unit string,
+	customMeta map[string]any,
+) (*FieldMeta, error) {
 	if urn == "" {
 		return nil, fmt.Errorf("field urn must not be empty")
 	}
 	if err := dataType.Validate(); err != nil {
 		return nil, err
 	}
+	if err := metricKind.Validate(); err != nil {
+		return nil, err
+	}
 
 	return &FieldMeta{
 		urn:        urn,
 		dataType:   dataType,
+		metricKind: metricKind,
 		required:   required,
 		unit:       unit,
 		customMeta: customMeta,
@@ -81,13 +109,15 @@ func NewFieldMetaWithCustomData(
 
 type ValueMeta struct {
 	DataType   DataType
+	MetricKind MetricKind
 	Unit       string
 	Required   bool
 	CustomMeta map[string]any
 }
 
 type AddFieldMeta struct {
-	Urn          string
-	CustomMeta   map[string]any
-	OverrideUnit string
+	Urn                string
+	CustomMeta         map[string]any
+	OverrideUnit       string
+	OverrideMetricKind MetricKind
 }

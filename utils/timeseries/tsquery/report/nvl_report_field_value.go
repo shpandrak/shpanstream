@@ -57,6 +57,7 @@ func (nf NvlFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.FieldM
 	// Propagate CustomMeta from source only (not from alt)
 	fvm := tsquery.ValueMeta{
 		DataType:   sourceType,
+		MetricKind: sourceMeta.MetricKind,
 		Unit:       sourceMeta.Unit,
 		Required:   true,
 		CustomMeta: sourceMeta.CustomMeta,

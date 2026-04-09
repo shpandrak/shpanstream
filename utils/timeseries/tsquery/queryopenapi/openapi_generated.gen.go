@@ -342,9 +342,10 @@ const (
 
 // ApiAddFieldMeta defines model for ApiAddFieldMeta.
 type ApiAddFieldMeta struct {
-	CustomMetadata map[string]interface{} `json:"customMetadata,omitempty"`
-	OverrideUnit   string                 `json:"overrideUnit,omitempty"`
-	Uri            string                 `json:"uri"`
+	CustomMetadata     map[string]interface{} `json:"customMetadata,omitempty"`
+	OverrideMetricKind ApiMetricKind          `json:"overrideMetricKind,omitempty"`
+	OverrideUnit       string                 `json:"overrideUnit,omitempty"`
+	Uri                string                 `json:"uri"`
 }
 
 // ApiAggregatedField A single aggregated scalar value with its metadata.
@@ -812,6 +813,9 @@ type ApiMeasurementValue struct {
 // ApiMetricDataType defines model for ApiMetricDataType.
 type ApiMetricDataType = tsquery.DataType
 
+// ApiMetricKind defines model for ApiMetricKind.
+type ApiMetricKind = tsquery.MetricKind
+
 // ApiMultiDatasource Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
 type ApiMultiDatasource struct {
 	union json.RawMessage
@@ -900,6 +904,7 @@ type ApiNvlReportFieldValueType string
 type ApiOverrideFieldMetadataFilter struct {
 	Type              ApiOverrideFieldMetadataFilterType `json:"type"`
 	UpdatedCustomMeta map[string]interface{}             `json:"updatedCustomMeta,omitempty"`
+	UpdatedMetricKind ApiMetricKind                      `json:"updatedMetricKind,omitempty"`
 	UpdatedUnit       string                             `json:"updatedUnit,omitempty"`
 	UpdatedUrn        string                             `json:"updatedUrn,omitempty"`
 }
@@ -926,6 +931,7 @@ type ApiQueryDatasource struct {
 type ApiQueryFieldMeta struct {
 	CustomMetadata map[string]interface{} `json:"customMetadata,omitempty"`
 	DataType       ApiMetricDataType      `json:"dataType"`
+	MetricKind     ApiMetricKind          `json:"metricKind,omitempty"`
 	Required       bool                   `json:"required"`
 	Unit           string                 `json:"unit,omitempty"`
 	Uri            string                 `json:"uri"`

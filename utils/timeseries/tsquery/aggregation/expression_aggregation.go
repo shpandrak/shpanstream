@@ -53,7 +53,12 @@ func (e *ExpressionAggregation) Execute(ctx context.Context, from, to time.Time)
 			return Result{}, fmt.Errorf("expression aggregation field %d (%s): failed to resolve type: %w", i, urn, err)
 		}
 
-		meta, err := tsquery.NewFieldMetaWithCustomData(urn, resolvedType, true, field.AddFieldMeta.OverrideUnit, field.AddFieldMeta.CustomMeta)
+		metricKind := tsquery.MetricKindGauge
+		if field.AddFieldMeta.OverrideMetricKind != "" {
+			metricKind = field.AddFieldMeta.OverrideMetricKind
+		}
+
+		meta, err := tsquery.NewFieldMetaFull(urn, resolvedType, metricKind, true, field.AddFieldMeta.OverrideUnit, field.AddFieldMeta.CustomMeta)
 		if err != nil {
 			return Result{}, fmt.Errorf("expression aggregation field %d: failed to build metadata: %w", i, err)
 		}

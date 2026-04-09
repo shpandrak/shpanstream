@@ -162,7 +162,13 @@ func buildReportFieldMeta(field ReportAggregationFieldDef, sourceMeta tsquery.Fi
 		customMeta = field.AddFieldMeta.CustomMeta
 	}
 
-	return tsquery.NewFieldMetaWithCustomData(urn, resultDataType, sourceMeta.Required(), unit, customMeta)
+	// Determine metric kind: aggregation produces a scalar; default gauge, respect override
+	metricKind := tsquery.MetricKindGauge
+	if field.AddFieldMeta != nil && field.AddFieldMeta.OverrideMetricKind != "" {
+		metricKind = field.AddFieldMeta.OverrideMetricKind
+	}
+
+	return tsquery.NewFieldMetaFull(urn, resultDataType, metricKind, sourceMeta.Required(), unit, customMeta)
 }
 
 func (a *FromReportAggregation) validateReportFieldUrns(sourceFieldMetas []tsquery.FieldMeta) error {

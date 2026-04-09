@@ -34,9 +34,10 @@ func ParseDatasource(
 
 func parseStaticDatasource(ds ApiStaticQueryDatasource) (datasource.DataSource, error) {
 	// Parse field metadata (single field for datasource package)
-	fieldMeta, err := tsquery.NewFieldMetaWithCustomData(
+	fieldMeta, err := tsquery.NewFieldMetaFull(
 		ds.FieldMeta.Uri,
 		ds.FieldMeta.DataType,
+		ds.FieldMeta.MetricKind,
 		ds.FieldMeta.Required,
 		ds.FieldMeta.Unit,
 		ds.FieldMeta.CustomMetadata,

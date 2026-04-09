@@ -43,6 +43,21 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 		)
 	}
 
+	// TODO Phase 2: validate input kind
+	// inputKind := result.meta.MetricKind()
+	// if inputKind == tsquery.MetricKindGauge {
+	// 	return util.DefaultValue[Result](), fmt.Errorf("delta filter cannot be applied to gauge metrics; set metricKind to cumulative on the datasource")
+	// }
+	// if inputKind == tsquery.MetricKindDelta {
+	// 	return util.DefaultValue[Result](), fmt.Errorf("delta filter cannot be applied to data that is already delta")
+	// }
+	// if inputKind == tsquery.MetricKindRate {
+	// 	return util.DefaultValue[Result](), fmt.Errorf("delta filter cannot be applied to rate metrics")
+	// }
+
+	// Set output kind to Delta — the output represents per-interval changes
+	outputMeta := result.meta.WithMetricKind(tsquery.MetricKindDelta)
+
 	subFunc, err := tsquery.BinaryNumericOperatorSub.GetFuncImpl(dataType)
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed to get subtraction function: %w", err)
@@ -53,7 +68,7 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 	if df.nonNegative {
 		computeDelta := newNonNegativeCounterDeltaFunc(df.maxCounterValue, df.emitOnReset)
 		return Result{
-			meta: result.meta,
+			meta: outputMeta,
 			data: stream.MapWhileFilteringWithErr(
 				result.data,
 				func(item timeseries.TsRecord[any]) (*timeseries.TsRecord[any], error) {
@@ -109,7 +124,7 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 	}
 
 	return Result{
-		meta: result.meta,
+		meta: outputMeta,
 		data: stream.MapWhileFilteringWithErr(
 			result.data,
 			func(item timeseries.TsRecord[any]) (*timeseries.TsRecord[any], error) {

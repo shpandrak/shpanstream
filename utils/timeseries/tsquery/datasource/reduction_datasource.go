@@ -165,10 +165,17 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 		finalUnit = r.addFieldMeta.OverrideUnit
 	}
 
+	// Determine metric kind: use override if provided, otherwise from the first datasource
+	metricKind := datasourceMetas[0].MetricKind()
+	if r.addFieldMeta.OverrideMetricKind != "" {
+		metricKind = r.addFieldMeta.OverrideMetricKind
+	}
+
 	// Create result field metadata
-	resultFieldMeta, err := tsquery.NewFieldMetaWithCustomData(
+	resultFieldMeta, err := tsquery.NewFieldMetaFull(
 		urn,
 		resultDataType,
+		metricKind,
 		true, // a reduction result is always required
 		finalUnit,
 		customMeta,
@@ -227,10 +234,17 @@ func (r ReductionDatasource) executeEmptyDatasourceFallback(ctx context.Context,
 		finalUnit = r.addFieldMeta.OverrideUnit
 	}
 
+	// Determine metric kind for empty fallback
+	emptyMetricKind := valueMeta.MetricKind
+	if r.addFieldMeta.OverrideMetricKind != "" {
+		emptyMetricKind = r.addFieldMeta.OverrideMetricKind
+	}
+
 	// Create result field metadata from the emptyDatasourceValue's metadata
-	resultFieldMeta, err := tsquery.NewFieldMetaWithCustomData(
+	resultFieldMeta, err := tsquery.NewFieldMetaFull(
 		r.addFieldMeta.Urn,
 		valueMeta.DataType,
+		emptyMetricKind,
 		valueMeta.Required,
 		finalUnit,
 		r.addFieldMeta.CustomMeta,
