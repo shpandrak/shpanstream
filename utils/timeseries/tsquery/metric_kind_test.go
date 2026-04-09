@@ -2,6 +2,7 @@ package tsquery
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -83,4 +84,40 @@ func TestNewFieldMetaWithCustomData_BackwardCompat(t *testing.T) {
 	fm, err := NewFieldMetaWithCustomData("test", DataTypeDecimal, true, "kWh", nil)
 	require.NoError(t, err)
 	require.Equal(t, MetricKindGauge, fm.MetricKind())
+}
+
+// --- SamplePeriod tests ---
+
+func TestFieldMeta_SamplePeriod_DefaultNil(t *testing.T) {
+	fm, err := NewFieldMeta("test", DataTypeDecimal, true)
+	require.NoError(t, err)
+	require.Nil(t, fm.SamplePeriod())
+}
+
+func TestFieldMeta_WithSamplePeriod(t *testing.T) {
+	fm, err := NewFieldMeta("test", DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	fiveMin := 5 * time.Minute
+	withSP := fm.WithSamplePeriod(fiveMin)
+
+	// Original unchanged
+	require.Nil(t, fm.SamplePeriod())
+
+	// Copy has the value
+	require.NotNil(t, withSP.SamplePeriod())
+	require.Equal(t, fiveMin, *withSP.SamplePeriod())
+}
+
+func TestFieldMeta_WithSamplePeriod_ChainedWithMetricKind(t *testing.T) {
+	fm, err := NewFieldMetaFull("energy", DataTypeDecimal, MetricKindDelta, true, "kWh", nil)
+	require.NoError(t, err)
+
+	fiveMin := 5 * time.Minute
+	fm2 := fm.WithSamplePeriod(fiveMin)
+
+	require.Equal(t, MetricKindDelta, fm2.MetricKind())
+	require.NotNil(t, fm2.SamplePeriod())
+	require.Equal(t, fiveMin, *fm2.SamplePeriod())
+	require.Equal(t, "kWh", fm2.Unit())
 }

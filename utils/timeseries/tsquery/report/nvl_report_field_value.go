@@ -56,9 +56,10 @@ func (nf NvlFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.FieldM
 	// Create field metadata - NVL field is always required since we have a fallback
 	// Propagate CustomMeta from source only (not from alt)
 	fvm := tsquery.ValueMeta{
-		DataType:   sourceType,
-		MetricKind: sourceMeta.MetricKind,
-		Unit:       sourceMeta.Unit,
+		DataType:     sourceType,
+		MetricKind:   sourceMeta.MetricKind,
+		SamplePeriod: sourceMeta.SamplePeriod,
+		Unit:         sourceMeta.Unit,
 		Required:   true,
 		CustomMeta: sourceMeta.CustomMeta,
 	}

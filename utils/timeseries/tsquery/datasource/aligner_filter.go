@@ -101,6 +101,10 @@ func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error)
 			if err != nil {
 				return util.DefaultValue[Result](), fmt.Errorf("failed to create new field meta for bucket reduction: %w", err)
 			}
+			if sp := result.meta.SamplePeriod(); sp != nil {
+				*newMeta = newMeta.WithSamplePeriod(*sp)
+			}
+			// TODO Phase 2: derive samplePeriod from alignment period when bucket reduction changes the effective cadence
 			resultMeta = *newMeta
 		}
 	}

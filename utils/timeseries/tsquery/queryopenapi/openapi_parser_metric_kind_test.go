@@ -172,3 +172,96 @@ func TestParseOverrideFieldMetadataFilter_UpdatedMetricKind(t *testing.T) {
 	// End-to-end verification that the filter actually applies the override is covered
 	// in datasource/metric_kind_propagation_test.go (TestOverrideFieldMetadataFilter_OverrideKind).
 }
+
+// --- SamplePeriod parsing tests ---
+
+// TestParseStaticDatasource_SamplePeriod verifies that samplePeriod on
+// ApiQueryFieldMeta flows through parseStaticDatasource into the resulting FieldMeta.
+func TestParseStaticDatasource_SamplePeriod(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	apiDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:          "energy",
+			DataType:     tsquery.DataTypeDecimal,
+			Required:     true,
+			MetricKind:   tsquery.MetricKindDelta,
+			SamplePeriod: "5m",
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 1.0},
+		},
+	}
+
+	ds, err := parseStaticDatasource(apiDs)
+	require.NoError(t, err)
+
+	result, err := ds.Execute(testContext(), baseTime, baseTime.Add(1*time.Hour))
+	require.NoError(t, err)
+
+	meta := result.Meta()
+	assert.Equal(t, tsquery.MetricKindDelta, meta.MetricKind())
+	require.NotNil(t, meta.SamplePeriod())
+	assert.Equal(t, 5*time.Minute, *meta.SamplePeriod())
+}
+
+// TestParseStaticDatasource_SamplePeriod_Unset verifies that omitting samplePeriod
+// results in nil (backward compat).
+func TestParseStaticDatasource_SamplePeriod_Unset(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	apiDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:      "temp",
+			DataType: tsquery.DataTypeDecimal,
+			Required: true,
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 1.0},
+		},
+	}
+
+	ds, err := parseStaticDatasource(apiDs)
+	require.NoError(t, err)
+
+	result, err := ds.Execute(testContext(), baseTime, baseTime.Add(1*time.Hour))
+	require.NoError(t, err)
+	assert.Nil(t, result.Meta().SamplePeriod())
+}
+
+// TestParseStaticDatasource_SamplePeriod_Invalid verifies that an invalid
+// samplePeriod string is rejected at parse time.
+func TestParseStaticDatasource_SamplePeriod_Invalid(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	apiDs := ApiStaticQueryDatasource{
+		Type: "static",
+		FieldMeta: ApiQueryFieldMeta{
+			Uri:          "energy",
+			DataType:     tsquery.DataTypeDecimal,
+			Required:     true,
+			SamplePeriod: "not-a-duration",
+		},
+		Data: []ApiMeasurementValue{
+			{Timestamp: baseTime, Value: 1.0},
+		},
+	}
+
+	_, err := parseStaticDatasource(apiDs)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "samplePeriod")
+}
+
+// TestParseAddFieldMeta_OverrideSamplePeriod verifies that overrideSamplePeriod
+// flows through ParseAddFieldMeta.
+func TestParseAddFieldMeta_OverrideSamplePeriod(t *testing.T) {
+	apiMeta := ApiAddFieldMeta{
+		Uri:                  "computed",
+		OverrideSamplePeriod: "15m",
+	}
+
+	parsed := ParseAddFieldMeta(apiMeta)
+	assert.Equal(t, "15m", parsed.OverrideSamplePeriod)
+}

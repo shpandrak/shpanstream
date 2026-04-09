@@ -90,9 +90,10 @@ func (cf SelectorFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.F
 
 	// Create field metadata
 	fvm := tsquery.ValueMeta{
-		DataType:   trueType,
-		MetricKind: trueMeta.MetricKind,
-		Unit:       trueMeta.Unit,
+		DataType:     trueType,
+		MetricKind:   trueMeta.MetricKind,
+		SamplePeriod: trueMeta.SamplePeriod,
+		Unit:         trueMeta.Unit,
 		Required:   trueMeta.Required,
 	}
 

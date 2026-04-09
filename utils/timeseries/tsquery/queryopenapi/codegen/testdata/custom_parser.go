@@ -7,6 +7,7 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
+	"time"
 )
 
 // CustomPluginParser implements PluginApiParser to handle custom datasource types
@@ -68,6 +69,13 @@ func parsePostgresDatasource(ds ApiPostgresQueryDatasource) (datasource.DataSour
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create field metadata for postgres datasource: %w", err)
+	}
+	if ds.FieldMeta.SamplePeriod != "" {
+		sp, err := time.ParseDuration(ds.FieldMeta.SamplePeriod)
+		if err != nil {
+			return nil, fmt.Errorf("invalid samplePeriod for postgres datasource: %w", err)
+		}
+		*fieldMeta = fieldMeta.WithSamplePeriod(sp)
 	}
 
 	// In a real implementation, this would:

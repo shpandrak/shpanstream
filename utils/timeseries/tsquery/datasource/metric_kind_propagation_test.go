@@ -133,7 +133,7 @@ func TestOverrideFieldMetadataFilter_OverrideKind(t *testing.T) {
 	result := Result{meta: meta, data: simpleStream(1, 2, 3)}
 
 	cumKind := tsquery.MetricKindCumulative
-	filter := NewOverrideFieldMetadataFilter(nil, nil, &cumKind, nil)
+	filter := NewOverrideFieldMetadataFilter(nil, nil, &cumKind, nil, nil)
 	filtered, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 	require.Equal(t, tsquery.MetricKindCumulative, filtered.Meta().MetricKind())
@@ -150,7 +150,7 @@ func TestOverrideFieldMetadataFilter_PreservesKind_WhenNil(t *testing.T) {
 
 	// Override URN but not kind
 	newUrn := "renamed"
-	filter := NewOverrideFieldMetadataFilter(&newUrn, nil, nil, nil)
+	filter := NewOverrideFieldMetadataFilter(&newUrn, nil, nil, nil, nil)
 	filtered, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 	require.Equal(t, tsquery.MetricKindCumulative, filtered.Meta().MetricKind())
@@ -316,4 +316,135 @@ func TestValueMetaPropagation_NestedExpressions(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tsquery.DataTypeDecimal, valueMeta.DataType)
 	require.Equal(t, tsquery.MetricKindCumulative, valueMeta.MetricKind)
+}
+
+// --- SamplePeriod propagation tests ---
+
+func TestDeltaFilter_PreservesSamplePeriod(t *testing.T) {
+	ctx := context.Background()
+	fiveMin := 5 * time.Minute
+	meta := cumulativeDecimalMeta(t).WithSamplePeriod(fiveMin)
+
+	result := Result{meta: meta, data: simpleStream(100, 110, 125)}
+
+	df := NewDeltaFilter(false, 0, false, nil)
+	filtered, err := df.Filter(ctx, result)
+	require.NoError(t, err)
+	require.NotNil(t, filtered.Meta().SamplePeriod())
+	require.Equal(t, fiveMin, *filtered.Meta().SamplePeriod())
+	require.Equal(t, tsquery.MetricKindDelta, filtered.Meta().MetricKind())
+}
+
+func TestRateFilter_ClearsSamplePeriod(t *testing.T) {
+	ctx := context.Background()
+	fiveMin := 5 * time.Minute
+	meta := cumulativeDecimalMeta(t).WithSamplePeriod(fiveMin)
+
+	result := Result{meta: meta, data: simpleStream(100, 160)}
+
+	rf := NewRateFilter("kW", 1, false, 0, false, nil)
+	filtered, err := rf.Filter(ctx, result)
+	require.NoError(t, err)
+	require.Nil(t, filtered.Meta().SamplePeriod(), "rate output should have no sample period")
+	require.Equal(t, tsquery.MetricKindRate, filtered.Meta().MetricKind())
+}
+
+func TestAlignerFilter_PreservesSamplePeriod(t *testing.T) {
+	ctx := context.Background()
+	fiveMin := 5 * time.Minute
+	fm, err := tsquery.NewFieldMetaFull("energy", tsquery.DataTypeDecimal, tsquery.MetricKindDelta, true, "kWh", nil)
+	require.NoError(t, err)
+	*fm = fm.WithSamplePeriod(fiveMin)
+
+	result := Result{meta: *fm, data: simpleStream(10, 15, 20)}
+
+	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(10*time.Minute, time.UTC))
+	filtered, err := af.Filter(ctx, result)
+	require.NoError(t, err)
+	require.NotNil(t, filtered.Meta().SamplePeriod())
+	require.Equal(t, fiveMin, *filtered.Meta().SamplePeriod())
+}
+
+func TestCastFieldValue_PropagatesSamplePeriod(t *testing.T) {
+	ctx := context.Background()
+	fiveMin := 5 * time.Minute
+	sourceMeta := tsquery.ValueMeta{
+		DataType:     tsquery.DataTypeInteger,
+		MetricKind:   tsquery.MetricKindDelta,
+		SamplePeriod: &fiveMin,
+		Required:     true,
+	}
+	source := NewConstantFieldValue(sourceMeta, int64(100))
+	cast := NewCastFieldValue(source, tsquery.DataTypeDecimal)
+
+	valueMeta, _, err := cast.Execute(ctx, dummyFieldMeta())
+	require.NoError(t, err)
+	require.NotNil(t, valueMeta.SamplePeriod)
+	require.Equal(t, fiveMin, *valueMeta.SamplePeriod)
+}
+
+func TestNilSamplePeriod_NotPropagatedWhenUnset(t *testing.T) {
+	ctx := context.Background()
+	// Source without samplePeriod — should stay nil through cast
+	sourceMeta := tsquery.ValueMeta{
+		DataType: tsquery.DataTypeDecimal,
+		Required: true,
+	}
+	source := NewConstantFieldValue(sourceMeta, 42.0)
+	cast := NewCastFieldValue(source, tsquery.DataTypeDecimal)
+
+	valueMeta, _, err := cast.Execute(ctx, dummyFieldMeta())
+	require.NoError(t, err)
+	require.Nil(t, valueMeta.SamplePeriod)
+}
+
+// --- SamplePeriod override tests ---
+
+func TestOverrideFieldMetadataFilter_OverrideSamplePeriod(t *testing.T) {
+	ctx := context.Background()
+	meta := gaugeDecimalMeta(t)
+	result := Result{meta: meta, data: simpleStream(1, 2, 3)}
+
+	tenMin := 10 * time.Minute
+	filter := NewOverrideFieldMetadataFilter(nil, nil, nil, &tenMin, nil)
+	filtered, err := filter.Filter(ctx, result)
+	require.NoError(t, err)
+	require.NotNil(t, filtered.Meta().SamplePeriod())
+	require.Equal(t, tenMin, *filtered.Meta().SamplePeriod())
+}
+
+func TestOverrideFieldMetadataFilter_PreservesSamplePeriod_WhenNil(t *testing.T) {
+	ctx := context.Background()
+	fiveMin := 5 * time.Minute
+	meta := deltaDecimalMeta(t).WithSamplePeriod(fiveMin)
+	result := Result{meta: meta, data: simpleStream(1, 2, 3)}
+
+	// Override URN only — samplePeriod should be preserved
+	newUrn := "renamed"
+	filter := NewOverrideFieldMetadataFilter(&newUrn, nil, nil, nil, nil)
+	filtered, err := filter.Filter(ctx, result)
+	require.NoError(t, err)
+	require.Equal(t, "renamed", filtered.Meta().Urn())
+	require.NotNil(t, filtered.Meta().SamplePeriod())
+	require.Equal(t, fiveMin, *filtered.Meta().SamplePeriod())
+}
+
+func TestFieldValueFilter_OverrideSamplePeriod(t *testing.T) {
+	ctx := context.Background()
+	meta := deltaDecimalMeta(t)
+	result := Result{meta: meta, data: simpleStream(1, 2, 3)}
+
+	// FieldValueFilter with AddFieldMeta that overrides samplePeriod
+	ref := NewRefFieldValue()
+	addMeta := tsquery.AddFieldMeta{
+		Urn:                  "energy_ref",
+		OverrideSamplePeriod: "15m",
+	}
+	fvf := NewFieldValueFilter(ref, addMeta)
+
+	filtered, err := fvf.Filter(ctx, result)
+	require.NoError(t, err)
+	require.Equal(t, "energy_ref", filtered.Meta().Urn())
+	require.NotNil(t, filtered.Meta().SamplePeriod())
+	require.Equal(t, 15*time.Minute, *filtered.Meta().SamplePeriod())
 }

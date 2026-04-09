@@ -1002,8 +1002,11 @@ func (e ApiUnaryNumericOperatorReportFieldValueType) Valid() bool {
 type ApiAddFieldMeta struct {
 	CustomMetadata     map[string]interface{} `json:"customMetadata,omitempty"`
 	OverrideMetricKind ApiMetricKind          `json:"overrideMetricKind,omitempty"`
-	OverrideUnit       string                 `json:"overrideUnit,omitempty"`
-	Uri                string                 `json:"uri"`
+
+	// OverrideSamplePeriod Override the sample period for the output field (Go duration string, e.g. "5m", "1h").
+	OverrideSamplePeriod string `json:"overrideSamplePeriod,omitempty"`
+	OverrideUnit         string `json:"overrideUnit,omitempty"`
+	Uri                  string `json:"uri"`
 }
 
 // ApiAggregatedField A single aggregated scalar value with its metadata.
@@ -1563,8 +1566,11 @@ type ApiOverrideFieldMetadataFilter struct {
 	Type              ApiOverrideFieldMetadataFilterType `json:"type"`
 	UpdatedCustomMeta map[string]interface{}             `json:"updatedCustomMeta,omitempty"`
 	UpdatedMetricKind ApiMetricKind                      `json:"updatedMetricKind,omitempty"`
-	UpdatedUnit       string                             `json:"updatedUnit,omitempty"`
-	UpdatedUrn        string                             `json:"updatedUrn,omitempty"`
+
+	// UpdatedSamplePeriod Override the sample period (Go duration string, e.g. "5m", "1h").
+	UpdatedSamplePeriod string `json:"updatedSamplePeriod,omitempty"`
+	UpdatedUnit         string `json:"updatedUnit,omitempty"`
+	UpdatedUrn          string `json:"updatedUrn,omitempty"`
 }
 
 // ApiOverrideFieldMetadataFilterType defines model for ApiOverrideFieldMetadataFilter.Type.
@@ -1591,8 +1597,11 @@ type ApiQueryFieldMeta struct {
 	DataType       ApiMetricDataType      `json:"dataType"`
 	MetricKind     ApiMetricKind          `json:"metricKind,omitempty"`
 	Required       bool                   `json:"required"`
-	Unit           string                 `json:"unit,omitempty"`
-	Uri            string                 `json:"uri"`
+
+	// SamplePeriod Expected reporting interval as a Go duration string (e.g., "5m", "1h"). For delta metrics, this declares the wall-clock window each sample covers.
+	SamplePeriod string `json:"samplePeriod,omitempty"`
+	Unit         string `json:"unit,omitempty"`
+	Uri          string `json:"uri"`
 }
 
 // ApiQueryFieldValue defines model for ApiQueryFieldValue.

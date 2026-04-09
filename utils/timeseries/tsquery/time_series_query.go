@@ -2,18 +2,21 @@ package tsquery
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 )
 
 type Record timeseries.TsRecord[[]any]
 
 type FieldMeta struct {
-	urn        string
-	dataType   DataType
-	metricKind MetricKind
-	unit       string
-	required   bool
-	customMeta map[string]any
+	urn          string
+	dataType     DataType
+	metricKind   MetricKind
+	samplePeriod *time.Duration
+	unit         string
+	required     bool
+	customMeta   map[string]any
 }
 
 func (fm FieldMeta) GetCustomMetaStringValue(key string) string {
@@ -45,6 +48,15 @@ func (fm FieldMeta) MetricKind() MetricKind {
 
 func (fm FieldMeta) WithMetricKind(kind MetricKind) FieldMeta {
 	fm.metricKind = kind
+	return fm
+}
+
+func (fm FieldMeta) SamplePeriod() *time.Duration {
+	return fm.samplePeriod
+}
+
+func (fm FieldMeta) WithSamplePeriod(d time.Duration) FieldMeta {
+	fm.samplePeriod = &d
 	return fm
 }
 
@@ -108,16 +120,18 @@ func NewFieldMetaFull(
 }
 
 type ValueMeta struct {
-	DataType   DataType
-	MetricKind MetricKind
-	Unit       string
-	Required   bool
-	CustomMeta map[string]any
+	DataType     DataType
+	MetricKind   MetricKind
+	SamplePeriod *time.Duration
+	Unit         string
+	Required     bool
+	CustomMeta   map[string]any
 }
 
 type AddFieldMeta struct {
-	Urn                string
-	CustomMeta         map[string]any
-	OverrideUnit       string
-	OverrideMetricKind MetricKind
+	Urn                  string
+	CustomMeta           map[string]any
+	OverrideUnit         string
+	OverrideMetricKind   MetricKind
+	OverrideSamplePeriod string
 }

@@ -47,6 +47,7 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 		)
 	}
 
+	// samplePeriod intentionally not set — a computed rate has no meaningful sample period
 	newMeta, err := tsquery.NewFieldMetaFull(
 		result.meta.Urn(),
 		tsquery.DataTypeDecimal,
