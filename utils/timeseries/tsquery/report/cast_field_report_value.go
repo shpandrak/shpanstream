@@ -43,9 +43,10 @@ func (cf CastFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.Field
 
 	// Create field value metadata for the cast result
 	fieldValueMeta := tsquery.ValueMeta{
-		DataType:   cf.targetType,
-		MetricKind: sourceMeta.MetricKind,
-		Unit:       sourceMeta.Unit,
+		DataType:     cf.targetType,
+		MetricKind:   sourceMeta.MetricKind,
+		SamplePeriod: sourceMeta.SamplePeriod,
+		Unit:         sourceMeta.Unit,
 		Required:   sourceMeta.Required,
 		CustomMeta: sourceMeta.CustomMeta,
 	}

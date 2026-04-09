@@ -168,6 +168,7 @@ func buildReportFieldMeta(field ReportAggregationFieldDef, sourceMeta tsquery.Fi
 		metricKind = field.AddFieldMeta.OverrideMetricKind
 	}
 
+	// samplePeriod not propagated — aggregation produces a terminal scalar, not a time series
 	return tsquery.NewFieldMetaFull(urn, resultDataType, metricKind, sourceMeta.Required(), unit, customMeta)
 }
 

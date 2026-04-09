@@ -154,6 +154,20 @@ There is no transition flag or "unspecified" escape hatch. If a metric reaches D
 2. Tag cumulative/delta metrics with `metricKind` in datasources -- nothing breaks
 3. Upgrade to Phase 2 release -- any untagged metrics hitting DeltaFilter will error with a clear message
 
+### 9. Optional samplePeriod on FieldMeta
+
+An optional `samplePeriod` (`*time.Duration`) on `FieldMeta` declares the expected reporting interval for a metric (e.g., "this delta reports every 5m"). This is orthogonal to MetricKind -- useful for all kinds, not just delta -- but particularly valuable for delta metrics where missing samples cause silent undercounting during alignment.
+
+**How it works:**
+- Datasources set `samplePeriod` via `WithSamplePeriod(5 * time.Minute)` in Go or `"samplePeriod": "5m"` in JSON
+- All field values and filters propagate it (same pattern as MetricKind)
+- RateFilter clears it (rate output has no meaningful sample period)
+- Overridable via `OverrideFieldMetadataFilter` and `AddFieldMeta.overrideSamplePeriod`
+- Phase 1: plumbing only, no behavior changes
+- Phase 2: AlignerFilter uses `samplePeriod` + `MetricKind=Delta` for gap detection and proration
+
+**Industry context:** OpenTelemetry carries explicit start/end timestamps per delta point. Prometheus extrapolates to cover gaps. Google Cloud Monitoring interpolates missing periods. Our approach is lighter -- metadata on the field rather than per-point timestamps -- but enables the same downstream decisions.
+
 ---
 
 ## Phase 1: Types, Plumbing, Propagation

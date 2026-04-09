@@ -171,6 +171,16 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 		metricKind = r.addFieldMeta.OverrideMetricKind
 	}
 
+	// Determine sample period: use override if provided, otherwise from the first datasource
+	samplePeriod := datasourceMetas[0].SamplePeriod()
+	if r.addFieldMeta.OverrideSamplePeriod != "" {
+		sp, err := time.ParseDuration(r.addFieldMeta.OverrideSamplePeriod)
+		if err != nil {
+			return util.DefaultValue[Result](), fmt.Errorf("invalid OverrideSamplePeriod for reduction datasource %s: %w", urn, err)
+		}
+		samplePeriod = &sp
+	}
+
 	// Create result field metadata
 	resultFieldMeta, err := tsquery.NewFieldMetaFull(
 		urn,
@@ -182,6 +192,9 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 	)
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed to create result field metadata: %w", err)
+	}
+	if samplePeriod != nil {
+		*resultFieldMeta = resultFieldMeta.WithSamplePeriod(*samplePeriod)
 	}
 
 	// Pre-compute the reduction function based on type and data type
@@ -240,6 +253,16 @@ func (r ReductionDatasource) executeEmptyDatasourceFallback(ctx context.Context,
 		emptyMetricKind = r.addFieldMeta.OverrideMetricKind
 	}
 
+	// Determine sample period for empty fallback
+	emptySamplePeriod := valueMeta.SamplePeriod
+	if r.addFieldMeta.OverrideSamplePeriod != "" {
+		sp, err := time.ParseDuration(r.addFieldMeta.OverrideSamplePeriod)
+		if err != nil {
+			return util.DefaultValue[Result](), fmt.Errorf("invalid OverrideSamplePeriod for empty reduction datasource %s: %w", r.addFieldMeta.Urn, err)
+		}
+		emptySamplePeriod = &sp
+	}
+
 	// Create result field metadata from the emptyDatasourceValue's metadata
 	resultFieldMeta, err := tsquery.NewFieldMetaFull(
 		r.addFieldMeta.Urn,
@@ -251,6 +274,9 @@ func (r ReductionDatasource) executeEmptyDatasourceFallback(ctx context.Context,
 	)
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed to create result field metadata for empty datasource: %w", err)
+	}
+	if emptySamplePeriod != nil {
+		*resultFieldMeta = resultFieldMeta.WithSamplePeriod(*emptySamplePeriod)
 	}
 
 	// Generate aligned timestamps stream and map to TsRecords with the fallback value

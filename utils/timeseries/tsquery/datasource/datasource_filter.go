@@ -26,6 +26,17 @@ func PrepareFieldValue(
 	if meta.OverrideMetricKind != "" {
 		metricKind = meta.OverrideMetricKind
 	}
+	var samplePeriod *time.Duration
+	if valueMeta.SamplePeriod != nil {
+		samplePeriod = valueMeta.SamplePeriod
+	}
+	if meta.OverrideSamplePeriod != "" {
+		sp, err := time.ParseDuration(meta.OverrideSamplePeriod)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid OverrideSamplePeriod for field %s: %w", meta.Urn, err)
+		}
+		samplePeriod = &sp
+	}
 	fm, err := tsquery.NewFieldMetaFull(
 		meta.Urn,
 		valueMeta.DataType,
@@ -36,6 +47,9 @@ func PrepareFieldValue(
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed creating field meta for %s: %w", meta.Urn, err)
+	}
+	if samplePeriod != nil {
+		*fm = fm.WithSamplePeriod(*samplePeriod)
 	}
 	return fm, valueSupplier, nil
 

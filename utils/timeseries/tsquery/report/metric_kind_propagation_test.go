@@ -128,7 +128,7 @@ func TestReportOverrideFieldMetadataFilter_OverridesKind(t *testing.T) {
 
 	// Override kind to Cumulative
 	cumKind := tsquery.MetricKindCumulative
-	filter := NewOverrideFieldMetadataFilter("metric", nil, nil, &cumKind, nil)
+	filter := NewOverrideFieldMetadataFilter("metric", nil, nil, &cumKind, nil, nil)
 	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
@@ -158,7 +158,7 @@ func TestReportOverrideFieldMetadataFilter_PreservesKindWhenNil(t *testing.T) {
 
 	// Override URN but not kind
 	newUrn := "renamed"
-	filter := NewOverrideFieldMetadataFilter("metric", &newUrn, nil, nil, nil)
+	filter := NewOverrideFieldMetadataFilter("metric", &newUrn, nil, nil, nil, nil)
 	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 

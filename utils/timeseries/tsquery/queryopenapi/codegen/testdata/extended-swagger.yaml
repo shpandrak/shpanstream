@@ -313,6 +313,10 @@ components:
                     x-go-type-skip-optional-pointer: true
                 overrideMetricKind:
                     $ref: '#/components/schemas/ApiMetricKind'
+                overrideSamplePeriod:
+                    type: string
+                    description: Override the sample period for the output field (Go duration string, e.g. "5m", "1h").
+                    x-go-type-skip-optional-pointer: true
                 customMetadata:
                     x-go-type-skip-optional-pointer: true
                     type: object
@@ -366,6 +370,10 @@ components:
                     x-go-type-skip-optional-pointer: true
                 updatedMetricKind:
                     $ref: '#/components/schemas/ApiMetricKind'
+                updatedSamplePeriod:
+                    type: string
+                    description: Override the sample period (Go duration string, e.g. "5m", "1h").
+                    x-go-type-skip-optional-pointer: true
                 updatedCustomMeta:
                     type: object
                     additionalProperties: true
@@ -717,6 +725,10 @@ components:
                     minLength: 1
                 metricKind:
                     $ref: '#/components/schemas/ApiMetricKind'
+                samplePeriod:
+                    type: string
+                    description: Expected reporting interval as a Go duration string (e.g., "5m", "1h"). For delta metrics, this declares the wall-clock window each sample covers.
+                    x-go-type-skip-optional-pointer: true
                 customMetadata:
                     type: object
                     additionalProperties: true

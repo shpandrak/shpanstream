@@ -45,9 +45,10 @@ func (ufv UnaryNumericOperatorFieldValue) Execute(ctx context.Context, fieldMeta
 	}
 
 	fvm := tsquery.ValueMeta{
-		DataType:   dt,
-		MetricKind: operandMeta.MetricKind,
-		Unit:       operandMeta.Unit,
+		DataType:     dt,
+		MetricKind:   operandMeta.MetricKind,
+		SamplePeriod: operandMeta.SamplePeriod,
+		Unit:         operandMeta.Unit,
 		Required:   operandMeta.Required,
 		CustomMeta: operandMeta.CustomMeta,
 	}

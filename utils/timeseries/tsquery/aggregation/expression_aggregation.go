@@ -58,6 +58,7 @@ func (e *ExpressionAggregation) Execute(ctx context.Context, from, to time.Time)
 			metricKind = field.AddFieldMeta.OverrideMetricKind
 		}
 
+		// samplePeriod not propagated — aggregation produces a terminal scalar, not a time series
 		meta, err := tsquery.NewFieldMetaFull(urn, resolvedType, metricKind, true, field.AddFieldMeta.OverrideUnit, field.AddFieldMeta.CustomMeta)
 		if err != nil {
 			return Result{}, fmt.Errorf("expression aggregation field %d: failed to build metadata: %w", i, err)

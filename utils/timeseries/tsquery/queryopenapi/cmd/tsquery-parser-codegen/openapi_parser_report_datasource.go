@@ -4,6 +4,8 @@ package queryopenapi
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
@@ -48,6 +50,13 @@ func parseStaticReportDatasource(ds ApiStaticReportDatasource) (report.DataSourc
 		)
 		if err != nil {
 			return nil, badInputErrorWrap(fm, err, "failed to create field metadata %d for static report datasource", i)
+		}
+		if fm.SamplePeriod != "" {
+			sp, err := time.ParseDuration(fm.SamplePeriod)
+			if err != nil {
+				return nil, badInputErrorWrap(fm, err, "invalid samplePeriod for field %d", i)
+			}
+			*meta = meta.WithSamplePeriod(sp)
 		}
 		fieldsMeta[i] = *meta
 	}

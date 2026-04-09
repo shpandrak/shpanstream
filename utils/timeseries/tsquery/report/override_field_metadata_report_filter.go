@@ -5,26 +5,29 @@ import (
 	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
+	"time"
 )
 
 var _ Filter = OverrideFieldMetadataFilter{}
 
 // OverrideFieldMetadataFilter replaces the result stream with a single field extracted using the provided field.
 type OverrideFieldMetadataFilter struct {
-	fieldUrn             string
-	optUpdatedUrn        *string
-	optUpdatedUnit       *string
-	optUpdatedMetricKind *tsquery.MetricKind
-	optUpdatedCustomMeta map[string]any
+	fieldUrn               string
+	optUpdatedUrn          *string
+	optUpdatedUnit         *string
+	optUpdatedMetricKind   *tsquery.MetricKind
+	optUpdatedSamplePeriod *time.Duration
+	optUpdatedCustomMeta   map[string]any
 }
 
-func NewOverrideFieldMetadataFilter(fieldUrn string, optUpdatedUrn *string, optUpdatedUnit *string, optUpdatedMetricKind *tsquery.MetricKind, optUpdatedCustomMeta map[string]any) *OverrideFieldMetadataFilter {
+func NewOverrideFieldMetadataFilter(fieldUrn string, optUpdatedUrn *string, optUpdatedUnit *string, optUpdatedMetricKind *tsquery.MetricKind, optUpdatedSamplePeriod *time.Duration, optUpdatedCustomMeta map[string]any) *OverrideFieldMetadataFilter {
 	return &OverrideFieldMetadataFilter{
-		fieldUrn:             fieldUrn,
-		optUpdatedUrn:        optUpdatedUrn,
-		optUpdatedUnit:       optUpdatedUnit,
-		optUpdatedMetricKind: optUpdatedMetricKind,
-		optUpdatedCustomMeta: optUpdatedCustomMeta,
+		fieldUrn:               fieldUrn,
+		optUpdatedUrn:          optUpdatedUrn,
+		optUpdatedUnit:         optUpdatedUnit,
+		optUpdatedMetricKind:   optUpdatedMetricKind,
+		optUpdatedSamplePeriod: optUpdatedSamplePeriod,
+		optUpdatedCustomMeta:   optUpdatedCustomMeta,
 	}
 }
 
@@ -65,6 +68,12 @@ func (ofm OverrideFieldMetadataFilter) Filter(ctx context.Context, result Result
 		newMetricKind = *ofm.optUpdatedMetricKind
 	}
 
+	// Determine the new sample period
+	newSamplePeriod := originalFieldMeta.SamplePeriod()
+	if ofm.optUpdatedSamplePeriod != nil {
+		newSamplePeriod = ofm.optUpdatedSamplePeriod
+	}
+
 	// Merge custom metadata
 	var newCustomMeta map[string]any
 	if ofm.optUpdatedCustomMeta != nil {
@@ -85,6 +94,9 @@ func (ofm OverrideFieldMetadataFilter) Filter(ctx context.Context, result Result
 	)
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed to create updated field metadata: %w", err)
+	}
+	if newSamplePeriod != nil {
+		*updatedFieldMeta = updatedFieldMeta.WithSamplePeriod(*newSamplePeriod)
 	}
 
 	// Create new fields metadata slice with the updated field

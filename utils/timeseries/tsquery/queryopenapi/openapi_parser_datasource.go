@@ -2,6 +2,8 @@ package queryopenapi
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
@@ -44,6 +46,13 @@ func parseStaticDatasource(ds ApiStaticQueryDatasource) (datasource.DataSource, 
 	)
 	if err != nil {
 		return nil, badInputErrorWrap(ds.FieldMeta, err, "failed to create field metadata for static datasource")
+	}
+	if ds.FieldMeta.SamplePeriod != "" {
+		sp, err := time.ParseDuration(ds.FieldMeta.SamplePeriod)
+		if err != nil {
+			return nil, badInputErrorWrap(ds.FieldMeta, err, "invalid samplePeriod")
+		}
+		*fieldMeta = fieldMeta.WithSamplePeriod(sp)
 	}
 
 	// Convert API data to timeseries records (single value per record)
