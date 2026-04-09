@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-OAPI_CODEGEN="go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.0"
+OAPI_CODEGEN="go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.6.0"
 
 # Generate OpenAPI code
 rm -rf *.gen.go
