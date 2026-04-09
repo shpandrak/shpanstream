@@ -46,6 +46,23 @@ func (af AlignerFilter) BucketReduction() *tsquery.ReductionType {
 func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error) {
 	isNumeric := result.meta.DataType().IsNumeric()
 
+	// TODO Phase 2: kind-aware default bucket reduction
+	// When no explicit bucketReduction is set, choose default based on MetricKind:
+	//   Delta       → Sum (delta values are additive within a bucket)
+	//   Cumulative  → Last (last counter reading in bucket)
+	//   Gauge, Rate → time-weighted average (existing default behavior)
+	//
+	// if af.bucketReduction == nil {
+	// 	switch result.meta.MetricKind() {
+	// 	case tsquery.MetricKindDelta:
+	// 		sum := tsquery.ReductionTypeSum
+	// 		af.bucketReduction = &sum
+	// 	case tsquery.MetricKindCumulative:
+	// 		last := tsquery.ReductionTypeLast
+	// 		af.bucketReduction = &last
+	// 	}
+	// }
+
 	// Validate bucket reduction compatibility (must come before fill mode check)
 	if af.bucketReduction != nil && af.bucketReduction.RequiresNumeric() && !isNumeric {
 		return util.DefaultValue[Result](), fmt.Errorf(
@@ -73,9 +90,10 @@ func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error)
 	if af.bucketReduction != nil {
 		resultDataType := af.bucketReduction.GetResultDataType(result.meta.DataType())
 		if resultDataType != result.meta.DataType() {
-			newMeta, err := tsquery.NewFieldMetaWithCustomData(
+			newMeta, err := tsquery.NewFieldMetaFull(
 				result.meta.Urn(),
 				resultDataType,
+				result.meta.MetricKind(),
 				result.meta.Required(),
 				result.meta.Unit(),
 				result.meta.CustomMeta(),

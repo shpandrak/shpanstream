@@ -22,9 +22,14 @@ func PrepareField(
 	if meta.OverrideUnit != "" {
 		unit = meta.OverrideUnit
 	}
-	fm, err := tsquery.NewFieldMetaWithCustomData(
+	metricKind := valueMeta.MetricKind
+	if meta.OverrideMetricKind != "" {
+		metricKind = meta.OverrideMetricKind
+	}
+	fm, err := tsquery.NewFieldMetaFull(
 		meta.Urn,
 		valueMeta.DataType,
+		metricKind,
 		valueMeta.Required,
 		unit,
 		tsquery.MergeCustomMeta(valueMeta.CustomMeta, meta.CustomMeta),

@@ -27,7 +27,7 @@ func TestOverrideFieldMetadataFilter_OverrideUrn(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply filter to override URN
-	filter := NewOverrideFieldMetadataFilter(&newUrn, nil, nil)
+	filter := NewOverrideFieldMetadataFilter(&newUrn, nil, nil, nil)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute
@@ -63,7 +63,7 @@ func TestOverrideFieldMetadataFilter_OverrideUnit(t *testing.T) {
 
 	// Apply filter to override unit
 	newUnit := "fahrenheit"
-	filter := NewOverrideFieldMetadataFilter(nil, &newUnit, nil)
+	filter := NewOverrideFieldMetadataFilter(nil, &newUnit, nil, nil)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute
@@ -113,7 +113,7 @@ func TestOverrideFieldMetadataFilter_OverrideCustomMeta(t *testing.T) {
 		"version":     "v2",
 		"environment": "production",
 	}
-	filter := NewOverrideFieldMetadataFilter(nil, nil, newCustomMeta)
+	filter := NewOverrideFieldMetadataFilter(nil, nil, nil, newCustomMeta)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute
@@ -160,7 +160,7 @@ func TestOverrideFieldMetadataFilter_OverrideMultipleFields(t *testing.T) {
 	newUnit := "new_unit"
 	newCustomMeta := map[string]any{"key": "new"}
 
-	filter := NewOverrideFieldMetadataFilter(&newUrn, &newUnit, newCustomMeta)
+	filter := NewOverrideFieldMetadataFilter(&newUrn, &newUnit, nil, newCustomMeta)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute
@@ -195,7 +195,7 @@ func TestOverrideFieldMetadataFilter_NoOverrides(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply filter with no overrides (all nil)
-	filter := NewOverrideFieldMetadataFilter(nil, nil, nil)
+	filter := NewOverrideFieldMetadataFilter(nil, nil, nil, nil)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute
@@ -228,7 +228,7 @@ func TestOverrideFieldMetadataFilter_DataTypeImmutable(t *testing.T) {
 
 	// Apply filter (DataType cannot be changed via this filter)
 	newUrn := "renamed"
-	filter := NewOverrideFieldMetadataFilter(&newUrn, nil, nil)
+	filter := NewOverrideFieldMetadataFilter(&newUrn, nil, nil, nil)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute
@@ -255,7 +255,7 @@ func TestOverrideFieldMetadataFilter_RequiredImmutable(t *testing.T) {
 
 	// Apply filter (Required cannot be changed via this filter)
 	newUrn := "renamed"
-	filter := NewOverrideFieldMetadataFilter(&newUrn, nil, nil)
+	filter := NewOverrideFieldMetadataFilter(&newUrn, nil, nil, nil)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute
@@ -282,7 +282,7 @@ func TestOverrideFieldMetadataFilter_EmptyUrn(t *testing.T) {
 
 	// Try to override with empty URN (should fail)
 	emptyUrn := ""
-	filter := NewOverrideFieldMetadataFilter(&emptyUrn, nil, nil)
+	filter := NewOverrideFieldMetadataFilter(&emptyUrn, nil, nil, nil)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute and expect error
@@ -321,7 +321,7 @@ func TestOverrideFieldMetadataFilter_CustomMetaReplacement(t *testing.T) {
 	newCustomMeta := map[string]any{
 		"version": "v2",
 	}
-	filter := NewOverrideFieldMetadataFilter(nil, nil, newCustomMeta)
+	filter := NewOverrideFieldMetadataFilter(nil, nil, nil, newCustomMeta)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute
@@ -359,7 +359,7 @@ func TestOverrideFieldMetadataFilter_PreservesStreamData(t *testing.T) {
 	newUrn := "renamed"
 	newUnit := "items"
 	newCustomMeta := map[string]any{"version": "v2"}
-	filter := NewOverrideFieldMetadataFilter(&newUrn, &newUnit, newCustomMeta)
+	filter := NewOverrideFieldMetadataFilter(&newUrn, &newUnit, nil, newCustomMeta)
 	filteredDS := NewFilteredDataSource(ds, filter)
 
 	// Execute

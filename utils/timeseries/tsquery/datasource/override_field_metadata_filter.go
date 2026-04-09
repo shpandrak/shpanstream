@@ -14,6 +14,7 @@ var _ Filter = OverrideFieldMetadataFilter{}
 type OverrideFieldMetadataFilter struct {
 	optUpdatedUrn        *string
 	optUpdatedUnit       *string
+	optUpdatedMetricKind *tsquery.MetricKind
 	optUpdatedCustomMeta map[string]any
 }
 
@@ -21,15 +22,18 @@ type OverrideFieldMetadataFilter struct {
 // All parameters are optional (can be nil). If provided:
 // - optUpdatedUrn: overrides the field's URN
 // - optUpdatedUnit: overrides the field's unit
+// - optUpdatedMetricKind: overrides the field's metric kind
 // - optUpdatedCustomMeta: replaces the field's custom metadata entirely
 func NewOverrideFieldMetadataFilter(
 	optUpdatedUrn *string,
 	optUpdatedUnit *string,
+	optUpdatedMetricKind *tsquery.MetricKind,
 	optUpdatedCustomMeta map[string]any,
 ) OverrideFieldMetadataFilter {
 	return OverrideFieldMetadataFilter{
 		optUpdatedUrn:        optUpdatedUrn,
 		optUpdatedUnit:       optUpdatedUnit,
+		optUpdatedMetricKind: optUpdatedMetricKind,
 		optUpdatedCustomMeta: optUpdatedCustomMeta,
 	}
 }
@@ -49,6 +53,11 @@ func (ofm OverrideFieldMetadataFilter) Filter(ctx context.Context, result Result
 		finalUnit = *ofm.optUpdatedUnit
 	}
 
+	finalMetricKind := fieldMeta.MetricKind()
+	if ofm.optUpdatedMetricKind != nil {
+		finalMetricKind = *ofm.optUpdatedMetricKind
+	}
+
 	finalCustomMeta := fieldMeta.CustomMeta()
 	if ofm.optUpdatedCustomMeta != nil {
 		// Replace custom metadata entirely (not merge)
@@ -57,9 +66,10 @@ func (ofm OverrideFieldMetadataFilter) Filter(ctx context.Context, result Result
 
 	// Create new field metadata with updated values
 	// DataType and Required remain immutable
-	updatedFieldMeta, err := tsquery.NewFieldMetaWithCustomData(
+	updatedFieldMeta, err := tsquery.NewFieldMetaFull(
 		finalUrn,
 		fieldMeta.DataType(),
+		finalMetricKind,
 		fieldMeta.Required(),
 		finalUnit,
 		finalCustomMeta,

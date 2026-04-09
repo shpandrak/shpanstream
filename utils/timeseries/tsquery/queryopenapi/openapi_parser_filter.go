@@ -62,9 +62,15 @@ func parseOverrideFieldMetadataFilter(overrideFilter ApiOverrideFieldMetadataFil
 		optUpdatedUnit = &overrideFilter.UpdatedUnit
 	}
 
+	var optUpdatedMetricKind *tsquery.MetricKind
+	if overrideFilter.UpdatedMetricKind != "" {
+		optUpdatedMetricKind = &overrideFilter.UpdatedMetricKind
+	}
+
 	return datasource.NewOverrideFieldMetadataFilter(
 		optUpdatedUrn,
 		optUpdatedUnit,
+		optUpdatedMetricKind,
 		overrideFilter.UpdatedCustomMeta,
 	), nil
 }
@@ -209,9 +215,10 @@ func parseCustomAlignmentPeriod(period ApiCustomAlignmentPeriod) (timeseries.Ali
 
 func ParseAddFieldMeta(apiMeta ApiAddFieldMeta) tsquery.AddFieldMeta {
 	return tsquery.AddFieldMeta{
-		Urn:          apiMeta.Uri,
-		CustomMeta:   apiMeta.CustomMetadata,
-		OverrideUnit: apiMeta.OverrideUnit,
+		Urn:                apiMeta.Uri,
+		CustomMeta:         apiMeta.CustomMetadata,
+		OverrideUnit:       apiMeta.OverrideUnit,
+		OverrideMetricKind: apiMeta.OverrideMetricKind,
 	}
 }
 

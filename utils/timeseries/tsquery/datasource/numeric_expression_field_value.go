@@ -105,6 +105,7 @@ func (nef NumericExpressionFieldValue) Execute(ctx context.Context, fieldMeta ts
 	// Merge CustomMeta from both operands, op1 takes precedence on conflicts
 	fvm := tsquery.ValueMeta{
 		DataType:   promotedType,
+		MetricKind: op1Meta.MetricKind,
 		Unit:       updatedUnit,
 		Required:   op1Meta.Required && op2Meta.Required,
 		CustomMeta: tsquery.MergeCustomMeta(op2Meta.CustomMeta, op1Meta.CustomMeta),

@@ -58,9 +58,10 @@ func (p CustomPluginParser) ParseReportFilter(_ *ParsingContext, filter ApiRepor
 // This is a mock implementation for testing purposes
 func parsePostgresDatasource(ds ApiPostgresQueryDatasource) (datasource.DataSource, error) {
 	// Parse field metadata
-	fieldMeta, err := tsquery.NewFieldMetaWithCustomData(
+	fieldMeta, err := tsquery.NewFieldMetaFull(
 		ds.FieldMeta.Uri,
 		ds.FieldMeta.DataType,
+		ds.FieldMeta.MetricKind,
 		ds.FieldMeta.Required,
 		ds.FieldMeta.Unit,
 		ds.FieldMeta.CustomMetadata,

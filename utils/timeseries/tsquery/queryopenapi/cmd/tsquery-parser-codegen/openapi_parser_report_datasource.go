@@ -38,9 +38,10 @@ func parseStaticReportDatasource(ds ApiStaticReportDatasource) (report.DataSourc
 	// Parse fields metadata
 	fieldsMeta := make([]tsquery.FieldMeta, len(ds.FieldsMeta))
 	for i, fm := range ds.FieldsMeta {
-		meta, err := tsquery.NewFieldMetaWithCustomData(
+		meta, err := tsquery.NewFieldMetaFull(
 			fm.Uri,
 			fm.DataType,
+			fm.MetricKind,
 			fm.Required,
 			fm.Unit,
 			fm.CustomMetadata,
