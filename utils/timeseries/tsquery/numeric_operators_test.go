@@ -2,6 +2,8 @@ package tsquery
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestBinaryNumericOperatorType_Validate_Valid(t *testing.T) {
@@ -68,4 +70,37 @@ func TestUnaryNumericOperatorType_Validate_Invalid(t *testing.T) {
 			t.Errorf("expected invalid operator %q to fail validation, but got nil", op)
 		}
 	}
+}
+
+func TestDivInt_DivisionByZero_Panics(t *testing.T) {
+	require.PanicsWithValue(t, DivisionByZeroError{}, func() {
+		DivInt(int64(10), int64(0))
+	})
+}
+
+func TestDivDecimal_DivisionByZero_Panics(t *testing.T) {
+	require.PanicsWithValue(t, DivisionByZeroError{}, func() {
+		DivDecimal(float64(10), float64(0))
+	})
+}
+
+func TestModInt_DivisionByZero_Panics(t *testing.T) {
+	require.PanicsWithValue(t, DivisionByZeroError{}, func() {
+		ModInt(int64(10), int64(0))
+	})
+}
+
+func TestDivInt_ValidDivision(t *testing.T) {
+	result := DivInt(int64(10), int64(3))
+	require.Equal(t, int64(3), result)
+}
+
+func TestDivDecimal_ValidDivision(t *testing.T) {
+	result := DivDecimal(float64(10), float64(3))
+	require.InDelta(t, 3.3333333, result, 0.0001)
+}
+
+func TestModInt_ValidMod(t *testing.T) {
+	result := ModInt(int64(10), int64(3))
+	require.Equal(t, int64(1), result)
 }
