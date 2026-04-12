@@ -88,10 +88,26 @@ func (cf SelectorFieldValue) Execute(ctx context.Context, fieldMeta tsquery.Fiel
 		)
 	}
 
+	// Validate metric kind: unset ("") is transparent, explicit kinds must match
+	trueKind := trueMeta.MetricKind
+	falseKind := falseMeta.MetricKind
+	if trueKind != falseKind {
+		if trueKind != "" && falseKind != "" {
+			return util.DefaultValue[tsquery.ValueMeta](), nil, fmt.Errorf(
+				"selector requires matching metric kinds: true=%s, false=%s",
+				trueKind, falseKind,
+			)
+		}
+	}
+	outputKind := trueKind
+	if trueKind == "" {
+		outputKind = falseKind
+	}
+
 	// Create field metadata
 	fvm := tsquery.ValueMeta{
 		DataType:     trueType,
-		MetricKind:   trueMeta.MetricKind,
+		MetricKind:   outputKind,
 		SamplePeriod: trueMeta.SamplePeriod,
 		Unit:         trueMeta.Unit,
 		Required:   trueMeta.Required,

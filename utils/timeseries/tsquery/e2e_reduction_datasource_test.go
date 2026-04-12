@@ -15,10 +15,18 @@ func alignerFilterPtr(af datasource.AlignerFilter) *datasource.AlignerFilter { r
 
 // Helper function to create a single-value datasource from scalar values
 func createDatasource(t *testing.T, urn string, dataType tsquery.DataType, required bool, unit string, timestamps []time.Time, values []any) datasource.DataSource {
+	return createDatasourceWithKind(t, urn, dataType, "", required, unit, timestamps, values)
+}
+
+func createCumulativeDatasource(t *testing.T, urn string, dataType tsquery.DataType, required bool, unit string, timestamps []time.Time, values []any) datasource.DataSource {
+	return createDatasourceWithKind(t, urn, dataType, tsquery.MetricKindCumulative, required, unit, timestamps, values)
+}
+
+func createDatasourceWithKind(t *testing.T, urn string, dataType tsquery.DataType, kind tsquery.MetricKind, required bool, unit string, timestamps []time.Time, values []any) datasource.DataSource {
 	require.Equal(t, len(timestamps), len(values), "timestamps and values must have same length")
 
 	// Create field metadata
-	fieldMeta, err := tsquery.NewFieldMetaWithCustomData(urn, dataType, required, unit, nil)
+	fieldMeta, err := tsquery.NewFieldMetaFull(urn, dataType, kind, required, unit, nil)
 	require.NoError(t, err)
 
 	// Create records

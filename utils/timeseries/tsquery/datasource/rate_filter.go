@@ -46,6 +46,9 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 			"rate filter can only be applied to required fields (no nils allowed)",
 		)
 	}
+	if result.meta.MetricKind() == tsquery.MetricKindRate {
+		return util.DefaultValue[Result](), fmt.Errorf("rate filter cannot be applied to data that is already a rate")
+	}
 
 	// samplePeriod intentionally not set — a computed rate has no meaningful sample period
 	newMeta, err := tsquery.NewFieldMetaFull(
@@ -74,6 +77,15 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 		}
 	}
 
+	// Implicit gap threshold: when no explicit maxGapDuration, use 2×samplePeriod
+	effectiveMaxGap := rf.optMaxGapDuration
+	if effectiveMaxGap == nil {
+		if sp := result.meta.SamplePeriod(); sp != nil {
+			defaultGap := *sp * 2
+			effectiveMaxGap = &defaultGap
+		}
+	}
+
 	var prevItem *timeseries.TsRecord[any]
 	return Result{
 		meta: *newMeta,
@@ -87,7 +99,7 @@ func (rf RateFilter) Filter(_ context.Context, result Result) (Result, error) {
 				}
 
 				// Gap detection: if gap exceeds threshold, treat as new baseline
-				if rf.optMaxGapDuration != nil && item.Timestamp.Sub(prevItem.Timestamp) > *rf.optMaxGapDuration {
+				if effectiveMaxGap != nil && item.Timestamp.Sub(prevItem.Timestamp) > *effectiveMaxGap {
 					prevItem = &item
 					return nil, nil
 				}

@@ -334,7 +334,7 @@ func TestAggregation_WithFilters(t *testing.T) {
 	}
 	// Values: 10, 20, 30, 40
 	values := []any{int64(10), int64(20), int64(30), int64(40)}
-	rawDS := createDatasource(t, "energy", tsquery.DataTypeInteger, true, "kWh", timestamps, values)
+	rawDS := createCumulativeDatasource(t, "energy", tsquery.DataTypeInteger, true, "kWh", timestamps, values)
 
 	// Apply a delta filter: delta produces 3 values: 10, 10, 10
 	filteredDS := datasource.NewFilteredDataSource(rawDS, datasource.NewDeltaFilter(false, 0, false, nil))

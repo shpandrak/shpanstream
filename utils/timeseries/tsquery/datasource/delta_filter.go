@@ -43,17 +43,17 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 		)
 	}
 
-	// TODO Phase 2: validate input kind
-	// inputKind := result.meta.MetricKind()
-	// if inputKind == tsquery.MetricKindGauge {
-	// 	return util.DefaultValue[Result](), fmt.Errorf("delta filter cannot be applied to gauge metrics; set metricKind to cumulative on the datasource")
-	// }
-	// if inputKind == tsquery.MetricKindDelta {
-	// 	return util.DefaultValue[Result](), fmt.Errorf("delta filter cannot be applied to data that is already delta")
-	// }
-	// if inputKind == tsquery.MetricKindRate {
-	// 	return util.DefaultValue[Result](), fmt.Errorf("delta filter cannot be applied to rate metrics")
-	// }
+	// Validate input kind
+	inputKind := result.meta.MetricKind()
+	if inputKind == tsquery.MetricKindGauge {
+		return util.DefaultValue[Result](), fmt.Errorf("delta filter cannot be applied to gauge metrics; set metricKind to cumulative on the datasource")
+	}
+	if inputKind == tsquery.MetricKindDelta {
+		return util.DefaultValue[Result](), fmt.Errorf("delta filter cannot be applied to data that is already delta")
+	}
+	if inputKind == tsquery.MetricKindRate {
+		return util.DefaultValue[Result](), fmt.Errorf("delta filter cannot be applied to rate metrics")
+	}
 
 	// Set output kind to Delta — the output represents per-interval changes
 	outputMeta := result.meta.WithMetricKind(tsquery.MetricKindDelta)
@@ -61,6 +61,15 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 	subFunc, err := tsquery.BinaryNumericOperatorSub.GetFuncImpl(dataType)
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("failed to get subtraction function: %w", err)
+	}
+
+	// Implicit gap threshold: when no explicit maxGapDuration, use 2×samplePeriod
+	effectiveMaxGap := df.optMaxGapDuration
+	if effectiveMaxGap == nil {
+		if sp := result.meta.SamplePeriod(); sp != nil {
+			defaultGap := *sp * 2
+			effectiveMaxGap = &defaultGap
+		}
 	}
 
 	var prevItem *timeseries.TsRecord[any]
@@ -79,7 +88,7 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 					}
 
 					// Gap detection: if gap exceeds threshold, treat as new baseline
-					if df.optMaxGapDuration != nil && item.Timestamp.Sub(prevItem.Timestamp) > *df.optMaxGapDuration {
+					if effectiveMaxGap != nil && item.Timestamp.Sub(prevItem.Timestamp) > *effectiveMaxGap {
 						prevItem = &item
 						return nil, nil
 					}
@@ -135,7 +144,7 @@ func (df DeltaFilter) Filter(_ context.Context, result Result) (Result, error) {
 				}
 
 				// Gap detection: if gap exceeds threshold, treat as new baseline
-				if df.optMaxGapDuration != nil && item.Timestamp.Sub(prevItem.Timestamp) > *df.optMaxGapDuration {
+				if effectiveMaxGap != nil && item.Timestamp.Sub(prevItem.Timestamp) > *effectiveMaxGap {
 					prevItem = &item
 					return nil, nil
 				}

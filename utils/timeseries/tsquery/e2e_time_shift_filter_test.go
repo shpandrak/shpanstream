@@ -209,7 +209,7 @@ func TestTimeShiftFilter_CompositionWithDelta(t *testing.T) {
 	}
 
 	// Cumulative energy readings at end-of-hour
-	ds := createDatasource(t, "Energy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Energy", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 250.0, 400.0})
 
 	// First apply delta, then time shift

@@ -46,22 +46,18 @@ func (af AlignerFilter) BucketReduction() *tsquery.ReductionType {
 func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error) {
 	isNumeric := result.meta.DataType().IsNumeric()
 
-	// TODO Phase 2: kind-aware default bucket reduction
-	// When no explicit bucketReduction is set, choose default based on MetricKind:
-	//   Delta       → Sum (delta values are additive within a bucket)
-	//   Cumulative  → Last (last counter reading in bucket)
-	//   Gauge, Rate → time-weighted average (existing default behavior)
-	//
-	// if af.bucketReduction == nil {
-	// 	switch result.meta.MetricKind() {
-	// 	case tsquery.MetricKindDelta:
-	// 		sum := tsquery.ReductionTypeSum
-	// 		af.bucketReduction = &sum
-	// 	case tsquery.MetricKindCumulative:
-	// 		last := tsquery.ReductionTypeLast
-	// 		af.bucketReduction = &last
-	// 	}
-	// }
+	// Kind-aware default bucket reduction: when no explicit bucketReduction is set,
+	// choose default based on MetricKind. Gauge/Rate use the existing interpolation path.
+	if af.bucketReduction == nil {
+		switch result.meta.MetricKind() {
+		case tsquery.MetricKindDelta:
+			sum := tsquery.ReductionTypeSum
+			af.bucketReduction = &sum
+		case tsquery.MetricKindCumulative:
+			last := tsquery.ReductionTypeLast
+			af.bucketReduction = &last
+		}
+	}
 
 	// Validate bucket reduction compatibility (must come before fill mode check)
 	if af.bucketReduction != nil && af.bucketReduction.RequiresNumeric() && !isNumeric {
@@ -101,10 +97,6 @@ func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error)
 			if err != nil {
 				return util.DefaultValue[Result](), fmt.Errorf("failed to create new field meta for bucket reduction: %w", err)
 			}
-			if sp := result.meta.SamplePeriod(); sp != nil {
-				*newMeta = newMeta.WithSamplePeriod(*sp)
-			}
-			// TODO Phase 2: derive samplePeriod from alignment period when bucket reduction changes the effective cadence
 			resultMeta = *newMeta
 		}
 	}
@@ -210,6 +202,11 @@ func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error)
 			alignmentPeriodClassifierFunc[any](af.alignmentPeriod),
 			result.data,
 		)
+	}
+
+	// Derive output samplePeriod from alignment period (the output cadence is now the alignment period)
+	if fixedPeriod, ok := af.alignmentPeriod.(timeseries.FixedAlignmentPeriod); ok {
+		resultMeta = resultMeta.WithSamplePeriod(fixedPeriod.Duration)
 	}
 
 	// If fillMode is set, wrap the sparse aligned stream with a gap-filler

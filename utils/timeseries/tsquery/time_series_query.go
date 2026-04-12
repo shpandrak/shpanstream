@@ -46,6 +46,14 @@ func (fm FieldMeta) MetricKind() MetricKind {
 	return fm.metricKind
 }
 
+// RawMetricKind returns the metric kind as declared, without normalization.
+// Returns "" if no kind was explicitly set. Use MetricKind() for resolved behavior;
+// use RawMetricKind() when preserving the unset-vs-explicit distinction matters
+// (e.g., selector validation, ValueMeta propagation).
+func (fm FieldMeta) RawMetricKind() MetricKind {
+	return fm.metricKind
+}
+
 func (fm FieldMeta) WithMetricKind(kind MetricKind) FieldMeta {
 	fm.metricKind = kind
 	return fm

@@ -30,7 +30,7 @@ func (rf RefFieldValue) Execute(ctx context.Context, fieldsMeta []tsquery.FieldM
 
 	return tsquery.ValueMeta{
 		DataType:     fm.DataType(),
-		MetricKind:   fm.MetricKind(),
+		MetricKind:   fm.RawMetricKind(),
 		SamplePeriod: fm.SamplePeriod(),
 		Unit:         fm.Unit(),
 		Required:   fm.Required(),

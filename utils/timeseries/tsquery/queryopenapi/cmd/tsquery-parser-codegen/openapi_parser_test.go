@@ -1488,10 +1488,11 @@ func TestParseFilter_DeltaFilter(t *testing.T) {
 	staticDs := ApiStaticQueryDatasource{
 		Type: "static",
 		FieldMeta: ApiQueryFieldMeta{
-			Uri:      "LifetimeEnergy",
-			DataType: tsquery.DataTypeDecimal,
-			Required: true, // Must be required for delta filter
-			Unit:     "kWh",
+			Uri:        "LifetimeEnergy",
+			DataType:   tsquery.DataTypeDecimal,
+			Required:   true, // Must be required for delta filter
+			Unit:       "kWh",
+			MetricKind: tsquery.MetricKindCumulative,
 		},
 		Data: []ApiMeasurementValue{
 			{Timestamp: baseTime, Value: 100.0},
@@ -1548,10 +1549,11 @@ func TestParseFilter_DeltaFilter_NonNegative(t *testing.T) {
 	staticDs := ApiStaticQueryDatasource{
 		Type: "static",
 		FieldMeta: ApiQueryFieldMeta{
-			Uri:      "LifetimeEnergy",
-			DataType: tsquery.DataTypeDecimal,
-			Required: true,
-			Unit:     "kWh",
+			Uri:        "LifetimeEnergy",
+			DataType:   tsquery.DataTypeDecimal,
+			Required:   true,
+			Unit:       "kWh",
+			MetricKind: tsquery.MetricKindCumulative,
 		},
 		Data: []ApiMeasurementValue{
 			{Timestamp: baseTime, Value: 100.0},
@@ -1601,10 +1603,11 @@ func TestParseFilter_DeltaFilter_MaxCounterValue(t *testing.T) {
 	staticDs := ApiStaticQueryDatasource{
 		Type: "static",
 		FieldMeta: ApiQueryFieldMeta{
-			Uri:      "Counter",
-			DataType: tsquery.DataTypeDecimal,
-			Required: true,
-			Unit:     "kWh",
+			Uri:        "Counter",
+			DataType:   tsquery.DataTypeDecimal,
+			Required:   true,
+			Unit:       "kWh",
+			MetricKind: tsquery.MetricKindCumulative,
 		},
 		Data: []ApiMeasurementValue{
 			{Timestamp: baseTime, Value: 900.0},
@@ -1647,16 +1650,17 @@ func TestParseFilter_DeltaFilter_MaxCounterValue(t *testing.T) {
 	assert.Equal(t, 150.0, records[1].Value) // wrap: (1000 - 950) + 100 = 150
 }
 
-func TestParseFilter_DeltaFilter_BackwardCompatible(t *testing.T) {
+func TestParseFilter_DeltaFilter_DefaultOptions(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	staticDs := ApiStaticQueryDatasource{
 		Type: "static",
 		FieldMeta: ApiQueryFieldMeta{
-			Uri:      "Temperature",
-			DataType: tsquery.DataTypeDecimal,
-			Required: true,
-			Unit:     "celsius",
+			Uri:        "Counter",
+			DataType:   tsquery.DataTypeDecimal,
+			Required:   true,
+			Unit:       "count",
+			MetricKind: tsquery.MetricKindCumulative,
 		},
 		Data: []ApiMeasurementValue{
 			{Timestamp: baseTime, Value: 100.0},
@@ -1822,13 +1826,14 @@ func TestParseFilter_RateFilter_MaxCounterValueWithoutNonNegative_Error(t *testi
 func TestParseFilter_DeltaFilter_NegativeDelta(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	// Create a static datasource where values decrease
+	// Create a cumulative counter where values decrease (counter reset without nonNegative)
 	staticDs := ApiStaticQueryDatasource{
 		Type: "static",
 		FieldMeta: ApiQueryFieldMeta{
-			Uri:      "Temperature",
-			DataType: tsquery.DataTypeDecimal,
-			Required: true,
+			Uri:        "Counter",
+			DataType:   tsquery.DataTypeDecimal,
+			Required:   true,
+			MetricKind: tsquery.MetricKindCumulative,
 		},
 		Data: []ApiMeasurementValue{
 			{Timestamp: baseTime, Value: 100.0},
@@ -2387,9 +2392,10 @@ func TestParseFilteredMultiDatasource(t *testing.T) {
 	staticDs1 := ApiStaticQueryDatasource{
 		Type: "static",
 		FieldMeta: ApiQueryFieldMeta{
-			Uri:      "counter1",
-			DataType: tsquery.DataTypeDecimal,
-			Required: true,
+			Uri:        "counter1",
+			DataType:   tsquery.DataTypeDecimal,
+			Required:   true,
+			MetricKind: tsquery.MetricKindCumulative,
 		},
 		Data: []ApiMeasurementValue{
 			{Timestamp: baseTime, Value: 100.0},
@@ -2400,9 +2406,10 @@ func TestParseFilteredMultiDatasource(t *testing.T) {
 	staticDs2 := ApiStaticQueryDatasource{
 		Type: "static",
 		FieldMeta: ApiQueryFieldMeta{
-			Uri:      "counter2",
-			DataType: tsquery.DataTypeDecimal,
-			Required: true,
+			Uri:        "counter2",
+			DataType:   tsquery.DataTypeDecimal,
+			Required:   true,
+			MetricKind: tsquery.MetricKindCumulative,
 		},
 		Data: []ApiMeasurementValue{
 			{Timestamp: baseTime, Value: 10.0},
