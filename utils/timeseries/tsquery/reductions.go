@@ -28,10 +28,47 @@ const (
 	ReductionTypeP95      ReductionType = "p95"
 	ReductionTypeP99      ReductionType = "p99"
 	ReductionTypeP999     ReductionType = "p999"
+
+	// Paired reductions — compare two fields (actual vs predicted).
+	// These require a compare field URN in the aggregation definition.
+	ReductionTypeMAE     ReductionType = "mae"     // Mean Absolute Error
+	ReductionTypeRMSE    ReductionType = "rmse"    // Root Mean Squared Error
+	ReductionTypeMBE     ReductionType = "mbe"     // Mean Bias Error
+	ReductionTypeMAPE    ReductionType = "mape"    // Mean Absolute Percentage Error
+	ReductionTypePearson ReductionType = "pearson"  // Pearson correlation coefficient
+	ReductionTypeR2      ReductionType = "r2"       // Coefficient of determination (R²)
 )
 
+// IsPaired reports whether this reduction type is a paired (two-field) reduction
+// that compares actual vs predicted values. Paired reductions require a compare field URN.
+func (reductionType ReductionType) IsPaired() bool {
+	switch reductionType {
+	case ReductionTypeMAE, ReductionTypeRMSE, ReductionTypeMBE, ReductionTypeMAPE,
+		ReductionTypePearson, ReductionTypeR2:
+		return true
+	default:
+		return false
+	}
+}
+
+// ResultUnit returns the unit for a paired reduction's output given the source field unit.
+// MAE, RMSE, MBE produce errors in the source unit; MAPE produces a percentage;
+// Pearson and R² are dimensionless.
+func (reductionType ReductionType) ResultUnit(sourceUnit string) string {
+	switch reductionType {
+	case ReductionTypeMAE, ReductionTypeRMSE, ReductionTypeMBE:
+		return sourceUnit
+	case ReductionTypeMAPE:
+		return "percent"
+	case ReductionTypePearson, ReductionTypeR2:
+		return ""
+	default:
+		return sourceUnit
+	}
+}
+
 // RequiresNumeric reports whether this reduction type requires a numeric input data type.
-// count, first, and last work on any type; all others (sum, avg, min, max) require numeric.
+// count, first, and last work on any type; all others (sum, avg, min, max, paired) require numeric.
 func (reductionType ReductionType) RequiresNumeric() bool {
 	switch reductionType {
 	case ReductionTypeCount, ReductionTypeFirst, ReductionTypeLast:
@@ -50,6 +87,7 @@ func (reductionType ReductionType) UseIdentityWhenSingleValue() bool {
 		return false
 	default:
 		// stddev, variance, spread return false (single value → 0)
+		// paired reductions return false (they compute their own result)
 		return false
 	}
 }
@@ -58,6 +96,10 @@ func (reductionType ReductionType) GetResultDataType(forDataType DataType) DataT
 	case ReductionTypeAvg, ReductionTypeStddev, ReductionTypeVariance,
 		ReductionTypeP50, ReductionTypeP75, ReductionTypeP90, ReductionTypeP95, ReductionTypeP99, ReductionTypeP999:
 		// These always return decimal (due to sqrt, division, or interpolation)
+		return DataTypeDecimal
+	case ReductionTypeMAE, ReductionTypeRMSE, ReductionTypeMBE, ReductionTypeMAPE,
+		ReductionTypePearson, ReductionTypeR2:
+		// Paired reductions always produce decimal (error metrics, correlation coefficients)
 		return DataTypeDecimal
 	case ReductionTypeCount:
 		// Count always returns an integer
@@ -138,8 +180,11 @@ func (reductionType ReductionType) GetReducerFunc(forDataType DataType) (func([]
 	case ReductionTypeP999:
 		return percentileReducerFunc(forDataType, 0.999), nil
 
+	case ReductionTypeMAE, ReductionTypeRMSE, ReductionTypeMBE, ReductionTypeMAPE,
+		ReductionTypePearson, ReductionTypeR2:
+		return nil, fmt.Errorf("reduction type %s is a paired reduction that compares two fields — use it in a fromReport aggregation with compareFieldUrn set", reductionType)
+
 	default:
-		// This should never happen if validation is correct
 		return nil, fmt.Errorf("unsupported reduction type: %s", reductionType)
 	}
 }
@@ -305,6 +350,9 @@ func (reductionType ReductionType) NewAccumulator(forDataType DataType) (Accumul
 		return newPercentileAccumulator(forDataType, 0.99), nil
 	case ReductionTypeP999:
 		return newPercentileAccumulator(forDataType, 0.999), nil
+	case ReductionTypeMAE, ReductionTypeRMSE, ReductionTypeMBE, ReductionTypeMAPE,
+		ReductionTypePearson, ReductionTypeR2:
+		return nil, fmt.Errorf("reduction type %s is a paired reduction — use NewPairedAccumulator() instead, or use it in a fromReport aggregation with compareFieldUrn", reductionType)
 	default:
 		return nil, fmt.Errorf("unsupported reduction type: %s", reductionType)
 	}

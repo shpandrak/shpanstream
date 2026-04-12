@@ -1027,9 +1027,23 @@ type ApiAggregation struct {
 
 // ApiAggregationField Defines a single aggregation to compute on a datasource field.
 type ApiAggregationField struct {
-	EmptyValue    *ApiQueryFieldValue `json:"emptyValue,omitempty"`
-	FieldMeta     *ApiAddFieldMeta    `json:"fieldMeta,omitempty"`
-	ReductionType ApiReductionType    `json:"reductionType"`
+	EmptyValue *ApiQueryFieldValue `json:"emptyValue,omitempty"`
+	FieldMeta  *ApiAddFieldMeta    `json:"fieldMeta,omitempty"`
+
+	// ReductionType Reduction type used to collapse a time series into a scalar value.
+	//
+	// **Single-field reductions** operate on one source field:
+	// sum, avg, min, max, count, first, last, stddev, variance, spread, p50–p999.
+	//
+	// **Paired reductions** compare two fields (actual vs predicted) to produce
+	// forecast-error metrics. They require `compareFieldUrn` on the aggregation field:
+	// - `mae`  — Mean Absolute Error: mean(|actual − predicted|). Average error magnitude in original units.
+	// - `rmse` — Root Mean Squared Error: √mean((actual − predicted)²). Penalises large errors more than MAE.
+	// - `mbe`  — Mean Bias Error: mean(actual − predicted). Positive = under-predicting, negative = over-predicting.
+	// - `mape` — Mean Absolute Percentage Error: mean(|actual − predicted| / |actual|) × 100. Rows where actual = 0 are skipped.
+	// - `pearson` — Pearson correlation coefficient between actual and predicted (1.0 = perfect tracking). Requires ≥ 2 data points.
+	// - `r2`   — Coefficient of determination (R²). Fraction of actual variance explained by the forecast. Requires ≥ 2 data points.
+	ReductionType ApiReductionType `json:"reductionType"`
 }
 
 // ApiAggregationFieldValue Expression over aggregation scalar results. Supports references to source
@@ -1045,7 +1059,21 @@ type ApiAggregationResult struct {
 
 // ApiAlignerFilter defines model for ApiAlignerFilter.
 type ApiAlignerFilter struct {
-	AlignerPeriod   ApiAlignmentPeriod   `json:"alignerPeriod"`
+	AlignerPeriod ApiAlignmentPeriod `json:"alignerPeriod"`
+
+	// BucketReduction Reduction type used to collapse a time series into a scalar value.
+	//
+	// **Single-field reductions** operate on one source field:
+	// sum, avg, min, max, count, first, last, stddev, variance, spread, p50–p999.
+	//
+	// **Paired reductions** compare two fields (actual vs predicted) to produce
+	// forecast-error metrics. They require `compareFieldUrn` on the aggregation field:
+	// - `mae`  — Mean Absolute Error: mean(|actual − predicted|). Average error magnitude in original units.
+	// - `rmse` — Root Mean Squared Error: √mean((actual − predicted)²). Penalises large errors more than MAE.
+	// - `mbe`  — Mean Bias Error: mean(actual − predicted). Positive = under-predicting, negative = over-predicting.
+	// - `mape` — Mean Absolute Percentage Error: mean(|actual − predicted| / |actual|) × 100. Rows where actual = 0 are skipped.
+	// - `pearson` — Pearson correlation coefficient between actual and predicted (1.0 = perfect tracking). Requires ≥ 2 data points.
+	// - `r2`   — Coefficient of determination (R²). Fraction of actual variance explained by the forecast. Requires ≥ 2 data points.
 	BucketReduction *ApiReductionType    `json:"bucketReduction,omitempty"`
 	FillMode        *ApiFillMode         `json:"fillMode,omitempty"`
 	Type            ApiAlignerFilterType `json:"type"`
@@ -1648,7 +1676,21 @@ type ApiRateFilterType string
 // ApiReduceReportFieldValue Reduces multiple fields into a single value using a reduction function. If fieldUrns is not specified, all numeric fields are reduced.
 type ApiReduceReportFieldValue struct {
 	// FieldUrns URNs of fields to reduce. If not specified, all numeric fields are reduced.
-	FieldUrns     []string                      `json:"fieldUrns,omitempty"`
+	FieldUrns []string `json:"fieldUrns,omitempty"`
+
+	// ReductionType Reduction type used to collapse a time series into a scalar value.
+	//
+	// **Single-field reductions** operate on one source field:
+	// sum, avg, min, max, count, first, last, stddev, variance, spread, p50–p999.
+	//
+	// **Paired reductions** compare two fields (actual vs predicted) to produce
+	// forecast-error metrics. They require `compareFieldUrn` on the aggregation field:
+	// - `mae`  — Mean Absolute Error: mean(|actual − predicted|). Average error magnitude in original units.
+	// - `rmse` — Root Mean Squared Error: √mean((actual − predicted)²). Penalises large errors more than MAE.
+	// - `mbe`  — Mean Bias Error: mean(actual − predicted). Positive = under-predicting, negative = over-predicting.
+	// - `mape` — Mean Absolute Percentage Error: mean(|actual − predicted| / |actual|) × 100. Rows where actual = 0 are skipped.
+	// - `pearson` — Pearson correlation coefficient between actual and predicted (1.0 = perfect tracking). Requires ≥ 2 data points.
+	// - `r2`   — Coefficient of determination (R²). Fraction of actual variance explained by the forecast. Requires ≥ 2 data points.
 	ReductionType ApiReductionType              `json:"reductionType"`
 	Type          ApiReduceReportFieldValueType `json:"type"`
 }
@@ -1670,15 +1712,41 @@ type ApiReductionQueryDatasource struct {
 	IncludePartial *bool `json:"includePartial,omitempty"`
 
 	// MultiDatasource Multi Datasource is a collection of datasources, either static or a result of a dynamic query.
-	MultiDatasource ApiMultiDatasource              `json:"multiDatasource"`
-	ReductionType   ApiReductionType                `json:"reductionType"`
-	Type            ApiReductionQueryDatasourceType `json:"type"`
+	MultiDatasource ApiMultiDatasource `json:"multiDatasource"`
+
+	// ReductionType Reduction type used to collapse a time series into a scalar value.
+	//
+	// **Single-field reductions** operate on one source field:
+	// sum, avg, min, max, count, first, last, stddev, variance, spread, p50–p999.
+	//
+	// **Paired reductions** compare two fields (actual vs predicted) to produce
+	// forecast-error metrics. They require `compareFieldUrn` on the aggregation field:
+	// - `mae`  — Mean Absolute Error: mean(|actual − predicted|). Average error magnitude in original units.
+	// - `rmse` — Root Mean Squared Error: √mean((actual − predicted)²). Penalises large errors more than MAE.
+	// - `mbe`  — Mean Bias Error: mean(actual − predicted). Positive = under-predicting, negative = over-predicting.
+	// - `mape` — Mean Absolute Percentage Error: mean(|actual − predicted| / |actual|) × 100. Rows where actual = 0 are skipped.
+	// - `pearson` — Pearson correlation coefficient between actual and predicted (1.0 = perfect tracking). Requires ≥ 2 data points.
+	// - `r2`   — Coefficient of determination (R²). Fraction of actual variance explained by the forecast. Requires ≥ 2 data points.
+	ReductionType ApiReductionType                `json:"reductionType"`
+	Type          ApiReductionQueryDatasourceType `json:"type"`
 }
 
 // ApiReductionQueryDatasourceType defines model for ApiReductionQueryDatasource.Type.
 type ApiReductionQueryDatasourceType string
 
-// ApiReductionType defines model for ApiReductionType.
+// ApiReductionType Reduction type used to collapse a time series into a scalar value.
+//
+// **Single-field reductions** operate on one source field:
+// sum, avg, min, max, count, first, last, stddev, variance, spread, p50–p999.
+//
+// **Paired reductions** compare two fields (actual vs predicted) to produce
+// forecast-error metrics. They require `compareFieldUrn` on the aggregation field:
+// - `mae`  — Mean Absolute Error: mean(|actual − predicted|). Average error magnitude in original units.
+// - `rmse` — Root Mean Squared Error: √mean((actual − predicted)²). Penalises large errors more than MAE.
+// - `mbe`  — Mean Bias Error: mean(actual − predicted). Positive = under-predicting, negative = over-predicting.
+// - `mape` — Mean Absolute Percentage Error: mean(|actual − predicted| / |actual|) × 100. Rows where actual = 0 are skipped.
+// - `pearson` — Pearson correlation coefficient between actual and predicted (1.0 = perfect tracking). Requires ≥ 2 data points.
+// - `r2`   — Coefficient of determination (R²). Fraction of actual variance explained by the forecast. Requires ≥ 2 data points.
 type ApiReductionType = tsquery.ReductionType
 
 // ApiRefAggregationFieldValue Reference to a field from the source aggregation by its URN.
@@ -1710,12 +1778,35 @@ type ApiRefReportFieldValue struct {
 type ApiRefReportFieldValueType string
 
 // ApiReportAggregationField Defines a single aggregation to compute on a specific report field.
+//
+// For paired reductions (mae, rmse, mbe, mape, pearson, r2), `compareFieldUrn`
+// is required and identifies the "predicted" (forecast) field. The `sourceFieldUrn`
+// is treated as the "actual" (observed) field. Error is computed as actual − predicted.
 type ApiReportAggregationField struct {
-	EmptyValue    *ApiQueryFieldValue `json:"emptyValue,omitempty"`
-	FieldMeta     *ApiAddFieldMeta    `json:"fieldMeta,omitempty"`
-	ReductionType ApiReductionType    `json:"reductionType"`
+	// CompareFieldUrn URN of the second report field for paired reductions (mae, rmse, mbe, mape, pearson, r2).
+	// This is the "predicted" (forecast) field. Required when using a paired reduction type;
+	// must not be set for single-field reductions.
+	CompareFieldUrn *string             `json:"compareFieldUrn,omitempty"`
+	EmptyValue      *ApiQueryFieldValue `json:"emptyValue,omitempty"`
+	FieldMeta       *ApiAddFieldMeta    `json:"fieldMeta,omitempty"`
+
+	// ReductionType Reduction type used to collapse a time series into a scalar value.
+	//
+	// **Single-field reductions** operate on one source field:
+	// sum, avg, min, max, count, first, last, stddev, variance, spread, p50–p999.
+	//
+	// **Paired reductions** compare two fields (actual vs predicted) to produce
+	// forecast-error metrics. They require `compareFieldUrn` on the aggregation field:
+	// - `mae`  — Mean Absolute Error: mean(|actual − predicted|). Average error magnitude in original units.
+	// - `rmse` — Root Mean Squared Error: √mean((actual − predicted)²). Penalises large errors more than MAE.
+	// - `mbe`  — Mean Bias Error: mean(actual − predicted). Positive = under-predicting, negative = over-predicting.
+	// - `mape` — Mean Absolute Percentage Error: mean(|actual − predicted| / |actual|) × 100. Rows where actual = 0 are skipped.
+	// - `pearson` — Pearson correlation coefficient between actual and predicted (1.0 = perfect tracking). Requires ≥ 2 data points.
+	// - `r2`   — Coefficient of determination (R²). Fraction of actual variance explained by the forecast. Requires ≥ 2 data points.
+	ReductionType ApiReductionType `json:"reductionType"`
 
 	// SourceFieldUrn URN of the report field to aggregate.
+	// For paired reductions this is the "actual" (observed) field.
 	SourceFieldUrn string `json:"sourceFieldUrn"`
 }
 

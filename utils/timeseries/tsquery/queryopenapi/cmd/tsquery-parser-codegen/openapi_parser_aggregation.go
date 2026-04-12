@@ -100,6 +100,18 @@ func parseFromReportAggregation(
 			SourceFieldUrn: apiField.SourceFieldUrn,
 		}
 
+		// Validate and parse compareFieldUrn for paired reductions
+		if apiField.ReductionType.IsPaired() {
+			if apiField.CompareFieldUrn == nil || *apiField.CompareFieldUrn == "" {
+				return nil, fmt.Errorf("report aggregation field %d: paired reduction %q requires compareFieldUrn to identify the predicted/forecast field",
+					i, apiField.ReductionType)
+			}
+			field.CompareFieldUrn = *apiField.CompareFieldUrn
+		} else if apiField.CompareFieldUrn != nil && *apiField.CompareFieldUrn != "" {
+			return nil, fmt.Errorf("report aggregation field %d: compareFieldUrn must not be set for non-paired reduction %q (only paired reductions like mae, rmse, mbe, mape, pearson, r2 use it)",
+				i, apiField.ReductionType)
+		}
+
 		// Parse optional field metadata
 		if apiField.FieldMeta != nil {
 			addFieldMeta := ParseAddFieldMeta(*apiField.FieldMeta)

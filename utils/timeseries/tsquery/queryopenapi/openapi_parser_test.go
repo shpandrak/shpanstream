@@ -3703,3 +3703,178 @@ func TestParseReportFilter_TimeShiftFilter(t *testing.T) {
 	assert.Equal(t, 100.0, records[0].Value[0])
 	assert.Equal(t, 200.0, records[1].Value[0])
 }
+
+// =====================
+// Paired Reduction Parser Tests (fromReport with compareFieldUrn)
+// =====================
+
+// helperStaticReportDsForPaired creates a static report datasource with "actual" and "predicted" fields.
+func helperStaticReportDsForPaired(t *testing.T, actuals, predictions []float64) ApiReportDatasource {
+	t.Helper()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	rows := make([]ApiReportMeasurementRow, len(actuals))
+	for i := range actuals {
+		rows[i] = ApiReportMeasurementRow{
+			Timestamp: baseTime.Add(time.Duration(i) * time.Hour),
+			Values:    []any{actuals[i], predictions[i]},
+		}
+	}
+
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "actual", DataType: tsquery.DataTypeDecimal, Required: true},
+			{Uri: "predicted", DataType: tsquery.DataTypeDecimal, Required: true},
+		},
+		Data: rows,
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+	return apiReportDs
+}
+
+func TestPairedReduction_MAE_ParseAndExecute(t *testing.T) {
+	apiReportDs := helperStaticReportDsForPaired(t,
+		[]float64{10, 20, 30},
+		[]float64{12, 18, 25},
+	)
+
+	cmpUrn := "predicted"
+	apiFromReport := ApiFromReportAggregation{
+		Type:             "fromReport",
+		ReportDatasource: apiReportDs,
+		Fields: []ApiReportAggregationField{
+			{
+				ReductionType:   tsquery.ReductionTypeMAE,
+				SourceFieldUrn:  "actual",
+				CompareFieldUrn: &cmpUrn,
+				FieldMeta:       &ApiAddFieldMeta{Uri: "mae"},
+			},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiFromReportAggregation(apiFromReport))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	agg, err := ParseAggregation(pCtx, apiAgg)
+	require.NoError(t, err)
+
+	result, err := agg.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	metas := result.FieldsMeta()
+	fields, err := result.Fields().Get(testContext())
+	require.NoError(t, err)
+	require.Len(t, fields, 1)
+
+	assert.Equal(t, "mae", metas[0].Urn())
+	assert.Equal(t, tsquery.DataTypeDecimal, metas[0].DataType())
+	// MAE = (2+2+5)/3 = 3.0
+	assert.InDelta(t, 3.0, fields[0].Value.(float64), 0.0001)
+}
+
+func TestPairedReduction_AllSix_ParseAndExecute(t *testing.T) {
+	apiReportDs := helperStaticReportDsForPaired(t,
+		[]float64{10, 20, 30, 40, 50},
+		[]float64{12, 18, 33, 38, 52},
+	)
+
+	cmpUrn := "predicted"
+	pairedTypes := []tsquery.ReductionType{
+		tsquery.ReductionTypeMAE, tsquery.ReductionTypeRMSE, tsquery.ReductionTypeMBE,
+		tsquery.ReductionTypeMAPE, tsquery.ReductionTypePearson, tsquery.ReductionTypeR2,
+	}
+	urnNames := []string{"mae", "rmse", "mbe", "mape", "pearson", "r2"}
+
+	apiFields := make([]ApiReportAggregationField, len(pairedTypes))
+	for i, rt := range pairedTypes {
+		apiFields[i] = ApiReportAggregationField{
+			ReductionType:   rt,
+			SourceFieldUrn:  "actual",
+			CompareFieldUrn: &cmpUrn,
+			FieldMeta:       &ApiAddFieldMeta{Uri: urnNames[i]},
+		}
+	}
+
+	apiFromReport := ApiFromReportAggregation{
+		Type:             "fromReport",
+		ReportDatasource: apiReportDs,
+		Fields:           apiFields,
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiFromReportAggregation(apiFromReport))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	agg, err := ParseAggregation(pCtx, apiAgg)
+	require.NoError(t, err)
+
+	result, err := agg.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	metas := result.FieldsMeta()
+	fields, err := result.Fields().Get(testContext())
+	require.NoError(t, err)
+	require.Len(t, fields, 6)
+
+	// All should be decimal, all should have a non-nil value
+	for i, meta := range metas {
+		assert.Equal(t, urnNames[i], meta.Urn())
+		assert.Equal(t, tsquery.DataTypeDecimal, meta.DataType())
+		assert.NotNil(t, fields[i].Value, "field %s should not be nil", urnNames[i])
+	}
+}
+
+func TestPairedReduction_MissingCompareFieldUrn_Error(t *testing.T) {
+	apiReportDs := helperStaticReportDsForPaired(t, []float64{1}, []float64{2})
+
+	apiFromReport := ApiFromReportAggregation{
+		Type:             "fromReport",
+		ReportDatasource: apiReportDs,
+		Fields: []ApiReportAggregationField{
+			{
+				ReductionType:  tsquery.ReductionTypeMAE,
+				SourceFieldUrn: "actual",
+				// CompareFieldUrn intentionally omitted
+			},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiFromReportAggregation(apiFromReport))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	_, err := ParseAggregation(pCtx, apiAgg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "compareFieldUrn")
+	assert.Contains(t, err.Error(), "mae")
+}
+
+func TestPairedReduction_CompareFieldUrnOnNonPaired_Error(t *testing.T) {
+	apiReportDs := helperStaticReportDsForPaired(t, []float64{1}, []float64{2})
+
+	cmpUrn := "predicted"
+	apiFromReport := ApiFromReportAggregation{
+		Type:             "fromReport",
+		ReportDatasource: apiReportDs,
+		Fields: []ApiReportAggregationField{
+			{
+				ReductionType:   tsquery.ReductionTypeSum,
+				SourceFieldUrn:  "actual",
+				CompareFieldUrn: &cmpUrn, // should not be set for sum
+			},
+		},
+	}
+
+	var apiAgg ApiAggregation
+	require.NoError(t, apiAgg.FromApiFromReportAggregation(apiFromReport))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	_, err := ParseAggregation(pCtx, apiAgg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not be set")
+	assert.Contains(t, err.Error(), "sum")
+}
