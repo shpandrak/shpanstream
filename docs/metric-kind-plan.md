@@ -405,7 +405,33 @@ Uncomment the Phase 1 TODOs:
 - Error on `MetricKindDelta` input (already delta)
 - Only accept `MetricKindCumulative` (and unspecified for backward compat -- but unspecified returns gauge, so this effectively requires explicit cumulative)
 
-### 2.3 Selector field value strict kind validation
+### 2.3 RateFilter input validation
+
+RateFilter rejects `MetricKindRate` input with error: `"rate filter cannot be applied to data that is already a rate"`. All other kinds (Gauge, Delta, Cumulative) are accepted -- computing a rate is valid for any of them.
+
+### 2.4 Implicit gap threshold from `samplePeriod`
+
+When no explicit `maxGapDuration` is set, DeltaFilter and RateFilter auto-compute a gap threshold of `2 × samplePeriod`. If a gap between consecutive data points exceeds this threshold, the point is treated as a new baseline (no delta/rate emitted for the gap).
+
+- Explicit `maxGapDuration` always wins (overrides the implicit threshold)
+- No `samplePeriod` and no `maxGapDuration` → no gap detection (backward compatible)
+- Applied identically in both DeltaFilter and RateFilter
+
+**Why:** Delta and rate computations across large gaps produce misleading values (e.g., a 12-hour delta from a 5-minute counter). The `2×` multiplier tolerates one missed sample while catching genuine outages.
+
+### 2.5 AlignerFilter output `samplePeriod` derivation
+
+After alignment, the output `samplePeriod` is set to the alignment period duration (for fixed-duration periods). For calendar-based alignment periods (e.g., monthly), `samplePeriod` is cleared (nil) because the period cannot be expressed as a fixed `time.Duration`.
+
+This replaces the Phase 1 behavior of preserving the input `samplePeriod` through the bucket reduction path. The alignment period IS the output cadence -- the input sample period is no longer meaningful after alignment.
+
+### 2.6 `RawMetricKind()` getter on `FieldMeta`
+
+A new `RawMetricKind()` method returns the metric kind as-declared, without normalization (returns `""` if unset). This contrasts with `MetricKind()` which returns `MetricKindGauge` for unset fields.
+
+Used by `RefFieldValue` (both datasource and report sides) to propagate the unset-vs-explicit distinction through `ValueMeta`. This is critical for selector validation: unset kind is "transparent" (compatible with any kind), while explicit `MetricKindGauge` is not compatible with `MetricKindDelta`.
+
+### 2.7 Selector field value strict kind validation
 
 Selector field values (`if condition then trueField else falseField`) currently validate that the true and false branches have matching `DataType` and `Required` status (`selector_field_value.go:83-88`). Phase 2 extends this validation to require matching `MetricKind`:
 
@@ -420,7 +446,7 @@ Selector field values (`if condition then trueField else falseField`) currently 
 
 Apply to both datasource-side (`selector_field_value.go`) and report-side (`selector_report_field_value.go`) selectors.
 
-### 2.4 Test: cumulative-to-aligned-delta (the golden test case)
+### 2.8 Test: cumulative-to-aligned-delta (the golden test case)
 
 ```go
 func TestCumulativeToAlignedDelta(t *testing.T) {
@@ -453,7 +479,7 @@ func TestCumulativeToAlignedDelta(t *testing.T) {
 }
 ```
 
-### 2.5 Test: gauge through same aligner (contrast test)
+### 2.9 Test: gauge through same aligner (contrast test)
 
 ```go
 func TestGaugeAlignedDefaultAvg(t *testing.T) {
@@ -465,7 +491,7 @@ func TestGaugeAlignedDefaultAvg(t *testing.T) {
 }
 ```
 
-### 2.6 Test: explicit bucketReduction overrides kind
+### 2.10 Test: explicit bucketReduction overrides kind
 
 ```go
 func TestExplicitReductionOverridesKind(t *testing.T) {
@@ -501,8 +527,12 @@ func TestExplicitReductionOverridesKind(t *testing.T) {
 ### Phase 2
 | File | Change |
 |------|--------|
-| `utils/timeseries/tsquery/datasource/aligner_filter.go` | Uncomment smart defaults, implement kind-aware path |
-| `utils/timeseries/tsquery/datasource/delta_filter.go` | Uncomment input validation |
-| `utils/timeseries/tsquery/datasource/selector_field_value.go` | Add strict MetricKind matching validation between true/false branches |
-| `utils/timeseries/tsquery/report/selector_report_field_value.go` | Add strict MetricKind matching validation between true/false branches |
-| Test files | Golden test cases (cumulative->aligned-delta, gauge contrast, explicit override, selector kind mismatch) |
+| `utils/timeseries/tsquery/time_series_query.go` | Add `RawMetricKind()` getter |
+| `utils/timeseries/tsquery/datasource/aligner_filter.go` | Uncomment smart defaults; derive output samplePeriod from alignment period |
+| `utils/timeseries/tsquery/datasource/delta_filter.go` | Uncomment input validation; add implicit gap threshold from samplePeriod |
+| `utils/timeseries/tsquery/datasource/rate_filter.go` | Reject rate-of-rate; add implicit gap threshold from samplePeriod |
+| `utils/timeseries/tsquery/datasource/ref_field_value.go` | Use `RawMetricKind()` to preserve unset-vs-explicit distinction |
+| `utils/timeseries/tsquery/datasource/selector_field_value.go` | Add strict MetricKind matching with transparent-unset merge |
+| `utils/timeseries/tsquery/report/ref_report_field_value.go` | Use `RawMetricKind()` to preserve unset-vs-explicit distinction |
+| `utils/timeseries/tsquery/report/selector_report_field_value.go` | Add strict MetricKind matching with transparent-unset merge |
+| Test files | Golden test cases, gap threshold edge cases, selector kind merge, untagged metric rejection |
