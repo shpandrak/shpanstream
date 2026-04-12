@@ -8,6 +8,13 @@ import (
 
 type BinaryNumericOperatorType string
 
+// DivisionByZeroError is a typed panic used by division and modulo operators
+// when the divisor is zero. The stream framework's recover() catches this and
+// surfaces it as a regular error.
+type DivisionByZeroError struct{}
+
+func (e DivisionByZeroError) Error() string { return "division by zero" }
+
 // Integer operations
 
 func AddInt(v1, v2 any) any {
@@ -23,10 +30,16 @@ func MulInt(v1, v2 any) any {
 }
 
 func DivInt(v1, v2 any) any {
+	if v2.(int64) == 0 {
+		panic(DivisionByZeroError{})
+	}
 	return v1.(int64) / v2.(int64)
 }
 
 func ModInt(v1, v2 any) any {
+	if v2.(int64) == 0 {
+		panic(DivisionByZeroError{})
+	}
 	return v1.(int64) % v2.(int64)
 }
 
@@ -49,6 +62,9 @@ func MulDecimal(v1, v2 any) any {
 }
 
 func DivDecimal(v1, v2 any) any {
+	if v2.(float64) == 0 {
+		panic(DivisionByZeroError{})
+	}
 	return v1.(float64) / v2.(float64)
 }
 
