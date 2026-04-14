@@ -22,7 +22,7 @@ func TestDeltaFilter_Decimal(t *testing.T) {
 	}
 
 	// Cumulative energy: 100, 150, 180, 250 kWh
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 150.0, 180.0, 250.0})
 
 	// Apply delta filter
@@ -65,7 +65,7 @@ func TestDeltaFilter_Integer(t *testing.T) {
 	}
 
 	// Cumulative counter: 1000, 1042, 1100
-	ds := createDatasource(t, "Counter", tsquery.DataTypeInteger, true, "count",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeInteger, true, "count",
 		timestamps, []any{int64(1000), int64(1042), int64(1100)})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, nil))
@@ -95,8 +95,9 @@ func TestDeltaFilter_NegativeDelta(t *testing.T) {
 		baseTime.Add(2 * time.Hour),
 	}
 
-	// Values go down: 100, 80, 50
-	ds := createDatasource(t, "Temperature", tsquery.DataTypeDecimal, true, "celsius",
+	// Cumulative counter that decreases (e.g., counter reset without nonNegative)
+	// With nonNegative=false, negative deltas are computed as-is
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "count",
 		timestamps, []any{100.0, 80.0, 50.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, nil))
@@ -114,7 +115,7 @@ func TestDeltaFilter_NegativeDelta(t *testing.T) {
 func TestDeltaFilter_EmptyStream(t *testing.T) {
 	ctx := context.Background()
 
-	fieldMeta, err := tsquery.NewFieldMetaWithCustomData("Empty", tsquery.DataTypeDecimal, true, "", nil)
+	fieldMeta, err := tsquery.NewFieldMetaFull("Empty", tsquery.DataTypeDecimal, tsquery.MetricKindCumulative, true, "", nil)
 	require.NoError(t, err)
 
 	ds, err := datasource.NewStaticDatasource(*fieldMeta, stream.Empty[timeseries.TsRecord[any]]())
@@ -133,7 +134,7 @@ func TestDeltaFilter_SingleItem(t *testing.T) {
 	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	ds := createDatasource(t, "Single", tsquery.DataTypeDecimal, true, "",
+	ds := createCumulativeDatasource(t, "Single", tsquery.DataTypeDecimal, true, "",
 		[]time.Time{baseTime}, []any{42.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, nil))
@@ -150,7 +151,7 @@ func TestDeltaFilter_ErrorOnStringDataType(t *testing.T) {
 	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	ds := createDatasource(t, "StringField", tsquery.DataTypeString, true, "",
+	ds := createCumulativeDatasource(t, "StringField", tsquery.DataTypeString, true, "",
 		[]time.Time{baseTime}, []any{"hello"})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, nil))
@@ -164,7 +165,7 @@ func TestDeltaFilter_ErrorOnBooleanDataType(t *testing.T) {
 	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	ds := createDatasource(t, "BoolField", tsquery.DataTypeBoolean, true, "",
+	ds := createCumulativeDatasource(t, "BoolField", tsquery.DataTypeBoolean, true, "",
 		[]time.Time{baseTime}, []any{true})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, nil))
@@ -179,7 +180,7 @@ func TestDeltaFilter_ErrorOnOptionalField(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	// required=false
-	ds := createDatasource(t, "OptionalField", tsquery.DataTypeDecimal, false, "",
+	ds := createCumulativeDatasource(t, "OptionalField", tsquery.DataTypeDecimal, false, "",
 		[]time.Time{baseTime}, []any{42.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, nil))
@@ -194,7 +195,7 @@ func TestDeltaFilter_PreservesUnit(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timestamps := []time.Time{baseTime, baseTime.Add(1 * time.Hour)}
 
-	ds := createDatasource(t, "Energy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Energy", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 150.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, nil))
@@ -218,7 +219,7 @@ func TestDeltaFilter_NonNegative_ResetToZero(t *testing.T) {
 	}
 
 	// Counter resets to zero: 100, 150, 0, 30
-	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 150.0, 0.0, 30.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, false, nil))
@@ -245,7 +246,7 @@ func TestDeltaFilter_NonNegative_ResetToNonZero(t *testing.T) {
 	}
 
 	// Counter resets to non-zero: 100, 150, 50, 80
-	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 150.0, 50.0, 80.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, false, nil))
@@ -272,7 +273,7 @@ func TestDeltaFilter_NonNegative_NegativeValueDropped(t *testing.T) {
 	}
 
 	// Negative value at index 2: 100, 150, -5, 80
-	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 150.0, -5.0, 80.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, false, nil))
@@ -298,7 +299,7 @@ func TestDeltaFilter_NonNegative_NormalIncrease(t *testing.T) {
 	}
 
 	// Normal increasing values: 100, 150, 200
-	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 150.0, 200.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, false, nil))
@@ -324,7 +325,7 @@ func TestDeltaFilter_NonNegative_Integer(t *testing.T) {
 	}
 
 	// Integer counter with reset: 1000, 1050, 200, 250
-	ds := createDatasource(t, "Counter", tsquery.DataTypeInteger, true, "count",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeInteger, true, "count",
 		timestamps, []any{int64(1000), int64(1050), int64(200), int64(250)})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, false, nil))
@@ -350,7 +351,7 @@ func TestDeltaFilter_MaxCounterValue_Wraparound(t *testing.T) {
 	}
 
 	// Counter wraps around max 1000: 900, 950, 100
-	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{900.0, 950.0, 100.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 1000, false, nil))
@@ -375,7 +376,7 @@ func TestDeltaFilter_MaxCounterValue_NormalIncrease(t *testing.T) {
 	}
 
 	// Normal increase with maxCounterValue set: 100, 200, 300
-	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 200.0, 300.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 1000, false, nil))
@@ -403,7 +404,7 @@ func TestDeltaFilter_EmitOnReset_ResetToNonZero(t *testing.T) {
 	}
 
 	// Counter resets to non-zero: 100, 150, 50, 80
-	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 150.0, 50.0, 80.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, true, nil))
@@ -430,7 +431,7 @@ func TestDeltaFilter_EmitOnReset_Integer(t *testing.T) {
 	}
 
 	// Integer counter with reset: 1000, 1050, 200, 250
-	ds := createDatasource(t, "Counter", tsquery.DataTypeInteger, true, "count",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeInteger, true, "count",
 		timestamps, []any{int64(1000), int64(1050), int64(200), int64(250)})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, true, nil))
@@ -461,7 +462,7 @@ func TestDeltaFilter_NonNegative_GlitchClampedToZero(t *testing.T) {
 
 	// Simulates energy meter glitch: cumulative value dips briefly then recovers
 	// 12800000, 12800100, 12799580 (glitch!), 12800200, 12800350
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "Wh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "Wh",
 		timestamps, []any{12800000.0, 12800100.0, 12799580.0, 12800200.0, 12800350.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, false, nil))
@@ -490,7 +491,7 @@ func TestDeltaFilter_EmitOnReset_GlitchCausesSpike(t *testing.T) {
 
 	// Same glitch scenario but with emitOnReset=true — shows why clamp is better
 	// 12800000, 12800100, 12799580 (glitch!), 12800200
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "Wh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "Wh",
 		timestamps, []any{12800000.0, 12800100.0, 12799580.0, 12800200.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, true, nil))
@@ -515,8 +516,8 @@ func TestDeltaFilter_NonNegative_False_StillAllowsNegative(t *testing.T) {
 		baseTime.Add(2 * time.Hour),
 	}
 
-	// Decreasing values with nonNegative=false: old behavior preserved
-	ds := createDatasource(t, "Temperature", tsquery.DataTypeDecimal, true, "celsius",
+	// Decreasing cumulative counter with nonNegative=false: negative deltas allowed
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "count",
 		timestamps, []any{100.0, 80.0, 50.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, nil))
@@ -545,7 +546,7 @@ func TestDeltaFilter_MaxGapDuration_DropsLargeGap(t *testing.T) {
 		baseTime.Add(11 * time.Hour),
 	}
 
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 200.0, 500.0, 520.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, durationPtr(2*time.Hour)))
@@ -576,7 +577,7 @@ func TestDeltaFilter_MaxGapDuration_NormalSpacingPasses(t *testing.T) {
 		baseTime.Add(3 * time.Hour),
 	}
 
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 200.0, 350.0, 500.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, durationPtr(2*time.Hour)))
@@ -600,7 +601,7 @@ func TestDeltaFilter_MaxGapDuration_ExactBoundaryAllowed(t *testing.T) {
 		baseTime.Add(2 * time.Hour), // gap exactly equals maxGap
 	}
 
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 300.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, durationPtr(2*time.Hour)))
@@ -624,7 +625,7 @@ func TestDeltaFilter_MaxGapDuration_ConsecutiveGaps(t *testing.T) {
 		baseTime.Add(21 * time.Hour), // 1h gap
 	}
 
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 500.0, 900.0, 920.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, durationPtr(2*time.Hour)))
@@ -649,7 +650,7 @@ func TestDeltaFilter_MaxGapDuration_BaselineReset(t *testing.T) {
 		baseTime.Add(11 * time.Hour),
 	}
 
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 200.0, 500.0, 520.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, durationPtr(2*time.Hour)))
@@ -674,7 +675,7 @@ func TestDeltaFilter_MaxGapDuration_NilDisabled(t *testing.T) {
 		baseTime.Add(11 * time.Hour),
 	}
 
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 200.0, 500.0, 520.0})
 
 	// nil maxGapDuration = no gap detection (backwards compatible)
@@ -702,7 +703,7 @@ func TestDeltaFilter_MaxGapDuration_WithNonNegative(t *testing.T) {
 		baseTime.Add(11 * time.Hour),
 	}
 
-	ds := createDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "Counter", tsquery.DataTypeDecimal, true, "kWh",
 		timestamps, []any{100.0, 200.0, 50.0, 500.0, 520.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(true, 0, false, durationPtr(2*time.Hour)))
@@ -726,7 +727,7 @@ func TestDeltaFilter_MaxGapDuration_SingleItem(t *testing.T) {
 	ctx := context.Background()
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
 		[]time.Time{baseTime}, []any{100.0})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, durationPtr(2*time.Hour)))
@@ -741,7 +742,7 @@ func TestDeltaFilter_MaxGapDuration_SingleItem(t *testing.T) {
 func TestDeltaFilter_MaxGapDuration_EmptyStream(t *testing.T) {
 	ctx := context.Background()
 
-	ds := createDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
+	ds := createCumulativeDatasource(t, "LifetimeEnergy", tsquery.DataTypeDecimal, true, "kWh",
 		[]time.Time{}, []any{})
 
 	filtered := datasource.NewFilteredDataSource(ds, datasource.NewDeltaFilter(false, 0, false, durationPtr(2*time.Hour)))

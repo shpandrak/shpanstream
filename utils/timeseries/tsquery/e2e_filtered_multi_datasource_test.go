@@ -20,7 +20,7 @@ func TestFilteredMultiDatasource_DeltaNonNegative_ThenReduce(t *testing.T) {
 
 	// Counter1: cumulative counter that resets at hour 3
 	// 100 -> 200 -> 300 -> 0 (reset) -> 100
-	counter1 := createDatasource(t, "Counter1", tsquery.DataTypeInteger, true, "bytes",
+	counter1 := createCumulativeDatasource(t, "Counter1", tsquery.DataTypeInteger, true, "bytes",
 		[]time.Time{
 			baseTime,
 			baseTime.Add(1 * time.Hour),
@@ -33,7 +33,7 @@ func TestFilteredMultiDatasource_DeltaNonNegative_ThenReduce(t *testing.T) {
 
 	// Counter2: cumulative counter, no resets
 	// 10 -> 30 -> 60 -> 100 -> 150
-	counter2 := createDatasource(t, "Counter2", tsquery.DataTypeInteger, true, "bytes",
+	counter2 := createCumulativeDatasource(t, "Counter2", tsquery.DataTypeInteger, true, "bytes",
 		[]time.Time{
 			baseTime,
 			baseTime.Add(1 * time.Hour),

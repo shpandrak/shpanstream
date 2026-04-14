@@ -60,17 +60,16 @@ func TestDeltaFilter_OutputKindIsDelta(t *testing.T) {
 	require.Equal(t, "kWh", filtered.Meta().Unit())
 }
 
-func TestDeltaFilter_OutputKindIsDelta_FromGauge(t *testing.T) {
-	// In Phase 1, DeltaFilter accepts any kind (no validation yet)
+func TestDeltaFilter_RejectsGaugeInput(t *testing.T) {
 	ctx := context.Background()
 	meta := gaugeDecimalMeta(t)
 
 	result := Result{meta: meta, data: simpleStream(20, 22, 19)}
 
 	df := NewDeltaFilter(false, 0, false, nil)
-	filtered, err := df.Filter(ctx, result)
-	require.NoError(t, err)
-	require.Equal(t, tsquery.MetricKindDelta, filtered.Meta().MetricKind())
+	_, err := df.Filter(ctx, result)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "gauge")
 }
 
 func TestRateFilter_OutputKindIsRate(t *testing.T) {
@@ -87,10 +86,31 @@ func TestRateFilter_OutputKindIsRate(t *testing.T) {
 	require.Equal(t, tsquery.DataTypeDecimal, filtered.Meta().DataType())
 }
 
-func TestAlignerFilter_PreservesKind(t *testing.T) {
+func TestAlignerFilter_PreservesKind_InterpolationPath(t *testing.T) {
 	ctx := context.Background()
 
-	for _, kind := range []tsquery.MetricKind{tsquery.MetricKindGauge, tsquery.MetricKindDelta, tsquery.MetricKindCumulative, tsquery.MetricKindRate} {
+	// Gauge and Rate use the interpolation path (no auto bucket reduction)
+	for _, kind := range []tsquery.MetricKind{tsquery.MetricKindGauge, tsquery.MetricKindRate} {
+		t.Run(string(kind), func(t *testing.T) {
+			fm, err := tsquery.NewFieldMetaFull("field", tsquery.DataTypeDecimal, kind, true, "", nil)
+			require.NoError(t, err)
+
+			result := Result{meta: *fm, data: simpleStream(1, 2, 3)}
+
+			af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(10*time.Minute, time.UTC))
+			filtered, err := af.Filter(ctx, result)
+			require.NoError(t, err)
+			require.Equal(t, kind, filtered.Meta().MetricKind())
+		})
+	}
+}
+
+func TestAlignerFilter_PreservesKind_AutoReductionPath(t *testing.T) {
+	ctx := context.Background()
+
+	// Delta and Cumulative auto-select bucket reductions (Sum and Last respectively)
+	// but the output kind should still match the input kind
+	for _, kind := range []tsquery.MetricKind{tsquery.MetricKindDelta, tsquery.MetricKindCumulative} {
 		t.Run(string(kind), func(t *testing.T) {
 			fm, err := tsquery.NewFieldMetaFull("field", tsquery.DataTypeDecimal, kind, true, "", nil)
 			require.NoError(t, err)
@@ -215,6 +235,19 @@ func TestRefFieldValue_ExtractsMetricKind(t *testing.T) {
 	require.Equal(t, tsquery.MetricKindCumulative, valueMeta.MetricKind)
 }
 
+func TestRefFieldValue_UnsetKindPropagatesEmpty(t *testing.T) {
+	ctx := context.Background()
+
+	// NewFieldMeta does not set metricKind — raw kind should be "" (not gauge)
+	sourceMeta, err := tsquery.NewFieldMeta("temp", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	ref := NewRefFieldValue()
+	valueMeta, _, err := ref.Execute(ctx, *sourceMeta)
+	require.NoError(t, err)
+	require.Equal(t, tsquery.MetricKind(""), valueMeta.MetricKind, "unset kind should propagate as empty string, not gauge")
+}
+
 func TestCastFieldValue_PropagatesKind(t *testing.T) {
 	ctx := context.Background()
 
@@ -285,10 +318,10 @@ func TestNumericExpression_OpsDontChangeKindRule(t *testing.T) {
 	require.Equal(t, tsquery.MetricKindCumulative, valueMeta.MetricKind)
 }
 
-// TestSelectorFieldValue_PropagatesKindFromTrueBranch documents the Phase 1 rule:
-// selector propagates MetricKind from the true branch.
-// Phase 2 will add strict validation that both branches must match.
-func TestSelectorFieldValue_PropagatesKindFromTrueBranch(t *testing.T) {
+// TestSelectorFieldValue_MatchingKinds verifies that when both branches have the
+// same kind, the selector output carries that kind. Phase 2 added a gauge-transparent
+// merge rule — see metric_kind_phase2_test.go for mismatch and transparent cases.
+func TestSelectorFieldValue_MatchingKinds(t *testing.T) {
 	ctx := context.Background()
 
 	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
@@ -349,20 +382,22 @@ func TestRateFilter_ClearsSamplePeriod(t *testing.T) {
 	require.Equal(t, tsquery.MetricKindRate, filtered.Meta().MetricKind())
 }
 
-func TestAlignerFilter_PreservesSamplePeriod(t *testing.T) {
+func TestAlignerFilter_OutputSamplePeriodFromAlignmentPeriod(t *testing.T) {
 	ctx := context.Background()
 	fiveMin := 5 * time.Minute
+	tenMin := 10 * time.Minute
 	fm, err := tsquery.NewFieldMetaFull("energy", tsquery.DataTypeDecimal, tsquery.MetricKindDelta, true, "kWh", nil)
 	require.NoError(t, err)
 	*fm = fm.WithSamplePeriod(fiveMin)
 
 	result := Result{meta: *fm, data: simpleStream(10, 15, 20)}
 
-	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(10*time.Minute, time.UTC))
+	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(tenMin, time.UTC))
 	filtered, err := af.Filter(ctx, result)
 	require.NoError(t, err)
+	// Output samplePeriod should be the alignment period (10m), not the input (5m)
 	require.NotNil(t, filtered.Meta().SamplePeriod())
-	require.Equal(t, fiveMin, *filtered.Meta().SamplePeriod())
+	require.Equal(t, tenMin, *filtered.Meta().SamplePeriod())
 }
 
 func TestCastFieldValue_PropagatesSamplePeriod(t *testing.T) {

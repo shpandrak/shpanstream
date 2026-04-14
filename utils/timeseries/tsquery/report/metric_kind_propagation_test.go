@@ -52,6 +52,23 @@ func TestRefFieldValue_ExtractsMetricKind(t *testing.T) {
 	}
 }
 
+// TestRefFieldValue_UnsetKindPropagatesEmpty verifies that RefFieldValue propagates
+// "" (not gauge) for fields with no explicit metricKind, preserving the unset signal.
+func TestRefFieldValue_UnsetKindPropagatesEmpty(t *testing.T) {
+	ctx := context.Background()
+
+	// NewFieldMeta does not set metricKind — raw kind is ""
+	untaggedMeta, err := tsquery.NewFieldMeta("temp", tsquery.DataTypeDecimal, true)
+	require.NoError(t, err)
+
+	fieldsMeta := []tsquery.FieldMeta{*untaggedMeta}
+
+	ref := NewRefFieldValue("temp")
+	valueMeta, _, err := ref.Execute(ctx, fieldsMeta)
+	require.NoError(t, err)
+	assert.Equal(t, tsquery.MetricKind(""), valueMeta.MetricKind, "unset kind should propagate as empty string, not gauge")
+}
+
 // TestPrepareField_PropagatesKindFromSource verifies that PrepareField carries
 // MetricKind through from the underlying value's ValueMeta into the built FieldMeta.
 func TestPrepareField_PropagatesKindFromSource(t *testing.T) {
@@ -203,4 +220,91 @@ func TestAppendFieldFilter_PropagatesKind(t *testing.T) {
 	assert.Equal(t, tsquery.MetricKindCumulative, filteredResult.FieldsMeta()[0].MetricKind())
 	// Appended field inherits kind from source (via RefFieldValue → ValueMeta → PrepareField)
 	assert.Equal(t, tsquery.MetricKindCumulative, filteredResult.FieldsMeta()[1].MetricKind())
+}
+
+// --- Phase 2: Selector kind merge tests (report side) ---
+
+func reportValueMetaWithKind(dt tsquery.DataType, kind tsquery.MetricKind) tsquery.ValueMeta {
+	return tsquery.ValueMeta{DataType: dt, MetricKind: kind, Required: true}
+}
+
+func TestReportSelectorFieldValue_KindMerge_DeltaAndUnset(t *testing.T) {
+	ctx := context.Background()
+	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
+	cond := NewConstantFieldValue(boolMeta, true)
+	trueField := NewConstantFieldValue(reportValueMetaWithKind(tsquery.DataTypeDecimal, tsquery.MetricKindDelta), 5.0)
+	unsetMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: true}
+	falseField := NewConstantFieldValue(unsetMeta, 0.0)
+
+	sel := NewSelectorFieldValue(cond, trueField, falseField)
+	valueMeta, _, err := sel.Execute(ctx, nil)
+	require.NoError(t, err)
+	assert.Equal(t, tsquery.MetricKindDelta, valueMeta.MetricKind, "unset is transparent, delta wins")
+}
+
+func TestReportSelectorFieldValue_KindMerge_UnsetAndDelta(t *testing.T) {
+	ctx := context.Background()
+	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
+	cond := NewConstantFieldValue(boolMeta, true)
+	unsetMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: true}
+	trueField := NewConstantFieldValue(unsetMeta, 0.0)
+	falseField := NewConstantFieldValue(reportValueMetaWithKind(tsquery.DataTypeDecimal, tsquery.MetricKindDelta), 5.0)
+
+	sel := NewSelectorFieldValue(cond, trueField, falseField)
+	valueMeta, _, err := sel.Execute(ctx, nil)
+	require.NoError(t, err)
+	assert.Equal(t, tsquery.MetricKindDelta, valueMeta.MetricKind, "symmetric: unset is transparent")
+}
+
+func TestReportSelectorFieldValue_KindMerge_BothUnset(t *testing.T) {
+	ctx := context.Background()
+	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
+	cond := NewConstantFieldValue(boolMeta, true)
+	unsetMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeDecimal, Required: true}
+	trueField := NewConstantFieldValue(unsetMeta, 5.0)
+	falseField := NewConstantFieldValue(unsetMeta, 10.0)
+
+	sel := NewSelectorFieldValue(cond, trueField, falseField)
+	valueMeta, _, err := sel.Execute(ctx, nil)
+	require.NoError(t, err)
+	assert.Equal(t, tsquery.MetricKind(""), valueMeta.MetricKind, "both unset → output unset")
+}
+
+func TestReportSelectorFieldValue_KindMerge_DeltaVsCumulative_Error(t *testing.T) {
+	ctx := context.Background()
+	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
+	cond := NewConstantFieldValue(boolMeta, true)
+	trueField := NewConstantFieldValue(reportValueMetaWithKind(tsquery.DataTypeDecimal, tsquery.MetricKindDelta), 5.0)
+	falseField := NewConstantFieldValue(reportValueMetaWithKind(tsquery.DataTypeDecimal, tsquery.MetricKindCumulative), 10.0)
+
+	sel := NewSelectorFieldValue(cond, trueField, falseField)
+	_, _, err := sel.Execute(ctx, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "matching metric kinds")
+}
+
+func TestReportSelectorFieldValue_KindMerge_CumulativeVsRate_Error(t *testing.T) {
+	ctx := context.Background()
+	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
+	cond := NewConstantFieldValue(boolMeta, true)
+	trueField := NewConstantFieldValue(reportValueMetaWithKind(tsquery.DataTypeDecimal, tsquery.MetricKindCumulative), 5.0)
+	falseField := NewConstantFieldValue(reportValueMetaWithKind(tsquery.DataTypeDecimal, tsquery.MetricKindRate), 10.0)
+
+	sel := NewSelectorFieldValue(cond, trueField, falseField)
+	_, _, err := sel.Execute(ctx, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "matching metric kinds")
+}
+
+func TestReportSelectorFieldValue_KindMerge_DeltaVsExplicitGauge_Error(t *testing.T) {
+	ctx := context.Background()
+	boolMeta := tsquery.ValueMeta{DataType: tsquery.DataTypeBoolean, Required: true}
+	cond := NewConstantFieldValue(boolMeta, true)
+	trueField := NewConstantFieldValue(reportValueMetaWithKind(tsquery.DataTypeDecimal, tsquery.MetricKindDelta), 5.0)
+	falseField := NewConstantFieldValue(reportValueMetaWithKind(tsquery.DataTypeDecimal, tsquery.MetricKindGauge), 10.0)
+
+	sel := NewSelectorFieldValue(cond, trueField, falseField)
+	_, _, err := sel.Execute(ctx, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "matching metric kinds")
 }
