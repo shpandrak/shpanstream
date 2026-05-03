@@ -47,15 +47,24 @@ func (af AlignerFilter) Filter(_ context.Context, result Result) (Result, error)
 	isNumeric := result.meta.DataType().IsNumeric()
 
 	// Kind-aware default bucket reduction: when no explicit bucketReduction is set,
-	// choose default based on MetricKind. Gauge/Rate use the existing interpolation path.
+	// choose default based on MetricKind.
+	//
+	// Delta → Sum: per-interval changes sum into per-bucket totals.
+	//
+	// Cumulative, Gauge, Rate → fall through to the interpolation path (linear
+	// interpolation to bucket-start). For a counter, this is the only reduction
+	// that preserves the boundary-state invariant — bucket(B).value = counter
+	// at start of B — so a downstream DeltaFilter yields correct per-bucket
+	// consumption regardless of sample cadence. "Last" was tried as the
+	// cumulative default but corrupts deltas whenever sample cadence is finer
+	// than bucket cadence: it returns the last sample inside the bucket but
+	// stamps it at bucket-start, decoupling value from time and shifting the
+	// post-last-sample increment into the next bucket.
 	if af.bucketReduction == nil {
 		switch result.meta.MetricKind() {
 		case tsquery.MetricKindDelta:
 			sum := tsquery.ReductionTypeSum
 			af.bucketReduction = &sum
-		case tsquery.MetricKindCumulative:
-			last := tsquery.ReductionTypeLast
-			af.bucketReduction = &last
 		}
 	}
 

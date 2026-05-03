@@ -60,7 +60,7 @@ func TestAlignerFilter_AutoSum_DeltaMultipleBuckets(t *testing.T) {
 	require.Equal(t, 45.0, collected[1].Value) // 20 + 25
 }
 
-func TestAlignerFilter_AutoLast_CumulativeInOneBucket(t *testing.T) {
+func TestAlignerFilter_AutoInterpolate_CumulativeInOneBucket(t *testing.T) {
 	ctx := context.Background()
 	fm, err := tsquery.NewFieldMetaFull("counter", tsquery.DataTypeDecimal, tsquery.MetricKindCumulative, true, "kWh", nil)
 	require.NoError(t, err)
@@ -77,12 +77,15 @@ func TestAlignerFilter_AutoLast_CumulativeInOneBucket(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tsquery.MetricKindCumulative, filtered.Meta().MetricKind())
 
+	// Cumulative falls through to the interpolation path (same as gauge): the
+	// first cluster smudges the first item value to bucket-start, preserving
+	// the boundary-state invariant a counter needs.
 	collected := filtered.Data().MustCollect()
 	require.Len(t, collected, 1)
-	require.Equal(t, 125.0, collected[0].Value) // last value in bucket
+	require.Equal(t, 100.0, collected[0].Value)
 }
 
-func TestAlignerFilter_AutoLast_CumulativeStandaloneDownsampling(t *testing.T) {
+func TestAlignerFilter_AutoInterpolate_CumulativeStandaloneDownsampling(t *testing.T) {
 	ctx := context.Background()
 	fm, err := tsquery.NewFieldMetaFull("counter", tsquery.DataTypeDecimal, tsquery.MetricKindCumulative, true, "kWh", nil)
 	require.NoError(t, err)
@@ -100,10 +103,16 @@ func TestAlignerFilter_AutoLast_CumulativeStandaloneDownsampling(t *testing.T) {
 	filtered, err := af.Filter(ctx, result)
 	require.NoError(t, err)
 
+	// Interpolation path:
+	// - [0:00,0:15): first cluster — smudge first item (100 @ 0:01) to bucket-start.
+	// - [0:15,0:30): linear interpolation between previous-cluster-last (110 @ 0:10)
+	//   and current-cluster-first (125 @ 0:16) at target=0:15.
+	//   weight = (0:15 - 0:10) / (0:16 - 0:10) = 5/6
+	//   value  = 110 + (125 - 110) * 5/6 = 122.5
 	collected := filtered.Data().MustCollect()
 	require.Len(t, collected, 2)
-	require.Equal(t, 110.0, collected[0].Value) // last in [0:00-0:15)
-	require.Equal(t, 140.0, collected[1].Value) // last in [0:15-0:30)
+	require.InDelta(t, 100.0, collected[0].Value, 1e-10)
+	require.InDelta(t, 122.5, collected[1].Value, 1e-10)
 }
 
 func TestAlignerFilter_ExplicitOverridesAutoSum(t *testing.T) {
@@ -128,7 +137,7 @@ func TestAlignerFilter_ExplicitOverridesAutoSum(t *testing.T) {
 	require.Equal(t, 15.0, collected[0].Value) // avg(10, 20) = 15
 }
 
-func TestAlignerFilter_ExplicitOverridesAutoLast(t *testing.T) {
+func TestAlignerFilter_ExplicitOverridesAutoInterpolate_Cumulative(t *testing.T) {
 	ctx := context.Background()
 	fm, err := tsquery.NewFieldMetaFull("counter", tsquery.DataTypeDecimal, tsquery.MetricKindCumulative, true, "kWh", nil)
 	require.NoError(t, err)
@@ -139,7 +148,7 @@ func TestAlignerFilter_ExplicitOverridesAutoLast(t *testing.T) {
 	}
 	result := Result{meta: *fm, data: stream.Just(records...)}
 
-	// Explicit Sum overrides auto-Last for cumulative
+	// Explicit Sum overrides the default interpolation path for cumulative.
 	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(15*time.Minute, time.UTC)).
 		WithBucketReduction(tsquery.ReductionTypeSum)
 	filtered, err := af.Filter(ctx, result)
@@ -668,6 +677,88 @@ func TestGolden_PipelineWithGap(t *testing.T) {
 	require.Len(t, collected, 2)
 	require.Equal(t, 10.0, collected[0].Value)
 	require.Equal(t, 30.0, collected[1].Value)
+}
+
+// TestGolden_CumulativeAlignThenDelta_PreservesTotal documents the customer-reported
+// correctness regression in v0.4.51's "Last" smart-default for cumulative metrics.
+//
+// Scenario: cumulative energy counter sampled every 15 minutes, aligned to hourly
+// buckets with no explicit bucketReduction, followed by DeltaFilter.
+//
+// For a counter, "value of bucket B" must equal "counter state at a fixed timestamp
+// anchor of B" (start or end — same anchor every bucket) for delta-after-align to
+// give correct per-bucket consumption. Linear interpolation to bucket-start preserves
+// this invariant; Last (last-sample-inside-bucket) does not — its anchor floats and
+// systematically truncates each bucket whenever sample cadence is finer than bucket
+// cadence (the common case).
+//
+// Samples: 0, 25k, 50k, 75k, 100k, 125k, 150k, 175k, 200k at 17:00, 17:15, ..., 19:00.
+// True total consumption from 17:00 to 19:00 = 200k.
+//
+// Correct behavior (v0.4.50, interpolation): aligned values 0, 100k, 200k at hour
+// boundaries; DeltaFilter then yields 100k @ 18:00 + 100k @ 19:00 = 200k.
+//
+// Buggy behavior (v0.4.51, Last): aligned values 75k, 175k, 200k stamped at hour
+// boundaries (value-time mismatch); DeltaFilter yields 100k @ 18:00 + 25k @ 19:00
+// = 125k, losing 75k of consumption.
+func TestGolden_CumulativeAlignThenDelta_PreservesTotal(t *testing.T) {
+	ctx := context.Background()
+
+	fm, err := tsquery.NewFieldMetaFull("lifetimeEnergy", tsquery.DataTypeDecimal, tsquery.MetricKindCumulative, true, "Wh", nil)
+	require.NoError(t, err)
+
+	records := []timeseries.TsRecord[any]{
+		{Value: 0.0, Timestamp: time.Date(2024, 1, 1, 17, 0, 0, 0, time.UTC)},
+		{Value: 25000.0, Timestamp: time.Date(2024, 1, 1, 17, 15, 0, 0, time.UTC)},
+		{Value: 50000.0, Timestamp: time.Date(2024, 1, 1, 17, 30, 0, 0, time.UTC)},
+		{Value: 75000.0, Timestamp: time.Date(2024, 1, 1, 17, 45, 0, 0, time.UTC)},
+		{Value: 100000.0, Timestamp: time.Date(2024, 1, 1, 18, 0, 0, 0, time.UTC)},
+		{Value: 125000.0, Timestamp: time.Date(2024, 1, 1, 18, 15, 0, 0, time.UTC)},
+		{Value: 150000.0, Timestamp: time.Date(2024, 1, 1, 18, 30, 0, 0, time.UTC)},
+		{Value: 175000.0, Timestamp: time.Date(2024, 1, 1, 18, 45, 0, 0, time.UTC)},
+		{Value: 200000.0, Timestamp: time.Date(2024, 1, 1, 19, 0, 0, 0, time.UTC)},
+	}
+	result := Result{meta: *fm, data: stream.Just(records...)}
+
+	// Step 1: AlignerFilter (hourly, no explicit reduction) — must preserve
+	// boundary-state semantics for a counter.
+	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Hour, time.UTC))
+	alignedResult, err := af.Filter(ctx, result)
+	require.NoError(t, err)
+	require.Equal(t, tsquery.MetricKindCumulative, alignedResult.Meta().MetricKind(),
+		"aligner must preserve cumulative kind so DeltaFilter accepts it")
+
+	alignedCollected := alignedResult.Data().MustCollect()
+	require.Len(t, alignedCollected, 3, "expected 3 hourly buckets (17:00, 18:00, 19:00)")
+	require.Equal(t, time.Date(2024, 1, 1, 17, 0, 0, 0, time.UTC), alignedCollected[0].Timestamp)
+	require.Equal(t, time.Date(2024, 1, 1, 18, 0, 0, 0, time.UTC), alignedCollected[1].Timestamp)
+	require.Equal(t, time.Date(2024, 1, 1, 19, 0, 0, 0, time.UTC), alignedCollected[2].Timestamp)
+	require.InDelta(t, 0.0, alignedCollected[0].Value, 1e-6,
+		"counter at 17:00 boundary is 0, not the last sample inside [17:00,18:00)")
+	require.InDelta(t, 100000.0, alignedCollected[1].Value, 1e-6,
+		"counter at 18:00 boundary is 100k, not the last sample inside [18:00,19:00)")
+	require.InDelta(t, 200000.0, alignedCollected[2].Value, 1e-6,
+		"counter at 19:00 boundary is 200k")
+
+	// Step 2: DeltaFilter — should yield per-bucket consumption.
+	df := NewDeltaFilter(false, 0, false, nil)
+	deltaResult, err := df.Filter(ctx, alignedResult)
+	require.NoError(t, err)
+
+	deltas := deltaResult.Data().MustCollect()
+	require.Len(t, deltas, 2, "expected 2 deltas (first sample is skipped)")
+	require.InDelta(t, 100000.0, deltas[0].Value, 1e-6,
+		"hour [17:00,18:00) consumed 100k Wh")
+	require.InDelta(t, 100000.0, deltas[1].Value, 1e-6,
+		"hour [18:00,19:00) consumed 100k Wh")
+
+	// Total consumption should equal the raw counter span.
+	total := 0.0
+	for _, d := range deltas {
+		total += d.Value.(float64)
+	}
+	require.InDelta(t, 200000.0, total, 1e-6,
+		"aligned-then-delta must preserve total counter increase")
 }
 
 func TestGolden_RateOfRate_Error(t *testing.T) {
