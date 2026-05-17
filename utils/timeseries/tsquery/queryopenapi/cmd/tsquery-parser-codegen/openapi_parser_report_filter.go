@@ -7,6 +7,7 @@ import (
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
+	"time"
 )
 
 func ParseReportFilter(pCtx *ParsingContext, rawFilter ApiReportFilter) (report.Filter, error) {
@@ -27,12 +28,53 @@ func ParseReportFilter(pCtx *ParsingContext, rawFilter ApiReportFilter) (report.
 		return parseSingleFieldReportFilter(pCtx, typedFilter)
 	case ApiProjectionReportFilter:
 		return parseProjectionReportFilter(typedFilter)
+	case ApiOverrideFieldMetadataReportFilter:
+		return parseOverrideFieldMetadataReportFilter(typedFilter)
 	case ApiScheduleFilter:
 		return parseScheduleReportFilter(typedFilter)
 	case ApiTimeShiftFilter:
 		return parseTimeShiftReportFilter(typedFilter)
 	}
 	return wrapAndReturnReportFilter(pCtx.plugin.ParseReportFilter(pCtx, rawFilter))("failed parsing report filter with plugin parser")
+}
+
+func parseOverrideFieldMetadataReportFilter(filter ApiOverrideFieldMetadataReportFilter) (report.Filter, error) {
+	if filter.FieldUrn == "" {
+		return nil, badInputErrorf(filter, "fieldUrn is required for overrideFieldMetadata report filter")
+	}
+
+	var optUpdatedUrn *string
+	if filter.UpdatedUrn != "" {
+		optUpdatedUrn = &filter.UpdatedUrn
+	}
+
+	var optUpdatedUnit *string
+	if filter.UpdatedUnit != "" {
+		optUpdatedUnit = &filter.UpdatedUnit
+	}
+
+	var optUpdatedMetricKind *tsquery.MetricKind
+	if filter.UpdatedMetricKind != "" {
+		optUpdatedMetricKind = &filter.UpdatedMetricKind
+	}
+
+	var optUpdatedSamplePeriod *time.Duration
+	if filter.UpdatedSamplePeriod != "" {
+		sp, err := time.ParseDuration(filter.UpdatedSamplePeriod)
+		if err != nil {
+			return nil, badInputErrorWrap(filter, err, "invalid updatedSamplePeriod")
+		}
+		optUpdatedSamplePeriod = &sp
+	}
+
+	return report.NewOverrideFieldMetadataFilter(
+		filter.FieldUrn,
+		optUpdatedUrn,
+		optUpdatedUnit,
+		optUpdatedMetricKind,
+		optUpdatedSamplePeriod,
+		filter.UpdatedCustomMeta,
+	), nil
 }
 
 func parseConditionReportFilter(pCtx *ParsingContext, filter ApiConditionReportFilter) (report.Filter, error) {
