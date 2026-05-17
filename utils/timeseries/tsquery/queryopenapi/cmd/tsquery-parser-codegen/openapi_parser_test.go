@@ -2213,6 +2213,73 @@ func TestParseReportFilter_Projection(t *testing.T) {
 	assert.Equal(t, 31.0, records[1].Value[1])
 }
 
+func TestParseReportFilter_OverrideFieldMetadata(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	staticReportDs := ApiStaticReportDatasource{
+		Type: "static",
+		FieldsMeta: []ApiQueryFieldMeta{
+			{Uri: "temperature", DataType: tsquery.DataTypeDecimal, Required: true, Unit: "celsius"},
+			{Uri: "humidity", DataType: tsquery.DataTypeDecimal, Required: true, Unit: "%"},
+		},
+		Data: []ApiReportMeasurementRow{
+			{Timestamp: baseTime, Values: []any{20.0, 60.0}},
+			{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{22.0, 62.0}},
+		},
+	}
+
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(staticReportDs))
+
+	overrideFilter := ApiOverrideFieldMetadataReportFilter{
+		Type:              "overrideFieldMetadata",
+		FieldUrn:          "temperature",
+		UpdatedUrn:        "temp_f",
+		UpdatedUnit:       "fahrenheit",
+		UpdatedCustomMeta: map[string]any{"source": "override-test"},
+	}
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiOverrideFieldMetadataReportFilter(overrideFilter))
+
+	filteredDs := ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}
+
+	var finalApiDs ApiReportDatasource
+	require.NoError(t, finalApiDs.FromApiFilteredReportDatasource(filteredDs))
+
+	pCtx := NewParsingContext(context.Background(), nil)
+	ds, err := ParseReportDatasource(pCtx, finalApiDs)
+	require.NoError(t, err)
+
+	ctx := testContext()
+	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	fieldsMeta := result.FieldsMeta()
+	require.Len(t, fieldsMeta, 2)
+
+	// First field renamed and unit/customMeta updated
+	assert.Equal(t, "temp_f", fieldsMeta[0].Urn())
+	assert.Equal(t, "fahrenheit", fieldsMeta[0].Unit())
+	assert.Equal(t, "override-test", fieldsMeta[0].CustomMeta()["source"])
+
+	// Second field unchanged
+	assert.Equal(t, "humidity", fieldsMeta[1].Urn())
+	assert.Equal(t, "%", fieldsMeta[1].Unit())
+
+	// Data is preserved
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 2)
+	assert.Equal(t, 20.0, records[0].Value[0])
+	assert.Equal(t, 60.0, records[0].Value[1])
+	assert.Equal(t, 22.0, records[1].Value[0])
+	assert.Equal(t, 62.0, records[1].Value[1])
+}
+
 // =====================
 // Report Aligner Filter Tests
 // =====================

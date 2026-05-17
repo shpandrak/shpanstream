@@ -1389,6 +1389,7 @@ components:
           dropFields: '#/components/schemas/ApiDropFieldsReportFilter'
           singleField: '#/components/schemas/ApiSingleFieldReportFilter'
           projection: '#/components/schemas/ApiProjectionReportFilter'
+          overrideFieldMetadata: '#/components/schemas/ApiOverrideFieldMetadataReportFilter'
           schedule: '#/components/schemas/ApiScheduleFilter'
           timeShift: '#/components/schemas/ApiTimeShiftFilter'
       oneOf:
@@ -1398,6 +1399,7 @@ components:
         - $ref: '#/components/schemas/ApiDropFieldsReportFilter'
         - $ref: '#/components/schemas/ApiSingleFieldReportFilter'
         - $ref: '#/components/schemas/ApiProjectionReportFilter'
+        - $ref: '#/components/schemas/ApiOverrideFieldMetadataReportFilter'
         - $ref: '#/components/schemas/ApiScheduleFilter'
         - $ref: '#/components/schemas/ApiTimeShiftFilter'
 
@@ -1485,6 +1487,40 @@ components:
           items:
             type: string
             minLength: 1
+
+    ApiOverrideFieldMetadataReportFilter:
+      type: object
+      description: Overrides metadata (URN, unit, metric kind, sample period, custom meta) of an existing field in a report by URN. Data type and required flag are preserved.
+      required:
+        - type
+        - fieldUrn
+      properties:
+        type:
+          type: string
+          enum:
+            - overrideFieldMetadata
+        fieldUrn:
+          type: string
+          minLength: 1
+          description: URN of the existing field whose metadata should be overridden.
+        updatedUrn:
+          type: string
+          minLength: 1
+          x-go-type-skip-optional-pointer: true
+        updatedUnit:
+          type: string
+          minLength: 1
+          x-go-type-skip-optional-pointer: true
+        updatedMetricKind:
+          $ref: '#/components/schemas/ApiMetricKind'
+        updatedSamplePeriod:
+          type: string
+          description: Override the sample period (Go duration string, e.g. "5m", "1h").
+          x-go-type-skip-optional-pointer: true
+        updatedCustomMeta:
+          type: object
+          additionalProperties: true
+          x-go-type-skip-optional-pointer: true
 
     # --- Aggregation types ---
 

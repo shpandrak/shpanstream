@@ -683,6 +683,21 @@ func (e ApiOverrideFieldMetadataFilterType) Valid() bool {
 	}
 }
 
+// Defines values for ApiOverrideFieldMetadataReportFilterType.
+const (
+	ApiOverrideFieldMetadataReportFilterTypeOverrideFieldMetadata ApiOverrideFieldMetadataReportFilterType = "overrideFieldMetadata"
+)
+
+// Valid indicates whether the value is a known member of the ApiOverrideFieldMetadataReportFilterType enum.
+func (e ApiOverrideFieldMetadataReportFilterType) Valid() bool {
+	switch e {
+	case ApiOverrideFieldMetadataReportFilterTypeOverrideFieldMetadata:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApiProjectionReportFilterType.
 const (
 	ApiProjectionReportFilterTypeProjection ApiProjectionReportFilterType = "projection"
@@ -1603,6 +1618,23 @@ type ApiOverrideFieldMetadataFilter struct {
 
 // ApiOverrideFieldMetadataFilterType defines model for ApiOverrideFieldMetadataFilter.Type.
 type ApiOverrideFieldMetadataFilterType string
+
+// ApiOverrideFieldMetadataReportFilter Overrides metadata (URN, unit, metric kind, sample period, custom meta) of an existing field in a report by URN. Data type and required flag are preserved.
+type ApiOverrideFieldMetadataReportFilter struct {
+	// FieldUrn URN of the existing field whose metadata should be overridden.
+	FieldUrn          string                                   `json:"fieldUrn"`
+	Type              ApiOverrideFieldMetadataReportFilterType `json:"type"`
+	UpdatedCustomMeta map[string]interface{}                   `json:"updatedCustomMeta,omitempty"`
+	UpdatedMetricKind ApiMetricKind                            `json:"updatedMetricKind,omitempty"`
+
+	// UpdatedSamplePeriod Override the sample period (Go duration string, e.g. "5m", "1h").
+	UpdatedSamplePeriod string `json:"updatedSamplePeriod,omitempty"`
+	UpdatedUnit         string `json:"updatedUnit,omitempty"`
+	UpdatedUrn          string `json:"updatedUrn,omitempty"`
+}
+
+// ApiOverrideFieldMetadataReportFilterType defines model for ApiOverrideFieldMetadataReportFilter.Type.
+type ApiOverrideFieldMetadataReportFilterType string
 
 // ApiProjectionReportFilter Projects/selects specific fields from the report by URN, dropping all others. Only supports referencing existing fields (no computed values).
 type ApiProjectionReportFilter struct {
@@ -3378,6 +3410,22 @@ func (t *ApiReportFilter) FromApiProjectionReportFilter(v ApiProjectionReportFil
 }
 
 
+// AsApiOverrideFieldMetadataReportFilter returns the union data inside the ApiReportFilter as a ApiOverrideFieldMetadataReportFilter
+func (t ApiReportFilter) AsApiOverrideFieldMetadataReportFilter() (ApiOverrideFieldMetadataReportFilter, error) {
+	var body ApiOverrideFieldMetadataReportFilter
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromApiOverrideFieldMetadataReportFilter overwrites any union data inside the ApiReportFilter as the provided ApiOverrideFieldMetadataReportFilter
+func (t *ApiReportFilter) FromApiOverrideFieldMetadataReportFilter(v ApiOverrideFieldMetadataReportFilter) error {
+	v.Type = "overrideFieldMetadata"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+
 // AsApiScheduleFilter returns the union data inside the ApiReportFilter as a ApiScheduleFilter
 func (t ApiReportFilter) AsApiScheduleFilter() (ApiScheduleFilter, error) {
 	var body ApiScheduleFilter
@@ -3432,6 +3480,8 @@ func (t ApiReportFilter) ValueByDiscriminator() (interface{}, error) {
 		return t.AsApiConditionReportFilter()
 	case "dropFields":
 		return t.AsApiDropFieldsReportFilter()
+	case "overrideFieldMetadata":
+		return t.AsApiOverrideFieldMetadataReportFilter()
 	case "projection":
 		return t.AsApiProjectionReportFilter()
 	case "schedule":
