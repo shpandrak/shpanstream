@@ -39,6 +39,21 @@ const (
 	ReductionTypeR2      ReductionType = "r2"       // Coefficient of determination (R²)
 )
 
+// Validate reports whether the reduction type is one of the known reduction types
+// (single-field or paired). It does not assert applicability to a particular data type
+// or context — that is the caller's responsibility.
+func (reductionType ReductionType) Validate() error {
+	switch reductionType {
+	case ReductionTypeSum, ReductionTypeAvg, ReductionTypeMin, ReductionTypeMax,
+		ReductionTypeCount, ReductionTypeFirst, ReductionTypeLast,
+		ReductionTypeStddev, ReductionTypeVariance, ReductionTypeSpread,
+		ReductionTypeP50, ReductionTypeP75, ReductionTypeP90, ReductionTypeP95, ReductionTypeP99, ReductionTypeP999,
+		ReductionTypeMAE, ReductionTypeRMSE, ReductionTypeMBE, ReductionTypeMAPE, ReductionTypePearson, ReductionTypeR2:
+		return nil
+	}
+	return fmt.Errorf("invalid reduction type: %q", reductionType)
+}
+
 // IsPaired reports whether this reduction type is a paired (two-field) reduction
 // that compares actual vs predicted values. Paired reductions require a compare field URN.
 func (reductionType ReductionType) IsPaired() bool {

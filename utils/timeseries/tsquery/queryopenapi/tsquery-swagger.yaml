@@ -1383,7 +1383,7 @@ components:
       discriminator:
         propertyName: type
         mapping:
-          aligner: '#/components/schemas/ApiAlignerFilter'
+          aligner: '#/components/schemas/ApiReportAlignerFilter'
           condition: '#/components/schemas/ApiConditionReportFilter'
           appendField: '#/components/schemas/ApiAppendFieldReportFilter'
           dropFields: '#/components/schemas/ApiDropFieldsReportFilter'
@@ -1393,7 +1393,7 @@ components:
           schedule: '#/components/schemas/ApiScheduleFilter'
           timeShift: '#/components/schemas/ApiTimeShiftFilter'
       oneOf:
-        - $ref: '#/components/schemas/ApiAlignerFilter'
+        - $ref: '#/components/schemas/ApiReportAlignerFilter'
         - $ref: '#/components/schemas/ApiConditionReportFilter'
         - $ref: '#/components/schemas/ApiAppendFieldReportFilter'
         - $ref: '#/components/schemas/ApiDropFieldsReportFilter'
@@ -1402,6 +1402,55 @@ components:
         - $ref: '#/components/schemas/ApiOverrideFieldMetadataReportFilter'
         - $ref: '#/components/schemas/ApiScheduleFilter'
         - $ref: '#/components/schemas/ApiTimeShiftFilter'
+
+    ApiReportAlignerFilter:
+      type: object
+      description: >
+        Aligns a multi-field report to the alignment period's cadence. Each field is reduced per
+        bucket according to its MetricKind (Delta sums into per-bucket totals; every other kind
+        interpolates to bucket-start), unless overridden per field via fieldAlignments. Maps to
+        report.AlignerFilter.
+      required:
+        - type
+        - alignerPeriod
+      properties:
+        type:
+          type: string
+          enum:
+            - aligner
+        alignerPeriod:
+          $ref: '#/components/schemas/ApiAlignmentPeriod'
+        fillMode:
+          description: >
+            When set, missing buckets are gap-filled using this mode. Individual fields may override
+            it via fieldAlignments.
+          $ref: '#/components/schemas/ApiFillMode'
+          x-go-type-skip-optional-pointer: true
+        fieldAlignments:
+          description: >
+            Optional per-field alignment overrides, keyed by field URN. Each entry may override the
+            bucket reduction and/or the gap-fill mode for that field.
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ApiFieldAlignment'
+
+    ApiFieldAlignment:
+      type: object
+      description: >
+        Per-field bucket-reduction and/or gap-fill override for the report aligner. Both members are
+        optional; an unset member falls back to the field's MetricKind default (reduction) or the
+        aligner-level fill mode (fillMode).
+      properties:
+        reduction:
+          description: >
+            Bucket reduction for this field, overriding the MetricKind-derived default. Paired
+            reductions are not supported here (they require a compare field).
+          $ref: '#/components/schemas/ApiReductionType'
+        fillMode:
+          description: >
+            Gap-fill mode for this field, overriding the aligner-level fill mode. Requires fill to be
+            enabled on the aligner.
+          $ref: '#/components/schemas/ApiFillMode'
 
     ApiConditionReportFilter:
       type: object

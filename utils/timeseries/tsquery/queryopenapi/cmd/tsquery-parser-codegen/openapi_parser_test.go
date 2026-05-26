@@ -9,6 +9,7 @@ import (
 
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
+	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -2315,13 +2316,13 @@ func TestParseReportFilter_Aligner_LinearFill(t *testing.T) {
 	}))
 
 	fillMode := timeseries.FillModeLinear
-	alignerFilter := ApiAlignerFilter{
+	alignerFilter := ApiReportAlignerFilter{
 		AlignerPeriod: alignmentPeriod,
 		FillMode:      &fillMode,
 	}
 
 	var apiFilter ApiReportFilter
-	require.NoError(t, apiFilter.FromApiAlignerFilter(alignerFilter))
+	require.NoError(t, apiFilter.FromApiReportAlignerFilter(alignerFilter))
 
 	filteredDs := ApiFilteredReportDatasource{
 		Type:             "filtered",
@@ -2398,13 +2399,13 @@ func TestParseReportFilter_Aligner_ForwardFill(t *testing.T) {
 	}))
 
 	fillMode := timeseries.FillModeForwardFill
-	alignerFilter := ApiAlignerFilter{
+	alignerFilter := ApiReportAlignerFilter{
 		AlignerPeriod: alignmentPeriod,
 		FillMode:      &fillMode,
 	}
 
 	var apiFilter ApiReportFilter
-	require.NoError(t, apiFilter.FromApiAlignerFilter(alignerFilter))
+	require.NoError(t, apiFilter.FromApiReportAlignerFilter(alignerFilter))
 
 	filteredDs := ApiFilteredReportDatasource{
 		Type:             "filtered",
@@ -2446,6 +2447,167 @@ func TestParseReportFilter_Aligner_ForwardFill(t *testing.T) {
 	assert.Equal(t, baseTime.Add(1*time.Hour), records[2].Timestamp)
 	assert.InDelta(t, 200.0, records[2].Value[0], 0.01) // decimal: 200.0
 	assert.InDelta(t, 20, records[2].Value[1], 0.01)    // integer: 20
+}
+
+// ----------------------------------------
+// Report aligner: per-field MetricKind-aware reduction & fill (ApiReportAlignerFilter)
+// ----------------------------------------
+
+func hourAlignmentPeriod(t *testing.T) ApiAlignmentPeriod {
+	t.Helper()
+	var ap ApiAlignmentPeriod
+	require.NoError(t, ap.FromApiCustomAlignmentPeriod(ApiCustomAlignmentPeriod{
+		ZoneId:           "UTC",
+		DurationInMillis: 60 * 60 * 1000,
+	}))
+	return ap
+}
+
+// parseReportAlignerStatic wraps a static report datasource in the given aligner filter and parses it.
+func parseReportAlignerStatic(
+	t *testing.T,
+	fields []ApiQueryFieldMeta,
+	rows []ApiReportMeasurementRow,
+	alignerFilter ApiReportAlignerFilter,
+) (report.DataSource, error) {
+	t.Helper()
+	var apiReportDs ApiReportDatasource
+	require.NoError(t, apiReportDs.FromApiStaticReportDatasource(ApiStaticReportDatasource{
+		Type:       "static",
+		FieldsMeta: fields,
+		Data:       rows,
+	}))
+
+	var apiFilter ApiReportFilter
+	require.NoError(t, apiFilter.FromApiReportAlignerFilter(alignerFilter))
+
+	var filteredDs ApiReportDatasource
+	require.NoError(t, filteredDs.FromApiFilteredReportDatasource(ApiFilteredReportDatasource{
+		Type:             "filtered",
+		ReportDatasource: apiReportDs,
+		Filters:          []ApiReportFilter{apiFilter},
+	}))
+
+	return ParseReportDatasource(NewParsingContext(context.Background(), nil), filteredDs)
+}
+
+// TestParseReportFilter_Aligner_DeltaSumsByDefault verifies the full chain through JSON parsing:
+// ApiQueryFieldMeta.metricKind=delta → FieldMeta → report aligner auto-sums; a gauge field keeps
+// the first-item (smudge) behavior.
+func TestParseReportFilter_Aligner_DeltaSumsByDefault(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	fields := []ApiQueryFieldMeta{
+		{Uri: "energy", DataType: tsquery.DataTypeDecimal, Required: true, MetricKind: tsquery.MetricKindDelta},
+		{Uri: "rate", DataType: tsquery.DataTypeDecimal, Required: true, MetricKind: tsquery.MetricKindGauge},
+	}
+	rows := []ApiReportMeasurementRow{
+		{Timestamp: baseTime, Values: []any{100.0, 0.10}},
+		{Timestamp: baseTime.Add(30 * time.Minute), Values: []any{200.0, 0.20}},
+		{Timestamp: baseTime.Add(1 * time.Hour), Values: []any{300.0, 0.30}},
+	}
+
+	ds, err := parseReportAlignerStatic(t, fields, rows, ApiReportAlignerFilter{AlignerPeriod: hourAlignmentPeriod(t)})
+	require.NoError(t, err)
+
+	result, err := ds.Execute(testContext(), baseTime, baseTime.Add(2*time.Hour))
+	require.NoError(t, err)
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 2)
+
+	// Bucket [0,1h): energy = 100+200 (Delta→Sum); rate = 0.10 (Gauge smudge first, not avg).
+	assert.InDelta(t, 300.0, records[0].Value[0], 1e-9)
+	assert.InDelta(t, 0.10, records[0].Value[1], 1e-9)
+	// Bucket [1h,2h): energy = 300; rate = 0.30 (exact at boundary).
+	assert.InDelta(t, 300.0, records[1].Value[0], 1e-9)
+	assert.InDelta(t, 0.30, records[1].Value[1], 1e-9)
+
+	// Delta kind is preserved through alignment.
+	assert.Equal(t, tsquery.MetricKindDelta, result.FieldsMeta()[0].MetricKind())
+}
+
+// TestParseReportFilter_Aligner_FieldReductionOverride verifies fieldAlignments overrides the
+// MetricKind-derived default for a single field.
+func TestParseReportFilter_Aligner_FieldReductionOverride(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	fields := []ApiQueryFieldMeta{
+		{Uri: "energy", DataType: tsquery.DataTypeDecimal, Required: true, MetricKind: tsquery.MetricKindDelta},
+		{Uri: "rate", DataType: tsquery.DataTypeDecimal, Required: true, MetricKind: tsquery.MetricKindGauge},
+	}
+	rows := []ApiReportMeasurementRow{
+		{Timestamp: baseTime, Values: []any{100.0, 0.10}},
+		{Timestamp: baseTime.Add(30 * time.Minute), Values: []any{200.0, 0.20}},
+	}
+
+	sumReduction := tsquery.ReductionTypeSum
+	fieldAlignments := map[string]ApiFieldAlignment{
+		"rate": {Reduction: &sumReduction}, // force-sum a gauge
+	}
+	ds, err := parseReportAlignerStatic(t, fields, rows, ApiReportAlignerFilter{
+		AlignerPeriod:   hourAlignmentPeriod(t),
+		FieldAlignments: &fieldAlignments,
+	})
+	require.NoError(t, err)
+
+	result, err := ds.Execute(testContext(), baseTime, baseTime.Add(1*time.Hour))
+	require.NoError(t, err)
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 1)
+	assert.InDelta(t, 300.0, records[0].Value[0], 1e-9, "energy: Delta default Sum")
+	assert.InDelta(t, 0.30, records[0].Value[1], 1e-9, "rate: Sum override (0.10+0.20)")
+}
+
+// TestParseReportFilter_Aligner_PerFieldFillMode verifies a per-field fillMode override is parsed
+// and applied: the overridden field forward-fills a gap while the default field interpolates.
+func TestParseReportFilter_Aligner_PerFieldFillMode(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	fields := []ApiQueryFieldMeta{
+		{Uri: "lin", DataType: tsquery.DataTypeDecimal, Required: true, MetricKind: tsquery.MetricKindGauge},
+		{Uri: "ff", DataType: tsquery.DataTypeDecimal, Required: true, MetricKind: tsquery.MetricKindGauge},
+	}
+	rows := []ApiReportMeasurementRow{
+		{Timestamp: baseTime, Values: []any{10.0, 100.0}},
+		{Timestamp: baseTime.Add(2 * time.Hour), Values: []any{30.0, 300.0}},
+	}
+
+	globalFill := timeseries.FillModeLinear
+	ffFill := timeseries.FillModeForwardFill
+	fieldAlignments := map[string]ApiFieldAlignment{
+		"ff": {FillMode: &ffFill},
+	}
+	ds, err := parseReportAlignerStatic(t, fields, rows, ApiReportAlignerFilter{
+		AlignerPeriod:   hourAlignmentPeriod(t),
+		FillMode:        &globalFill,
+		FieldAlignments: &fieldAlignments,
+	})
+	require.NoError(t, err)
+
+	result, err := ds.Execute(testContext(), baseTime, baseTime.Add(3*time.Hour))
+	require.NoError(t, err)
+	records := result.Stream().MustCollect()
+	require.Len(t, records, 3)
+
+	// Gap at t=1h: lin interpolates 10→30 (=20); ff forward-fills previous (=100).
+	assert.Equal(t, baseTime.Add(1*time.Hour), records[1].Timestamp)
+	assert.InDelta(t, 20.0, records[1].Value[0], 1e-9)
+	assert.InDelta(t, 100.0, records[1].Value[1], 1e-9)
+}
+
+// TestParseReportFilter_Aligner_InvalidFieldReduction verifies the parser rejects an unknown
+// reduction enum value in fieldAlignments via ReductionType.Validate().
+func TestParseReportFilter_Aligner_InvalidFieldReduction(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	fields := []ApiQueryFieldMeta{
+		{Uri: "energy", DataType: tsquery.DataTypeDecimal, Required: true, MetricKind: tsquery.MetricKindDelta},
+	}
+	rows := []ApiReportMeasurementRow{{Timestamp: baseTime, Values: []any{100.0}}}
+
+	bogus := tsquery.ReductionType("bogus")
+	fieldAlignments := map[string]ApiFieldAlignment{"energy": {Reduction: &bogus}}
+	_, err := parseReportAlignerStatic(t, fields, rows, ApiReportAlignerFilter{
+		AlignerPeriod:   hourAlignmentPeriod(t),
+		FieldAlignments: &fieldAlignments,
+	})
+	require.ErrorContains(t, err, "invalid reduction type")
 }
 
 // ========================================
@@ -2584,7 +2746,7 @@ func TestParseFilteredReportMultiDatasource(t *testing.T) {
 		ZoneId:              "UTC",
 	}))
 	var alignerFilter ApiReportFilter
-	require.NoError(t, alignerFilter.FromApiAlignerFilter(ApiAlignerFilter{
+	require.NoError(t, alignerFilter.FromApiReportAlignerFilter(ApiReportAlignerFilter{
 		AlignerPeriod: alignmentPeriod,
 	}))
 

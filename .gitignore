@@ -35,3 +35,6 @@ ui/dist
 
 # Python virtual environment
 .env
+
+# Claude Code local memory/session data (skills under .claude/skills remain tracked)
+.claude/projects/
