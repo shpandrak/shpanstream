@@ -803,6 +803,21 @@ func (e ApiRefReportFieldValueType) Valid() bool {
 	}
 }
 
+// Defines values for ApiReportAlignerFilterType.
+const (
+	ApiReportAlignerFilterTypeAligner ApiReportAlignerFilterType = "aligner"
+)
+
+// Valid indicates whether the value is a known member of the ApiReportAlignerFilterType enum.
+func (e ApiReportAlignerFilterType) Valid() bool {
+	switch e {
+	case ApiReportAlignerFilterTypeAligner:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApiRowTimestampQueryFieldValueType.
 const (
 	ApiRowTimestampQueryFieldValueTypeRowTimestamp ApiRowTimestampQueryFieldValueType = "rowTimestamp"
@@ -1330,6 +1345,26 @@ type ApiExpressionAggregationField struct {
 	Value ApiAggregationFieldValue `json:"value"`
 }
 
+// ApiFieldAlignment Per-field bucket-reduction and/or gap-fill override for the report aligner. Both members are optional; an unset member falls back to the field's MetricKind default (reduction) or the aligner-level fill mode (fillMode).
+type ApiFieldAlignment struct {
+	FillMode *ApiFillMode `json:"fillMode,omitempty"`
+
+	// Reduction Reduction type used to collapse a time series into a scalar value.
+	//
+	// **Single-field reductions** operate on one source field:
+	// sum, avg, min, max, count, first, last, stddev, variance, spread, p50–p999.
+	//
+	// **Paired reductions** compare two fields (actual vs predicted) to produce
+	// forecast-error metrics. They require `compareFieldUrn` on the aggregation field:
+	// - `mae`  — Mean Absolute Error: mean(|actual − predicted|). Average error magnitude in original units.
+	// - `rmse` — Root Mean Squared Error: √mean((actual − predicted)²). Penalises large errors more than MAE.
+	// - `mbe`  — Mean Bias Error: mean(actual − predicted). Positive = under-predicting, negative = over-predicting.
+	// - `mape` — Mean Absolute Percentage Error: mean(|actual − predicted| / |actual|) × 100. Rows where actual = 0 are skipped.
+	// - `pearson` — Pearson correlation coefficient between actual and predicted (1.0 = perfect tracking). Requires ≥ 2 data points.
+	// - `r2`   — Coefficient of determination (R²). Fraction of actual variance explained by the forecast. Requires ≥ 2 data points.
+	Reduction *ApiReductionType `json:"reduction,omitempty"`
+}
+
 // ApiFieldValueFilter defines model for ApiFieldValueFilter.
 type ApiFieldValueFilter struct {
 	FieldMeta  ApiAddFieldMeta         `json:"fieldMeta"`
@@ -1841,6 +1876,19 @@ type ApiReportAggregationField struct {
 	// For paired reductions this is the "actual" (observed) field.
 	SourceFieldUrn string `json:"sourceFieldUrn"`
 }
+
+// ApiReportAlignerFilter Aligns a multi-field report to the alignment period's cadence. Each field is reduced per bucket according to its MetricKind (Delta sums into per-bucket totals; every other kind interpolates to bucket-start), unless overridden per field via fieldAlignments. Maps to report.AlignerFilter.
+type ApiReportAlignerFilter struct {
+	AlignerPeriod ApiAlignmentPeriod `json:"alignerPeriod"`
+
+	// FieldAlignments Optional per-field alignment overrides, keyed by field URN. Each entry may override the bucket reduction and/or the gap-fill mode for that field.
+	FieldAlignments *map[string]ApiFieldAlignment `json:"fieldAlignments,omitempty"`
+	FillMode        *ApiFillMode                  `json:"fillMode,omitempty"`
+	Type            ApiReportAlignerFilterType    `json:"type"`
+}
+
+// ApiReportAlignerFilterType defines model for ApiReportAlignerFilter.Type.
+type ApiReportAlignerFilterType string
 
 // ApiReportDatasource Report datasource that produces multiple fields per timestamp.
 type ApiReportDatasource struct {
@@ -3314,15 +3362,15 @@ func (t *ApiReportFieldValue) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsApiAlignerFilter returns the union data inside the ApiReportFilter as a ApiAlignerFilter
-func (t ApiReportFilter) AsApiAlignerFilter() (ApiAlignerFilter, error) {
-	var body ApiAlignerFilter
+// AsApiReportAlignerFilter returns the union data inside the ApiReportFilter as a ApiReportAlignerFilter
+func (t ApiReportFilter) AsApiReportAlignerFilter() (ApiReportAlignerFilter, error) {
+	var body ApiReportAlignerFilter
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromApiAlignerFilter overwrites any union data inside the ApiReportFilter as the provided ApiAlignerFilter
-func (t *ApiReportFilter) FromApiAlignerFilter(v ApiAlignerFilter) error {
+// FromApiReportAlignerFilter overwrites any union data inside the ApiReportFilter as the provided ApiReportAlignerFilter
+func (t *ApiReportFilter) FromApiReportAlignerFilter(v ApiReportAlignerFilter) error {
 	v.Type = "aligner"
 	b, err := json.Marshal(v)
 	t.union = b
@@ -3473,7 +3521,7 @@ func (t ApiReportFilter) ValueByDiscriminator() (interface{}, error) {
 	}
 	switch discriminator {
 	case "aligner":
-		return t.AsApiAlignerFilter()
+		return t.AsApiReportAlignerFilter()
 	case "appendField":
 		return t.AsApiAppendFieldReportFilter()
 	case "condition":

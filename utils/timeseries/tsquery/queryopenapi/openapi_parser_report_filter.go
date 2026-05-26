@@ -2,7 +2,6 @@ package queryopenapi
 
 import (
 	"fmt"
-	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
 	"time"
@@ -14,8 +13,8 @@ func ParseReportFilter(pCtx *ParsingContext, rawFilter ApiReportFilter) (report.
 		return nil, err
 	}
 	switch typedFilter := rawFilterType.(type) {
-	case ApiAlignerFilter:
-		return parseAlignerReportFilter(typedFilter)
+	case ApiReportAlignerFilter:
+		return parseReportAlignerFilter(typedFilter)
 	case ApiConditionReportFilter:
 		return parseConditionReportFilter(pCtx, typedFilter)
 	case ApiAppendFieldReportFilter:
@@ -121,21 +120,43 @@ func parseProjectionReportFilter(filter ApiProjectionReportFilter) (report.Filte
 	return report.NewSelectFieldsFilter(selectedFields), nil
 }
 
-func parseAlignerReportFilter(apiAlignerFilter ApiAlignerFilter) (report.Filter, error) {
+func parseReportAlignerFilter(apiAlignerFilter ApiReportAlignerFilter) (report.Filter, error) {
 	alignerPeriod, err := ParseAlignmentPeriod(apiAlignerFilter.AlignerPeriod)
 	if err != nil {
 		return nil, err
 	}
+
+	var af report.AlignerFilter
 	if apiAlignerFilter.FillMode != nil {
-		switch *apiAlignerFilter.FillMode {
-		case timeseries.FillModeLinear, timeseries.FillModeForwardFill:
-			// valid
-		default:
-			return nil, fmt.Errorf("unsupported fill mode: %q", *apiAlignerFilter.FillMode)
+		if err := apiAlignerFilter.FillMode.Validate(); err != nil {
+			return nil, badInputErrorWrap(apiAlignerFilter, err, "invalid fillMode for aligner report filter")
 		}
-		return report.NewInterpolatingAlignerFilter(alignerPeriod, *apiAlignerFilter.FillMode), nil
+		af = report.NewInterpolatingAlignerFilter(alignerPeriod, *apiAlignerFilter.FillMode)
+	} else {
+		af = report.NewAlignerFilter(alignerPeriod)
 	}
-	return report.NewAlignerFilter(alignerPeriod), nil
+
+	if apiAlignerFilter.FieldAlignments != nil {
+		for urn, fa := range *apiAlignerFilter.FieldAlignments {
+			if urn == "" {
+				return nil, badInputErrorf(apiAlignerFilter, "fieldAlignments contains an empty field urn")
+			}
+			if fa.Reduction != nil {
+				if err := fa.Reduction.Validate(); err != nil {
+					return nil, badInputErrorWrap(apiAlignerFilter, err, "invalid reduction for field %q", urn)
+				}
+				af = af.WithFieldReduction(urn, *fa.Reduction)
+			}
+			if fa.FillMode != nil {
+				if err := fa.FillMode.Validate(); err != nil {
+					return nil, badInputErrorWrap(apiAlignerFilter, err, "invalid fillMode for field %q", urn)
+				}
+				af = af.WithFieldFillMode(urn, *fa.FillMode)
+			}
+		}
+	}
+
+	return af, nil
 }
 
 func parseTimeShiftReportFilter(tf ApiTimeShiftFilter) (report.Filter, error) {
