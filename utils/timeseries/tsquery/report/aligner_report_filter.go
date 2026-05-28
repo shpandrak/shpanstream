@@ -255,23 +255,9 @@ func (af AlignerFilter) alignWithReductions(
 
 			// Interpolation fields replicate the no-reduction behavior: the first cluster (or an item
 			// already aligned to the slot) smudges the first value to the bucket start; otherwise the
-			// value is interpolated across the cluster boundary.
+			// value is interpolated across the cluster boundary. Accumulator indices skip interpolation
+			// entirely — their result comes from accs[i].Result() below.
 			needInterp := lastItemOnPreviousCluster != nil && firstItem.Timestamp != clusterTimestampClassifier
-			var interpArr []any
-			if needInterp {
-				interpArr, err = timeWeightedAverageArr(
-					fieldsMeta,
-					clusterTimestampClassifier,
-					lastItemOnPreviousCluster.Timestamp,
-					lastItemOnPreviousCluster.Value,
-					firstItem.Timestamp,
-					firstItem.Value,
-				)
-				if err != nil {
-					return util.DefaultValue[timeseries.TsRecord[[]any]](), fmt.Errorf(
-						"error calculating time weighted average while aligning streams: %w", err)
-				}
-			}
 
 			out := make([]any, len(fieldsMeta))
 			for i := range fieldsMeta {
@@ -279,7 +265,19 @@ func (af AlignerFilter) alignWithReductions(
 				case accs[i] != nil:
 					out[i] = accs[i].Result()
 				case needInterp:
-					out[i] = interpArr[i]
+					v, err := interpolateField(
+						fieldsMeta[i],
+						clusterTimestampClassifier,
+						lastItemOnPreviousCluster.Timestamp,
+						lastItemOnPreviousCluster.Value[i],
+						firstItem.Timestamp,
+						firstItem.Value[i],
+					)
+					if err != nil {
+						return util.DefaultValue[timeseries.TsRecord[[]any]](), fmt.Errorf(
+							"error calculating time weighted average while aligning streams: %w", err)
+					}
+					out[i] = v
 				default:
 					out[i] = firstItem.Value[i]
 				}
@@ -390,7 +388,7 @@ func (af AlignerFilter) fillGaps(
 				case timeseries.FillModeForwardFill:
 					out[i] = v1[i]
 				case timeseries.FillModeLinear:
-					val, err := timeWeightedAverageValue(outFieldsMeta[i].DataType(), targetTime, v1Time, v1[i], v2Time, v2[i])
+					val, err := interpolateField(outFieldsMeta[i], targetTime, v1Time, v1[i], v2Time, v2[i])
 					if err != nil {
 						return nil, err
 					}
@@ -418,18 +416,33 @@ func recordAlignmentPeriodClassifierFunc(ap timeseries.AlignmentPeriod) func(a t
 	return func(a timeseries.TsRecord[[]any]) time.Time { return ap.GetStartTime(a.Timestamp) }
 }
 
-// timeWeightedAverageArr computes the per-field time-weighted average of two value rows, erroring if
-// any value is not numeric.
+// timeWeightedAverageArr computes the per-field time-weighted average of two value rows. Nil
+// values propagate per field via interpolateField: optional fields produce nil; required fields
+// surface a typed error.
 func timeWeightedAverageArr(fieldsMeta []tsquery.FieldMeta, targetTime, v1Time time.Time, v1Arr []any, v2Time time.Time, v2Arr []any) ([]any, error) {
 	res := make([]any, len(v1Arr))
 	for i := range v1Arr {
-		v, err := timeWeightedAverageValue(fieldsMeta[i].DataType(), targetTime, v1Time, v1Arr[i], v2Time, v2Arr[i])
+		v, err := interpolateField(fieldsMeta[i], targetTime, v1Time, v1Arr[i], v2Time, v2Arr[i])
 		if err != nil {
 			return nil, err
 		}
 		res[i] = v
 	}
 	return res, nil
+}
+
+// interpolateField wraps timeWeightedAverageValue with the optional-field nil contract. When
+// either bracketing sample is nil, an optional field (Required=false) produces nil; a required
+// field surfaces a typed error naming the field URN. This mirrors how the rest of the library
+// (numeric expressions, accumulators) treats nil on optional fields.
+func interpolateField(fm tsquery.FieldMeta, targetTime, v1Time time.Time, v1 any, v2Time time.Time, v2 any) (any, error) {
+	if v1 == nil || v2 == nil {
+		if fm.Required() {
+			return nil, fmt.Errorf("aligner field %q is required but has nil bracketing sample", fm.Urn())
+		}
+		return nil, nil
+	}
+	return timeWeightedAverageValue(fm.DataType(), targetTime, v1Time, v1, v2Time, v2)
 }
 
 // timeWeightedAverageValue computes the time-weighted average of a single value between two
