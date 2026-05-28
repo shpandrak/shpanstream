@@ -370,6 +370,186 @@ func TestAlignerFilter_ErrorOnBooleanDataType(t *testing.T) {
 
 }
 
+// --- Nil-handling for optional fields (Required=false) ---
+
+// TestAlignerFilter_OptionalFieldNil_AlignWithReductions_GaugeBoundary exercises the reduction
+// path with a mixed-kind row: a Delta field (forces alignWithReductions) alongside an optional
+// Gauge field whose bracketing sample carries nil. The aligner must reduce the Delta to its
+// bucket sum and propagate nil for the Gauge instead of panicking on the raw float cast.
+func TestAlignerFilter_OptionalFieldNil_AlignWithReductions_GaugeBoundary(t *testing.T) {
+	ctx := context.Background()
+
+	deltaMeta, err := tsquery.NewFieldMetaFull("delta", tsquery.DataTypeDecimal, tsquery.MetricKindDelta, true, "", nil)
+	require.NoError(t, err)
+	gaugeMeta, err := tsquery.NewFieldMetaFull("gauge", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, false, "", nil)
+	require.NoError(t, err)
+	fieldsMeta := []tsquery.FieldMeta{*deltaMeta, *gaugeMeta}
+
+	records := []timeseries.TsRecord[[]any]{
+		{Value: []any{10.0, 5.0}, Timestamp: time.Unix(30, 0)}, // cluster 0 last
+		{Value: []any{10.0, nil}, Timestamp: time.Unix(90, 0)}, // cluster 1 first; gauge nil
+	}
+
+	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
+	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
+	require.NoError(t, err)
+
+	got, err := out.Stream().Collect(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+
+	// Cluster 0: Delta sums to 10.0, Gauge falls through to firstItem (no needInterp).
+	require.Equal(t, time.Unix(0, 0), got[0].Timestamp)
+	require.InDelta(t, 10.0, got[0].Value[0].(float64), 1e-9)
+	require.InDelta(t, 5.0, got[0].Value[1].(float64), 1e-9)
+
+	// Cluster 1: Delta sums to 10.0, Gauge bracket is (5.0, nil) → nil for optional field.
+	require.Equal(t, time.Unix(60, 0), got[1].Timestamp)
+	require.InDelta(t, 10.0, got[1].Value[0].(float64), 1e-9)
+	require.Nil(t, got[1].Value[1])
+}
+
+// TestAlignerFilter_OptionalFieldNil_AlignByInterpolation exercises the pure interpolation
+// path (no Delta fields). An optional field with a nil bracket across the cluster boundary
+// must produce nil for that slot; the required field interpolates normally.
+func TestAlignerFilter_OptionalFieldNil_AlignByInterpolation(t *testing.T) {
+	ctx := context.Background()
+
+	requiredMeta, err := tsquery.NewFieldMetaFull("required", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, true, "", nil)
+	require.NoError(t, err)
+	optionalMeta, err := tsquery.NewFieldMetaFull("optional", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, false, "", nil)
+	require.NoError(t, err)
+	fieldsMeta := []tsquery.FieldMeta{*requiredMeta, *optionalMeta}
+
+	records := []timeseries.TsRecord[[]any]{
+		{Value: []any{10.0, 5.0}, Timestamp: time.Unix(30, 0)},
+		{Value: []any{20.0, nil}, Timestamp: time.Unix(90, 0)},
+	}
+
+	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
+	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
+	require.NoError(t, err)
+
+	got, err := out.Stream().Collect(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+
+	// Cluster 0: smudge firstItem to bucket start.
+	require.Equal(t, time.Unix(0, 0), got[0].Timestamp)
+	require.InDelta(t, 10.0, got[0].Value[0].(float64), 1e-9)
+	require.InDelta(t, 5.0, got[0].Value[1].(float64), 1e-9)
+
+	// Cluster 1: interpolate at t=60. Required: 10 + (20-10) * 0.5 = 15.0. Optional: nil.
+	require.Equal(t, time.Unix(60, 0), got[1].Timestamp)
+	require.InDelta(t, 15.0, got[1].Value[0].(float64), 1e-9)
+	require.Nil(t, got[1].Value[1])
+}
+
+// TestAlignerFilter_OptionalFieldNil_FillGaps_LinearPerField triggers the per-field dispatch
+// branch in fillGaps via a per-field FillMode override. An optional field whose interior
+// gap-fill neighbors include nil must produce nil for that slot, not panic.
+func TestAlignerFilter_OptionalFieldNil_FillGaps_LinearPerField(t *testing.T) {
+	ctx := context.Background()
+
+	ffMeta, err := tsquery.NewFieldMetaFull("ff", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, true, "", nil)
+	require.NoError(t, err)
+	optMeta, err := tsquery.NewFieldMetaFull("opt", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, false, "", nil)
+	require.NoError(t, err)
+	fieldsMeta := []tsquery.FieldMeta{*ffMeta, *optMeta}
+
+	// Source rows at t=0 and t=120; cluster at t=60 is empty so the gap-filler runs there.
+	records := []timeseries.TsRecord[[]any]{
+		{Value: []any{10.0, 5.0}, Timestamp: time.Unix(0, 0)},
+		{Value: []any{20.0, nil}, Timestamp: time.Unix(120, 0)},
+	}
+
+	af := NewInterpolatingAlignerFilter(
+		timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local),
+		timeseries.FillModeLinear,
+	).WithFieldFillMode("ff", timeseries.FillModeForwardFill)
+
+	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
+	require.NoError(t, err)
+
+	got, err := out.Stream().Collect(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 3)
+
+	// t=0: source row aligned to bucket start.
+	require.Equal(t, time.Unix(0, 0), got[0].Timestamp)
+	require.InDelta(t, 10.0, got[0].Value[0].(float64), 1e-9)
+	require.InDelta(t, 5.0, got[0].Value[1].(float64), 1e-9)
+
+	// t=60: gap fill. ff is ForwardFill → 10.0. opt is Linear, brackets (5.0, nil) → nil.
+	require.Equal(t, time.Unix(60, 0), got[1].Timestamp)
+	require.InDelta(t, 10.0, got[1].Value[0].(float64), 1e-9)
+	require.Nil(t, got[1].Value[1])
+
+	// t=120: source row.
+	require.Equal(t, time.Unix(120, 0), got[2].Timestamp)
+	require.InDelta(t, 20.0, got[2].Value[0].(float64), 1e-9)
+	require.Nil(t, got[2].Value[1])
+}
+
+// TestAlignerFilter_OptionalFieldNil_FillGaps_SingleMode covers the no-overrides path in
+// fillGaps, which routes through timeWeightedAverageArr. Optional field with nil neighbor
+// must propagate nil for that slot.
+func TestAlignerFilter_OptionalFieldNil_FillGaps_SingleMode(t *testing.T) {
+	ctx := context.Background()
+
+	aMeta, err := tsquery.NewFieldMetaFull("a", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, true, "", nil)
+	require.NoError(t, err)
+	optMeta, err := tsquery.NewFieldMetaFull("opt", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, false, "", nil)
+	require.NoError(t, err)
+	fieldsMeta := []tsquery.FieldMeta{*aMeta, *optMeta}
+
+	records := []timeseries.TsRecord[[]any]{
+		{Value: []any{10.0, 5.0}, Timestamp: time.Unix(0, 0)},
+		{Value: []any{20.0, nil}, Timestamp: time.Unix(120, 0)},
+	}
+
+	af := NewInterpolatingAlignerFilter(
+		timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local),
+		timeseries.FillModeLinear,
+	)
+
+	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
+	require.NoError(t, err)
+
+	got, err := out.Stream().Collect(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 3)
+
+	// t=60: interior gap. a → linear interp 15.0. opt → nil.
+	require.Equal(t, time.Unix(60, 0), got[1].Timestamp)
+	require.InDelta(t, 15.0, got[1].Value[0].(float64), 1e-9)
+	require.Nil(t, got[1].Value[1])
+}
+
+// TestAlignerFilter_RequiredFieldNil_ReturnsTypedError verifies that a required field with a
+// nil bracketing sample surfaces a typed error naming the field URN, rather than panicking
+// via the raw float cast (which today gets caught by stream's recover with an opaque message).
+func TestAlignerFilter_RequiredFieldNil_ReturnsTypedError(t *testing.T) {
+	ctx := context.Background()
+
+	fm, err := tsquery.NewFieldMetaFull("must_be_set", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, true, "", nil)
+	require.NoError(t, err)
+	fieldsMeta := []tsquery.FieldMeta{*fm}
+
+	records := []timeseries.TsRecord[[]any]{
+		{Value: []any{10.0}, Timestamp: time.Unix(30, 0)},
+		{Value: []any{nil}, Timestamp: time.Unix(90, 0)},
+	}
+
+	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
+	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
+	require.NoError(t, err)
+
+	_, err = out.Stream().Collect(ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `aligner field "must_be_set" is required but has nil bracketing sample`)
+}
+
 // --- Test Helper Functions ---
 
 // testAlignerFilterAsExpected runs the AlignerFilter.Filter method and asserts the output.

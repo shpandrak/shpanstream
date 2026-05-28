@@ -399,6 +399,73 @@ func TestAlignerFilter_BooleanDataType_UsesStepFunction(t *testing.T) {
 	require.Equal(t, false, alignedRecords[1].Value) // step function: use nearest value at 00:01:00
 }
 
+// --- Nil-handling for optional fields (Required=false) ---
+
+// TestAlignerFilter_OptionalFieldNil_PropagatesNil exercises the cross-cluster interpolation
+// path with an optional field carrying nil in one bracketing sample. Today this panics via the
+// raw float cast in DataType.ToFloat64; the fix propagates nil per the optional-field contract.
+func TestAlignerFilter_OptionalFieldNil_PropagatesNil(t *testing.T) {
+	ctx := context.Background()
+
+	fm, err := tsquery.NewFieldMetaFull("opt", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, false, "", nil)
+	require.NoError(t, err)
+
+	records := []timeseries.TsRecord[any]{
+		{Value: 10.0, Timestamp: time.Unix(30, 0)},
+		{Value: nil, Timestamp: time.Unix(90, 0)},
+	}
+
+	inputStream := stream.Just(records...)
+	staticDS, err := NewStaticDatasource(*fm, inputStream)
+	require.NoError(t, err)
+	result, err := staticDS.Execute(ctx, time.Unix(0, 0), time.Unix(120, 0))
+	require.NoError(t, err)
+
+	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
+	out, err := af.Filter(ctx, result)
+	require.NoError(t, err)
+
+	got, err := out.Data().Collect(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+
+	// Cluster 0: smudge first item to bucket start.
+	require.Equal(t, time.Unix(0, 0), got[0].Timestamp)
+	require.InDelta(t, 10.0, got[0].Value.(float64), 1e-9)
+
+	// Cluster 1: bracket (10.0, nil) at t=60 → nil for optional field.
+	require.Equal(t, time.Unix(60, 0), got[1].Timestamp)
+	require.Nil(t, got[1].Value)
+}
+
+// TestAlignerFilter_RequiredFieldNil_ReturnsTypedError verifies that a required field with a nil
+// bracketing sample surfaces a typed error naming the field URN, rather than panicking.
+func TestAlignerFilter_RequiredFieldNil_ReturnsTypedError(t *testing.T) {
+	ctx := context.Background()
+
+	fm, err := tsquery.NewFieldMetaFull("must_be_set", tsquery.DataTypeDecimal, tsquery.MetricKindGauge, true, "", nil)
+	require.NoError(t, err)
+
+	records := []timeseries.TsRecord[any]{
+		{Value: 10.0, Timestamp: time.Unix(30, 0)},
+		{Value: nil, Timestamp: time.Unix(90, 0)},
+	}
+
+	inputStream := stream.Just(records...)
+	staticDS, err := NewStaticDatasource(*fm, inputStream)
+	require.NoError(t, err)
+	result, err := staticDS.Execute(ctx, time.Unix(0, 0), time.Unix(120, 0))
+	require.NoError(t, err)
+
+	af := NewAlignerFilter(timeseries.NewFixedAlignmentPeriod(time.Minute, time.Local))
+	out, err := af.Filter(ctx, result)
+	require.NoError(t, err)
+
+	_, err = out.Data().Collect(ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `aligner field "must_be_set" is required but has nil bracketing sample`)
+}
+
 // --- Test Helper Functions ---
 
 // testAlignerFilterAsExpected runs the AlignerFilter.Filter method and asserts the output.

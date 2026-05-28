@@ -243,8 +243,16 @@ func alignmentPeriodClassifierFunc[T any](ap timeseries.AlignmentPeriod) func(a 
 	return func(a timeseries.TsRecord[T]) time.Time { return ap.GetStartTime(a.Timestamp) }
 }
 
-// timeWeightedAverageArr computes the time-weighted average of two values (v1Arr and v2Arr) erroring if the values are not numeric
+// timeWeightedAverage computes the time-weighted average of two values at their respective times.
+// Honors the optional-field nil contract: when either bracketing sample is nil, an optional field
+// (Required=false) produces nil; a required field surfaces a typed error naming the field URN.
 func timeWeightedAverage(fieldMeta tsquery.FieldMeta, targetTime, v1Time time.Time, v1 any, v2Time time.Time, v2 any) (any, error) {
+	if v1 == nil || v2 == nil {
+		if fieldMeta.Required() {
+			return nil, fmt.Errorf("aligner field %q is required but has nil bracketing sample", fieldMeta.Urn())
+		}
+		return nil, nil
+	}
 	if v1Time.Equal(v2Time) {
 		if v1Time == targetTime {
 			return v1, nil
