@@ -19,6 +19,63 @@ func errAt(s Stream[int], bad int, err error) Stream[int] {
 	})
 }
 
+func TestDoFinally_OpenFailureFiresError(t *testing.T) {
+	boom := errors.New("boom")
+	var calls int
+	var got error
+
+	_, err := Error[int](boom).
+		DoFinally(func(e error) { calls++; got = e }).
+		Collect(context.Background())
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, boom)
+	require.Equal(t, 1, calls)
+	require.ErrorIs(t, got, boom)
+}
+
+func TestDoFinally_OpenFailureBuriedUnderOperatorFiresError(t *testing.T) {
+	boom := errors.New("boom")
+	var calls int
+	var got error
+
+	s := Error[int](boom).DoFinally(func(e error) { calls++; got = e })
+	_, err := Map(s, func(i int) int { return i }).
+		Filter(func(i int) bool { return true }).
+		Collect(context.Background())
+
+	require.Error(t, err)
+	require.Equal(t, 1, calls)
+	require.ErrorIs(t, got, boom)
+}
+
+func TestDoFinally_OpenFailureConcurrentConsumeFiresError(t *testing.T) {
+	boom := errors.New("boom")
+	var calls int
+	var got error
+
+	err := Error[int](boom).
+		DoFinally(func(e error) { calls++; got = e }).
+		Consume(context.Background(), func(v int) {}, WithConcurrentConsumeOption(2))
+
+	require.Error(t, err)
+	require.Equal(t, 1, calls)
+	require.ErrorIs(t, got, boom)
+}
+
+func TestDoFinally_OpenFailureFiresOncePerConsumption(t *testing.T) {
+	boom := errors.New("boom")
+	var calls int
+	s := Error[int](boom).DoFinally(func(e error) { calls++ })
+
+	_, err := s.Collect(context.Background())
+	require.Error(t, err)
+	_, err = s.Collect(context.Background())
+	require.Error(t, err)
+
+	require.Equal(t, 2, calls)
+}
+
 func TestDoFinally_SuccessFiresNilOnce(t *testing.T) {
 	var calls int
 	var got error
