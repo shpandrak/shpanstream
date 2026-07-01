@@ -305,6 +305,12 @@ func doOpenStream[T any](ctx context.Context, s Stream[T]) (context.CancelFunc, 
 			// If we fail to open a lifecycle element, we need to close all previously opened elements
 			// and return the error
 
+			openErr := fmt.Errorf("failed to open stream lifecycle element %d: %w", lcIdx, err)
+
+			// Notify DoFinally hooks of the open-stage terminal error before the rollback close,
+			// so this error wins over any already-opened hook's Close (which would fire nil).
+			fireFinallyHooksOnOpenFailure(s.allLifecycleElement, openErr)
+
 			// Close only the successfully opened lifecycle elements
 			for i := 0; i < lcIdx; i++ {
 				s.allLifecycleElement[i].Close()
@@ -312,7 +318,7 @@ func doOpenStream[T any](ctx context.Context, s Stream[T]) (context.CancelFunc, 
 			// Cancel the context to stop any ongoing operations
 			cancelFunc()
 
-			return nil, fmt.Errorf("failed to open stream lifecycle element %d: %w", lcIdx, err)
+			return nil, openErr
 		}
 	}
 	return cancelFunc, nil
