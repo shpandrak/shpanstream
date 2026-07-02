@@ -33,14 +33,18 @@ func (c *concurrentConsumeOption) consumeOptionName() string {
 // consumeConcurrently consumes the stream concurrently with the specified number of workers.
 // The consumer function is called concurrently, but the source stream is read sequentially.
 // Returns the first error encountered (either from reading the stream or from the consumer function).
-func (s Stream[T]) consumeConcurrently(ctx context.Context, concurrency int, f func(ctx context.Context, value T) error) (err error) {
+func (s Stream[T]) consumeConcurrently(ctx context.Context, concurrency int, f func(ctx context.Context, value T) error) error {
 	if concurrency <= 0 {
 		return fmt.Errorf("concurrency must be > 0")
 	}
 
-	// Adding a panic recovery to avoid leaking resources and allow returning an error via panic instead of returning it
-	defer recoverStreamPanic(&err)
+	// The panic guard avoids leaking resources and allows returning an error via panic instead of returning it
+	return consumeWithPanicGuard(func() error {
+		return s.doConsumeConcurrently(ctx, concurrency, f)
+	})
+}
 
+func (s Stream[T]) doConsumeConcurrently(ctx context.Context, concurrency int, f func(ctx context.Context, value T) error) error {
 	cancelFunc, errVar := doOpenStream[T](ctx, s)
 	if errVar != nil {
 		return fmt.Errorf("failed to open stream: %w", errVar)

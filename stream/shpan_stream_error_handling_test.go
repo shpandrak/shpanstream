@@ -29,6 +29,23 @@ func TestStream_PanicMap(t *testing.T) {
 
 }
 
+// Under the legacy GODEBUG=panicnil=1 mode, recover() returns nil for panic(nil) — and calling
+// recover() cancels the panic. The consumer-boundary guard must not let such a panic dissolve into
+// a clean, silently-truncated drain: the caller must get a pipeline error even when no DoFinally
+// node is present (the DoFinally provider guard covers this independently when one is).
+func TestStream_LegacyPanicNilSurfacesErrorToConsumer(t *testing.T) {
+	t.Setenv("GODEBUG", "panicnil=1")
+
+	out, err := Map(Just(1, 2, 3), func(i int) int {
+		if i == 2 {
+			panic(nil)
+		}
+		return i
+	}).Collect(context.Background())
+
+	require.Error(t, err, "legacy panic(nil) must surface as an error, not truncated success (got %v)", out)
+}
+
 func TestStream_ErrorFilter(t *testing.T) {
 	_, err := Just(1, 2, 3, 4, 5).
 		FilterWithErr(func(i int) (bool, error) {

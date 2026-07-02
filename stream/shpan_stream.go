@@ -101,21 +101,36 @@ func recoveredPanicToError(rvr any) error {
 	return fmt.Errorf("stream recovered error value: %v", rvr)
 }
 
-// recoverStreamPanic is the consumer-boundary panic guard shared by the sequential and concurrent
-// consume paths: it logs the recovered panic with its stack and converts it into the error the
-// consumer returns. It must be invoked directly by defer (recover only works one frame deep).
-func recoverStreamPanic(err *error) {
-	if rvr := recover(); rvr != nil {
-		slog.Error(fmt.Sprintf("Panic recovered: %v\n%s", rvr, debug.Stack()))
-		*err = recoveredPanicToError(rvr)
-	}
+// consumeWithPanicGuard is the consumer-boundary panic guard shared by the sequential and
+// concurrent consume paths: a panic unwinding out of body is logged with its stack and converted
+// into the error the consumer returns. The completed flag (rather than recover() != nil) is what
+// detects unwinding, so a legacy panic(nil) under GODEBUG=panicnil=1 — where recover() returns nil
+// and thereby cancels the panic — surfaces as an error instead of a clean, silently truncated
+// drain. A runtime.Goexit trips the flag too, but the error it fabricates is only assigned to a
+// return value Goexit discards, so it stays harmless.
+func consumeWithPanicGuard(body func() error) (err error) {
+	completed := false
+	defer func() {
+		if completed {
+			return
+		}
+		if rvr := recover(); rvr != nil {
+			slog.Error(fmt.Sprintf("Panic recovered: %v\n%s", rvr, debug.Stack()))
+			err = recoveredPanicToError(rvr)
+			return
+		}
+		err = recoveredPanicToError(nil)
+	}()
+	err = body()
+	completed = true
+	return err
 }
 
 // ConsumeWithErrAndCtx consumes the entire stream and applies the provided function to each element (sometimes named ForEach).
 // Allow returning an error from the function to stop the pipeline,
 // passing through the context allowing the function to gracefully cancel
 // It returns an error if the stream materialization fails in any stage of the pipeline
-func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error, options ...ConsumeOption) (err error) {
+func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error, options ...ConsumeOption) error {
 	// Check for the concurrent option
 	for _, opt := range options {
 		switch cOpt := opt.(type) {
@@ -123,41 +138,41 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 			return s.consumeConcurrently(ctx, cOpt.concurrency, f)
 		}
 	}
-	// Adding a panic recovery to avoid leaking resources and allow returning an error via panic instead of returning it
-	defer recoverStreamPanic(&err)
-
-	cancelFunc, errVar := doOpenStream[T](ctx, s)
-	if errVar != nil {
-		return fmt.Errorf("failed to open stream: %w", errVar)
-	}
-
-	// If we reach here, all lifecycle elements have been opened successfully
-	// We can defer closing them until the end of the function
-	defer func() {
-		doCloseSubStream(s)
-		cancelFunc()
-	}()
-
-	for {
-
-		// Make sure to check if the context is done before trying to get the next item
-		if ctx.Err() != nil {
-			// If the context is cancelled, we need to close all lifecycle elements
-			// return
-			return ctx.Err()
-		}
-		v, errVar := s.provider(ctx)
+	// The panic guard avoids leaking resources and allows returning an error via panic instead of returning it
+	return consumeWithPanicGuard(func() error {
+		cancelFunc, errVar := doOpenStream[T](ctx, s)
 		if errVar != nil {
-			if errVar == io.EOF {
-				return nil
+			return fmt.Errorf("failed to open stream: %w", errVar)
+		}
+
+		// If we reach here, all lifecycle elements have been opened successfully
+		// We can defer closing them until the end of the function
+		defer func() {
+			doCloseSubStream(s)
+			cancelFunc()
+		}()
+
+		for {
+
+			// Make sure to check if the context is done before trying to get the next item
+			if ctx.Err() != nil {
+				// If the context is cancelled, we need to close all lifecycle elements
+				// return
+				return ctx.Err()
 			}
-			return errVar
+			v, errVar := s.provider(ctx)
+			if errVar != nil {
+				if errVar == io.EOF {
+					return nil
+				}
+				return errVar
+			}
+			errVar = f(ctx, v)
+			if errVar != nil {
+				return errVar
+			}
 		}
-		errVar = f(ctx, v)
-		if errVar != nil {
-			return errVar
-		}
-	}
+	})
 }
 
 func (s Stream[T]) FindFirst() lazy.Lazy[T] {

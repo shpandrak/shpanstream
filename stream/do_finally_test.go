@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -426,4 +427,29 @@ func TestDoFinally_ReconsumeAfterPanicFiresOwnOutcome(t *testing.T) {
 	require.Error(t, outcomes[0])
 	require.ErrorContains(t, outcomes[0], "first drain boom")
 	require.NoError(t, outcomes[1])
+}
+
+// runtime.Goexit unwinding through the pipeline (most commonly t.FailNow/t.Fatal inside a mapper
+// or source) is not a pipeline panic: the drain is abandoned, not failed, so the hook must fire
+// nil — not a fabricated recovered-panic error.
+func TestDoFinally_GoexitFiresNil(t *testing.T) {
+	var calls int
+	var got error = errors.New("sentinel-not-called")
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = Map(Just(1, 2, 3), func(i int) int {
+			if i == 2 {
+				runtime.Goexit()
+			}
+			return i
+		}).
+			DoFinally(func(e error) { calls++; got = e }).
+			Collect(context.Background())
+	}()
+	<-done
+
+	require.Equal(t, 1, calls)
+	require.NoError(t, got)
 }
