@@ -21,7 +21,13 @@ import (
 //	              before the already-opened upstream siblings are torn down, since the open error
 //	              must win over the rollback close. External context cancellation surfaces as the
 //	              context error (use errors.Is(err, context.Canceled) / context.DeadlineExceeded to
-//	              detect it).
+//	              detect it). A panic raised inside the pipeline upstream of this node (e.g. a
+//	              panicking mapper) is a drain failure and is reported as the recovered panic
+//	              error — equivalent to (wrapping the same panicked value as) the error the
+//	              consumer returns to the caller, though not the same error instance. This holds
+//	              on the sequential consume paths; options that drive the pipeline from their own
+//	              goroutines (WithConcurrentMapOption, WithConcurrentConsumeOption) do not yet
+//	              recover pipeline panics at all — see docs/shpanstream-concurrent-panic-followup.md.
 //
 // DoFinally is local and compositional (like the Lifecycle Open/Close hooks): it observes this node
 // and everything upstream feeding it, wherever the node sits — including as a sub-stream inside a
@@ -40,13 +46,34 @@ import (
 func (s Stream[T]) DoFinally(f func(err error)) Stream[T] {
 	n := &finallyNode{f: f}
 	return newStream(
-		func(ctx context.Context) (T, error) {
-			v, err := s.provider(ctx)
+		func(ctx context.Context) (v T, err error) {
+			// A panic unwinding through this frame necessarily originated in the node's own
+			// subtree (upstream), so it is this node's terminal outcome: record it and re-panic,
+			// letting the consumer's recover turn it into the caller's error. Consumer-callback
+			// and downstream-operator panics never pass through this frame, so the consumer-side
+			// boundary and locality rules are preserved for free. The completed flag (rather than
+			// recover() != nil) is what detects unwinding, so a legacy panic(nil) under
+			// GODEBUG=panicnil=1 — where recover() returns nil and thereby cancels the panic —
+			// surfaces as a provider error instead of a spurious zero element.
+			completed := false
+			defer func() {
+				if completed {
+					return
+				}
+				if rvr := recover(); rvr != nil {
+					n.recordedErr = recoveredPanicToError(rvr)
+					panic(rvr)
+				}
+				err = recoveredPanicToError(nil)
+				n.recordedErr = err
+			}()
+			v, err = s.provider(ctx)
 			// Record the terminal error the node's own subtree produced, so the Close hook can
 			// report it locally. io.EOF is normal completion, not an error.
 			if err != nil && err != io.EOF {
 				n.recordedErr = err
 			}
+			completed = true
 			return v, err
 		},
 		append(slices.Clone(s.allLifecycleElement), n),

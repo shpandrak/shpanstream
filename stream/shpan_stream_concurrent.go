@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
-	"runtime/debug"
 	"sync"
 
 	"github.com/shpandrak/shpanstream"
@@ -41,17 +39,7 @@ func (s Stream[T]) consumeConcurrently(ctx context.Context, concurrency int, f f
 	}
 
 	// Adding a panic recovery to avoid leaking resources and allow returning an error via panic instead of returning it
-	defer func() {
-		if rvr := recover(); rvr != nil {
-			slog.Error(fmt.Sprintf("Panic recovered: %v\n%s", rvr, debug.Stack()))
-			asErr, ok := rvr.(error)
-			if ok {
-				err = fmt.Errorf("stream recovered error: %w", asErr)
-			} else {
-				err = fmt.Errorf("stream recovered error value: %v", rvr)
-			}
-		}
-	}()
+	defer recoverStreamPanic(&err)
 
 	cancelFunc, errVar := doOpenStream[T](ctx, s)
 	if errVar != nil {

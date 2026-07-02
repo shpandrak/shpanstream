@@ -92,6 +92,25 @@ func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error, options 
 	}, options...)
 }
 
+// recoveredPanicToError converts a recovered panic value into the error reported to callers and
+// DoFinally hooks, preserving the error chain when the panic value is an error.
+func recoveredPanicToError(rvr any) error {
+	if asErr, ok := rvr.(error); ok {
+		return fmt.Errorf("stream recovered error: %w", asErr)
+	}
+	return fmt.Errorf("stream recovered error value: %v", rvr)
+}
+
+// recoverStreamPanic is the consumer-boundary panic guard shared by the sequential and concurrent
+// consume paths: it logs the recovered panic with its stack and converts it into the error the
+// consumer returns. It must be invoked directly by defer (recover only works one frame deep).
+func recoverStreamPanic(err *error) {
+	if rvr := recover(); rvr != nil {
+		slog.Error(fmt.Sprintf("Panic recovered: %v\n%s", rvr, debug.Stack()))
+		*err = recoveredPanicToError(rvr)
+	}
+}
+
 // ConsumeWithErrAndCtx consumes the entire stream and applies the provided function to each element (sometimes named ForEach).
 // Allow returning an error from the function to stop the pipeline,
 // passing through the context allowing the function to gracefully cancel
@@ -105,18 +124,7 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 		}
 	}
 	// Adding a panic recovery to avoid leaking resources and allow returning an error via panic instead of returning it
-	defer func() {
-		if rvr := recover(); rvr != nil {
-			slog.Error(fmt.Sprintf("Panic recovered: %v\n%s", rvr, debug.Stack()))
-			asErr, ok := rvr.(error)
-			if ok {
-				err = fmt.Errorf("stream recovered error: %w", asErr)
-			} else {
-				err = fmt.Errorf("stream recovered error value: %v", rvr)
-			}
-
-		}
-	}()
+	defer recoverStreamPanic(&err)
 
 	cancelFunc, errVar := doOpenStream[T](ctx, s)
 	if errVar != nil {
