@@ -38,6 +38,30 @@ func TestBuffered_EmptyStream(t *testing.T) {
 	require.Empty(t, out)
 }
 
+// Buffered must be re-consumable (double collection): channel state is created per Open, so a
+// second consumption drains the source again rather than returning an empty result.
+func TestBuffered_ReConsumable(t *testing.T) {
+	s := Buffered(Just(1, 2, 3, 4, 5), 3)
+	for i := 0; i < 3; i++ {
+		out, err := s.Collect(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, []int{1, 2, 3, 4, 5}, out)
+	}
+}
+
+// Re-consumption must also hold after an early-terminated consumption (teardown joins the goroutine
+// and resets state cleanly).
+func TestBuffered_ReConsumableAfterEarlyStop(t *testing.T) {
+	s := Buffered(Just(1, 2, 3, 4, 5), 2)
+	partial, err := s.Limit(2).Collect(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []int{1, 2}, partial)
+
+	full, err := s.Collect(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []int{1, 2, 3, 4, 5}, full)
+}
+
 // Regression: Buffered's teardown must cancel and join the buffering goroutine, so the source is
 // fully closed by the time Consume returns. Without the join, the goroutine (and the source's
 // Close) outlives the stream, racing with callers that release resources right after Consume.
