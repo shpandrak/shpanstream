@@ -97,12 +97,18 @@ func (n *finallyNode) fireOpenFailure(err error) {
 // invoke runs the observational callback under a panic guard so a buggy hook cannot crash the
 // consumer or leak through Open/Close.
 func (n *finallyNode) invoke(err error) {
+	invokeObservationalHook("DoFinally", func() { n.f(err) })
+}
+
+// invokeObservationalHook runs an observational user hook (DoFirst/DoFinally) under a panic guard
+// so a buggy hook cannot crash the consumer or leak a panic through Open/Close.
+func invokeObservationalHook(hookName string, f func()) {
 	defer func() {
 		if rvr := recover(); rvr != nil {
-			slog.Error(fmt.Sprintf("DoFinally hook panicked: %v\n%s", rvr, debug.Stack()))
+			slog.Error(fmt.Sprintf("%s hook panicked: %v\n%s", hookName, rvr, debug.Stack()))
 		}
 	}()
-	n.f(err)
+	f()
 }
 
 // fireFinallyHooksOnOpenFailure notifies any DoFinally hooks among a stream's lifecycle elements
