@@ -62,6 +62,22 @@ func TestBuffered_ReConsumableAfterEarlyStop(t *testing.T) {
 	require.Equal(t, []int{1, 2, 3, 4, 5}, full)
 }
 
+// On early termination the buffering goroutine never signals EOF, so close must release the
+// eofCtx (mirrors TestConcurrentMap_EofCtxCancelledOnEarlyStop).
+func TestBuffered_EofCtxCancelledOnEarlyStop(t *testing.T) {
+	src := make([]int, 100)
+	for i := range src {
+		src[i] = i
+	}
+	b := &bufferedStreamProvider[int]{src: Just(src...), size: 3}
+	s := NewSimpleStream(b.emit, WithOpenFuncOption(b.open), WithCloseFuncOption(b.close))
+
+	out, err := s.Limit(1).Collect(context.Background())
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Error(t, b.eofCtx.Err(), "close must cancel eofCtx so its resources are released")
+}
+
 // Regression: Buffered's teardown must cancel and join the buffering goroutine, so the source is
 // fully closed by the time Consume returns. Without the join, the goroutine (and the source's
 // Close) outlives the stream, racing with callers that release resources right after Consume.

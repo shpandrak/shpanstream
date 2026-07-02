@@ -9,6 +9,8 @@ import (
 )
 
 // Buffered creates a buffered stream from the source stream with a given buffer size.
+// The resulting stream is re-consumable sequentially, but (like all streams) must not be consumed
+// concurrently.
 func Buffered[T any](s Stream[T], size int) Stream[T] {
 	if size <= 0 {
 		return Error[T](fmt.Errorf("buffer size must be greater than 0"))
@@ -30,6 +32,8 @@ type bufferedStreamProvider[T any] struct {
 	bufferChan     chan shpanstream.Result[T]
 	internalCancel context.CancelFunc
 	bufferingDone  chan struct{}
+	eofCtx         context.Context
+	eofCancel      context.CancelFunc
 }
 
 func (b *bufferedStreamProvider[T]) open(ctx context.Context) error {
@@ -42,9 +46,15 @@ func (b *bufferedStreamProvider[T]) open(ctx context.Context) error {
 	internalCtx, cancel := context.WithCancel(ctx)
 	bufferingDone := make(chan struct{})
 
+	// eofCtx lets emit distinguish "channel closed because the source reached EOF" from "closed on
+	// cancel" (mirrors the concurrent map provider).
+	eofCtx, eofCancel := context.WithCancel(context.Background())
+
 	b.bufferChan = bufferChan
 	b.internalCancel = cancel
 	b.bufferingDone = bufferingDone
+	b.eofCtx = eofCtx
+	b.eofCancel = eofCancel
 
 	go func() {
 		// bufferingDone is closed last (LIFO), after the source's Consume has fully torn down, so a
@@ -60,12 +70,14 @@ func (b *bufferedStreamProvider[T]) open(ctx context.Context) error {
 			}
 		})
 		// A real upstream error is forwarded through the buffer; normal completion (nil) is signalled
-		// by the deferred close of bufferChan.
+		// by cancelling eofCtx before the deferred close of bufferChan.
 		if err != nil {
 			select {
 			case bufferChan <- shpanstream.Result[T]{Err: err}:
 			case <-internalCtx.Done():
 			}
+		} else {
+			eofCancel()
 		}
 	}()
 	return nil
@@ -77,8 +89,16 @@ func (b *bufferedStreamProvider[T]) emit(ctx context.Context) (T, error) {
 		return util.DefaultValue[T](), ctx.Err()
 	case r, stillGood := <-b.bufferChan:
 		if !stillGood {
-			// The buffering goroutine closed the channel: the source completed normally.
-			return util.DefaultValue[T](), io.EOF
+			// The buffering goroutine closed the channel; eofCtx tells apart normal completion from
+			// a close driven by cancellation (where the pending error may have been dropped).
+			if b.eofCtx.Err() != nil {
+				return util.DefaultValue[T](), io.EOF
+			}
+			if ctx.Err() != nil {
+				return util.DefaultValue[T](), ctx.Err()
+			}
+			// Should never happen
+			return util.DefaultValue[T](), fmt.Errorf("buffered stream channel closed prematurely")
 		}
 		return r.Unpack()
 	}
@@ -91,5 +111,10 @@ func (b *bufferedStreamProvider[T]) close() {
 	if b.internalCancel != nil {
 		b.internalCancel()
 		<-b.bufferingDone
+	}
+	// On early termination the goroutine never signals EOF and eofCancel was never called; release
+	// the eofCtx here (calling it twice is safe).
+	if b.eofCancel != nil {
+		b.eofCancel()
 	}
 }
