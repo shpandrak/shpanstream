@@ -38,6 +38,49 @@ func TestBuffered_EmptyStream(t *testing.T) {
 	require.Empty(t, out)
 }
 
+// Regression: Buffered's teardown must cancel and join the buffering goroutine, so the source is
+// fully closed by the time Consume returns. Without the join, the goroutine (and the source's
+// Close) outlives the stream, racing with callers that release resources right after Consume.
+func TestBuffered_SourceClosedBeforeConsumeReturns(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		var sourceClosed atomic.Bool
+		src := Just(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).
+			WithAdditionalLifecycle(NewLifecycle(
+				func(ctx context.Context) error { return nil },
+				func() { sourceClosed.Store(true) },
+			))
+
+		// Stop early so the buffering goroutine is still in flight (blocked on a full buffer)
+		// when teardown runs.
+		out, err := Buffered(src, 3).Limit(2).Collect(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, []int{1, 2}, out)
+		require.True(t, sourceClosed.Load(), "source must be closed by the time Consume returns")
+	}
+}
+
+// Same invariant when the source is blocked inside its provider and the consumer's ctx expires.
+// The source's Close is deliberately slow: only a teardown that joins the buffering goroutine
+// (which owns the source lifecycle) observes the flag as set.
+func TestBuffered_TeardownReleasesBlockedSource(t *testing.T) {
+	var sourceClosed atomic.Bool
+	neverWritten := make(chan int)
+	src := FromChannel(neverWritten).
+		WithAdditionalLifecycle(NewLifecycle(
+			func(ctx context.Context) error { return nil },
+			func() {
+				time.Sleep(20 * time.Millisecond)
+				sourceClosed.Store(true)
+			},
+		))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	_, err := Buffered(src, 3).Collect(ctx)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.True(t, sourceClosed.Load(), "source must be closed by the time Consume returns")
+}
+
 func TestStream_Buffered(t *testing.T) {
 	iterationCounter := atomic.Int32{}
 	actuallyReadCounter := atomic.Int32{}

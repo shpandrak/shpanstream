@@ -18,6 +18,7 @@ type concurrentStreamMapperProvider[SRC any, TGT any] struct {
 	srcChan        chan shpanstream.Result[SRC]
 	tgtChan        chan shpanstream.Result[TGT]
 	eofCtx         context.Context
+	eofCancel      context.CancelFunc
 	internalCancel context.CancelFunc
 	srcCancel      context.CancelFunc
 	producerDone   chan struct{}
@@ -69,6 +70,7 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) open(ctx context.Context) err
 	// eofCtx lets emit distinguish "closed because the source reached EOF" from "closed on cancel".
 	eofCtx, eofCancelFunc := context.WithCancel(context.Background())
 	c.eofCtx = eofCtx
+	c.eofCancel = eofCancelFunc
 
 	// Closed only after the reader and every worker have fully exited, so close can join on it.
 	c.producerDone = make(chan struct{})
@@ -196,5 +198,10 @@ func (c *concurrentStreamMapperProvider[SRC, TGT]) close() {
 	doCloseSubStream[SRC](c.src)
 	if c.srcCancel != nil {
 		c.srcCancel()
+	}
+	// On early termination the reader never reaches EOF and eofCancelFunc was never called;
+	// release the eofCtx here (calling it twice is safe).
+	if c.eofCancel != nil {
+		c.eofCancel()
 	}
 }
