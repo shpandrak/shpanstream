@@ -71,6 +71,26 @@ func TestConcurrentMap_ReConsumable(t *testing.T) {
 	}
 }
 
+// On early termination the reader never reaches EOF, so eofCancelFunc was never called and the
+// eofCtx leaked un-cancelled. close must cancel it.
+func TestConcurrentMap_EofCtxCancelledOnEarlyStop(t *testing.T) {
+	src := make([]int, 100)
+	for i := range src {
+		src[i] = i
+	}
+	c := &concurrentStreamMapperProvider[int, int]{
+		concurrency: 2,
+		mapper:      func(_ context.Context, v int) (int, error) { return v, nil },
+		src:         Just(src...),
+	}
+	s := NewSimpleStream(c.emit, WithOpenFuncOption(c.open), WithCloseFuncOption(c.close))
+
+	out, err := s.Limit(1).Collect(context.Background())
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Error(t, c.eofCtx.Err(), "close must cancel eofCtx so its resources are released")
+}
+
 // A mapper error is surfaced.
 func TestConcurrentMap_MapperErrorSurfaced(t *testing.T) {
 	boom := errors.New("boom")
