@@ -299,12 +299,12 @@ func TestDoFinally_MultipleHooksAllFire(t *testing.T) {
 	require.ErrorIs(t, b, boom)
 }
 
-// A panic inside the pipeline is recovered by the consumer and surfaces as its returned error;
-// it does not travel back through the provider as a value, so DoFinally reports nil (documented
-// limitation, same bucket as consumer-side failures). This test pins that behavior.
-func TestDoFinally_PipelinePanicFiresNil(t *testing.T) {
+// A panic inside the pipeline (upstream of the hook) is a drain failure: the consumer recovers it
+// and returns it as an error, and DoFinally observes an equivalent error (wrapping the same
+// panicked value) — the hook and the caller must agree that the drain failed.
+func TestDoFinally_PipelinePanicFiresRecoveredError(t *testing.T) {
 	var calls int
-	var got error = errors.New("sentinel-not-called")
+	var got error
 
 	_, err := Map(Just(1, 2, 3), func(i int) int {
 		if i == 2 {
@@ -315,7 +315,115 @@ func TestDoFinally_PipelinePanicFiresNil(t *testing.T) {
 		DoFinally(func(e error) { calls++; got = e }).
 		Collect(context.Background())
 
-	require.Error(t, err) // consumer still surfaces the panic as an error
+	require.Error(t, err)
+	require.ErrorContains(t, err, "pipeline boom")
 	require.Equal(t, 1, calls)
-	require.NoError(t, got) // ... but DoFinally does not observe it
+	require.Error(t, got)
+	require.ErrorContains(t, got, "pipeline boom")
+}
+
+// A pipeline panic that wraps an error value must surface to the hook with the error chain intact.
+func TestDoFinally_PipelinePanicWithErrorValueFiresMatchingError(t *testing.T) {
+	boom := errors.New("boom")
+	var got error
+
+	_, err := Map(Just(1, 2, 3), func(i int) int {
+		if i == 2 {
+			panic(boom)
+		}
+		return i
+	}).
+		DoFinally(func(e error) { got = e }).
+		Collect(context.Background())
+
+	require.ErrorIs(t, err, boom)
+	require.ErrorIs(t, got, boom)
+}
+
+// DoFinally is local: a panic in an operator applied *downstream* of the hook tears the hook's
+// subtree down cleanly, so the hook fires nil — same rule as downstream errors.
+func TestDoFinally_DownstreamPanicFiresNil(t *testing.T) {
+	var calls int
+	var got error = errors.New("sentinel-not-called")
+
+	_, err := Map(
+		Just(1, 2, 3).DoFinally(func(e error) { calls++; got = e }),
+		func(i int) int {
+			if i == 2 {
+				panic("downstream boom")
+			}
+			return i
+		},
+	).Collect(context.Background())
+
+	require.Error(t, err)
+	require.Equal(t, 1, calls)
+	require.NoError(t, got)
+}
+
+// A consumer-callback panic is a delivery failure, not a pipeline failure: the caller gets the
+// recovered error, the hook fires nil — same boundary as consumer-callback errors.
+func TestDoFinally_ConsumerCallbackPanicFiresNil(t *testing.T) {
+	var calls int
+	var got error = errors.New("sentinel-not-called")
+
+	err := Just(1, 2, 3).
+		DoFinally(func(e error) { calls++; got = e }).
+		Consume(context.Background(), func(i int) {
+			if i == 2 {
+				panic("consumer boom")
+			}
+		})
+
+	require.Error(t, err)
+	require.Equal(t, 1, calls)
+	require.NoError(t, got)
+}
+
+// Under the legacy GODEBUG=panicnil=1 mode, recover() returns nil for panic(nil). The DoFinally
+// provider guard must not turn such a panic into a spurious zero element and a clean completion;
+// it surfaces as a pipeline error to both the caller and the hook.
+func TestDoFinally_LegacyPanicNilDoesNotCorruptStream(t *testing.T) {
+	t.Setenv("GODEBUG", "panicnil=1")
+
+	var got error
+	out, err := Map(Just(1, 2, 3), func(i int) int {
+		if i == 2 {
+			panic(nil)
+		}
+		return i
+	}).
+		DoFinally(func(e error) { got = e }).
+		Collect(context.Background())
+
+	require.Error(t, err)
+	require.NotContains(t, out, 0) // no spurious zero element
+	require.Error(t, got)
+}
+
+// Re-consuming after a panicking drain must reset the hook's state: the second drain reports its
+// own outcome, not the first drain's panic.
+func TestDoFinally_ReconsumeAfterPanicFiresOwnOutcome(t *testing.T) {
+	var outcomes []error
+	shouldPanic := true
+
+	s := Map(Just(1, 2, 3), func(i int) int {
+		if shouldPanic && i == 2 {
+			panic("first drain boom")
+		}
+		return i
+	}).DoFinally(func(e error) { outcomes = append(outcomes, e) })
+
+	_, err := s.Collect(context.Background())
+	require.Error(t, err)
+
+	shouldPanic = false
+	out, err := s.Collect(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []int{1, 2, 3}, out)
+
+	require.Len(t, outcomes, 2)
+	require.Error(t, outcomes[0])
+	require.ErrorContains(t, outcomes[0], "first drain boom")
+	require.NoError(t, outcomes[1])
 }
