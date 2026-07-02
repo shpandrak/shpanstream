@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"runtime/debug"
+	"slices"
 
 	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
@@ -293,7 +294,10 @@ func (s Stream[T]) IsEmpty(ctx context.Context) (bool, error) {
 }
 
 func (s Stream[T]) WithAdditionalLifecycle(lch Lifecycle) Stream[T] {
-	return newStream(s.provider, append(s.allLifecycleElement, lch))
+	// Clip so the append always reallocates: s.allLifecycleElement may have spare capacity
+	// shared with sibling streams derived from the same parent, and an in-place append would
+	// overwrite their appended element.
+	return newStream(s.provider, append(slices.Clip(s.allLifecycleElement), lch))
 }
 
 func doOpenStream[T any](ctx context.Context, s Stream[T]) (context.CancelFunc, error) {
