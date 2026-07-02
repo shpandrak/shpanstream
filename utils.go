@@ -35,11 +35,11 @@ func ComparatorForOrdered[T cmp.Ordered]() Comparator[T] {
 }
 
 func (r Result[T]) Unpack() (T, error) {
-	return r.Value, nil
+	return r.Value, r.Err
 }
 
 func UnpackResult[T any](r Result[T]) (T, error) {
-	return r.Value, nil
+	return r.Value, r.Err
 }
 
 func (em MapperWithErr[SRC, TGT]) ToErrCtx() MapperWithErrAndCtx[SRC, TGT] {
