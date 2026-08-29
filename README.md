@@ -227,7 +227,21 @@ for full example using channels see the [Channel Test Example](channel_stream_pr
 Since channels are powerful, shpanstream uses them internally to implement some of the out-of-the-box functionality.
 for example "Buffer" exposes a shpanstream backed by a buffer channel. see [Buffer implementation](buffered_stream.go)
 
+### Streaming a lazily fetched slice
+When the data is already available as a slice, `FromSlice` (or `Just`) creates a stream out of it.
+When fetching that slice is expensive, `FromSliceProvider` keeps it lazy: the provider function is invoked
+only when the stream is materialized, and gets the "materialization context", so it can be cancelled along with the pipeline.
+
 ```go
+stream.FromSliceProvider(func(ctx context.Context) ([]Country, error) {
+    // Only invoked once the pipeline runs, and once per materialization
+    return queryCountries(ctx)
+}).
+    Filter(func(c Country) bool {
+        return c.Population > 1_000_000
+    }).
+    //... the rest of the pipeline
+```
 
 ### Iterate over a stream
 Shpanstream supports iterating over a stream using the range operator via the `Iterate` function.

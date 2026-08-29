@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"errors"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -197,4 +198,82 @@ func TestFromSlice_PointerType(t *testing.T) {
 
 	// The pointers should be the same (slice is cloned, but pointers within are shared)
 	require.Same(t, original[0], result[0])
+}
+
+// Test that the provider function is invoked only when the stream is materialized, once per materialization
+func TestFromSliceProvider_LazyAndReMaterializable(t *testing.T) {
+	calls := 0
+	s := FromSliceProvider(func(ctx context.Context) ([]int, error) {
+		calls++
+		return []int{1, 2, 3}, nil
+	})
+	require.Zero(t, calls, "provider should not be invoked before the stream is materialized")
+
+	result, err := s.Collect(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []int{1, 2, 3}, result)
+	require.Equal(t, 1, calls)
+
+	// The second collection should re-invoke the provider
+	result, err = s.Collect(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []int{1, 2, 3}, result)
+	require.Equal(t, 2, calls)
+}
+
+func TestFromSliceProvider_EmptyAndNilSlice(t *testing.T) {
+	result, err := FromSliceProvider(func(ctx context.Context) ([]int, error) {
+		return []int{}, nil
+	}).Collect(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, result)
+
+	result, err = FromSliceProvider(func(ctx context.Context) ([]int, error) {
+		return nil, nil
+	}).Collect(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, result)
+}
+
+// Test that an error returned by the provider is propagated to the consumer
+func TestFromSliceProvider_ProviderError(t *testing.T) {
+	providerErr := errors.New("provider failed")
+	_, err := FromSliceProvider(func(ctx context.Context) ([]int, error) {
+		return nil, providerErr
+	}).Collect(context.Background())
+	require.ErrorIs(t, err, providerErr)
+}
+
+// Test that the provider is actually invoked with the materialization context
+func TestFromSliceProvider_ContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	var providerCtx context.Context
+	_, err := FromSliceProvider(func(ctx context.Context) ([]int, error) {
+		providerCtx = ctx
+		return []int{1, 2, 3}, ctx.Err()
+	}).Collect(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+	require.NotNil(t, providerCtx, "provider should have been invoked")
+	require.ErrorIs(t, providerCtx.Err(), context.Canceled, "provider should receive the cancelled materialization context")
+}
+
+// Test that a partially consumed stream is re-materialized from the beginning
+func TestFromSliceProvider_PartialConsumption(t *testing.T) {
+	calls := 0
+	s := FromSliceProvider(func(ctx context.Context) ([]int, error) {
+		calls++
+		return []int{1, 2, 3}, nil
+	})
+
+	result, err := s.Limit(2).Collect(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []int{1, 2}, result)
+
+	// The stream should start over, not resume where the partial consumption stopped
+	result, err = s.Collect(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []int{1, 2, 3}, result)
+	require.Equal(t, 2, calls)
 }
