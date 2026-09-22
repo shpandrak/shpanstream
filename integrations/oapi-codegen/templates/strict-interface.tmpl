@@ -119,10 +119,13 @@
 type {{$streamingTypeName}} struct {
     Stream stream.Stream[{{.Schema.ArrayType.TypeDecl}}]
     Ctx    context.Context
+    // Options tune the streaming response, e.g. jsonstream.WithCommitThreshold(0) for a slow
+    // trickle stream that needs its first byte out early. Nil keeps the defaults.
+    Options []jsonstream.HttpStreamOption
 }
 
 func (s {{$streamingTypeName}}) Visit{{$opid}}Response(w http.ResponseWriter) error {
-    return jsonstream.StreamJsonToHttpResponseWriter(s.Ctx, w, s.Stream)
+    return jsonstream.StreamJsonToHttpResponseWriter(s.Ctx, w, s.Stream, s.Options...)
 }
 
                 {{end}}{{/* if .Schema.ArrayType */}}
