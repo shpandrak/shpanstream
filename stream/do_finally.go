@@ -6,7 +6,6 @@ import (
 	"io"
 	"log/slog"
 	"runtime/debug"
-	"slices"
 )
 
 // DoFinally registers f to run exactly once when this stream node terminates, on the consuming
@@ -45,46 +44,22 @@ import (
 // consumer-side failure (the consume callback erroring, or a consumer panic) is not the stream's
 // terminal outcome and is reported here as err == nil — that error remains the return value of
 // Consume/Collect/Reduce.
+//
+//go:noinline
 func (s Stream[T]) DoFinally(f func(err error)) Stream[T] {
 	n := &finallyNode{f: f}
-	// guardedPull pulls one element from upstream under the node's panic guard. A panic unwinding
-	// through this frame necessarily originated in the node's own subtree (upstream), so it is
-	// this node's terminal outcome: record it and re-panic, letting the consumer's recover turn it
-	// into the caller's error. Consumer-callback and downstream-operator panics never pass through
-	// this frame, so the consumer-side boundary and locality rules are preserved for free. The
-	// completed flag (rather than recover() != nil) is what detects unwinding, so a legacy
-	// panic(nil) under GODEBUG=panicnil=1 — where recover() returns nil and thereby cancels the
-	// panic — surfaces as a provider error instead of a spurious zero element. That branch sets
-	// only err, never n.recordedErr: recording happens in the provider below, which only executes
-	// on a genuine return. A runtime.Goexit (e.g. t.FailNow in a mapper) trips the same branch but
-	// never returns to the provider, so an abandoned drain records nothing and the hook fires nil.
-	guardedPull := func(ctx context.Context) (v T, err error) {
-		completed := false
-		defer func() {
-			if completed {
-				return
-			}
-			if rvr := recover(); rvr != nil {
-				n.recordedErr = recoveredPanicToError(rvr)
-				panic(rvr)
-			}
-			err = recoveredPanicToError(nil)
-		}()
-		v, err = s.provider(ctx)
-		completed = true
-		return v, err
-	}
 	return newStream(
-		func(ctx context.Context) (T, error) {
-			v, err := guardedPull(ctx)
-			// Record the terminal error the node's own subtree produced, so the Close hook can
-			// report it locally. io.EOF is normal completion, not an error.
-			if err != nil && err != io.EOF {
-				n.recordedErr = err
-			}
+		func(ctx context.Context) (v T, err error) {
+			// Only the pull itself touches T; the panic guard and the error recording around it are
+			// the non-generic finallyNode.pull.
+			err = n.pull(func() error {
+				var pullErr error
+				v, pullErr = s.provider(ctx)
+				return pullErr
+			})
 			return v, err
 		},
-		append(slices.Clone(s.allLifecycleElement), n),
+		appendLifecycle(s.allLifecycleElement, n),
 	)
 }
 
@@ -104,6 +79,46 @@ func (n *finallyNode) Open(ctx context.Context) error {
 	n.recordedErr = nil
 	n.fired = false
 	return nil
+}
+
+// pull runs one upstream pull under the node's panic guard and records the terminal error the
+// node's own subtree produced, so the Close hook can report it locally. io.EOF is normal
+// completion, not an error. The recording happens here, after guardedPull has returned, so it only
+// executes on a genuine return (see guardedPull for the legacy panic(nil) case).
+func (n *finallyNode) pull(pull func() error) error {
+	err := n.guardedPull(pull)
+	if err != nil && err != io.EOF {
+		n.recordedErr = err
+	}
+	return err
+}
+
+// guardedPull pulls one element from upstream under the node's panic guard. A panic unwinding
+// through this frame necessarily originated in the node's own subtree (upstream), so it is this
+// node's terminal outcome: record it and re-panic, letting the consumer's recover turn it into the
+// caller's error. Consumer-callback and downstream-operator panics never pass through this frame,
+// so the consumer-side boundary and locality rules are preserved for free. The completed flag
+// (rather than recover() != nil) is what detects unwinding, so a legacy panic(nil) under
+// GODEBUG=panicnil=1 — where recover() returns nil and thereby cancels the panic — surfaces as a
+// provider error instead of a spurious zero element. That branch sets only err, never
+// n.recordedErr: recording happens in pull, which only executes on a genuine return. A
+// runtime.Goexit (e.g. t.FailNow in a mapper) trips the same branch but never returns to pull, so
+// an abandoned drain records nothing and the hook fires nil.
+func (n *finallyNode) guardedPull(pull func() error) (err error) {
+	completed := false
+	defer func() {
+		if completed {
+			return
+		}
+		if rvr := recover(); rvr != nil {
+			n.recordedErr = recoveredPanicToError(rvr)
+			panic(rvr)
+		}
+		err = recoveredPanicToError(nil)
+	}()
+	err = pull()
+	completed = true
+	return err
 }
 
 func (n *finallyNode) Close() {
@@ -148,7 +163,7 @@ func invokeObservationalHook(hookName string, f func()) {
 
 // fireFinallyHooksOnOpenFailure notifies any DoFinally hooks among a stream's lifecycle elements
 // that the stream failed to open, so they observe the open-stage terminal error. It is called from
-// doOpenStream (the single open chokepoint for every consumer) before the rollback close, so this
+// openStreamLifecycles (the single open chokepoint for every consumer) before the rollback close, so this
 // error wins over Close's nil.
 func fireFinallyHooksOnOpenFailure(elements []Lifecycle, err error) {
 	for _, l := range elements {

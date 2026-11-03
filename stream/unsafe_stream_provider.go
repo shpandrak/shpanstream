@@ -32,13 +32,13 @@ func openSubStreamUnsafe[T any](ctx context.Context, b *unsafeProviderBuilder, i
 	if !ok {
 		return nil, fmt.Errorf("stream at index %d is not of type Stream[%T]", idx, b.orderedUntypedStreams[idx])
 	}
-	cancelFuncForOpenSubStream, err := doOpenStream[T](ctx, stream)
+	cancelFuncForOpenSubStream, err := openStreamLifecycles(ctx, stream.allLifecycleElement)
 	if err != nil {
 		return nil, fmt.Errorf("error opening stream at index %d: %w", idx, err)
 	}
 
 	b.orderedCloseFunctionsForStreamsThatAreOpen[idx] = func() {
-		doCloseSubStream(stream)
+		closeStreamLifecycles(stream.allLifecycleElement)
 		cancelFuncForOpenSubStream()
 	}
 

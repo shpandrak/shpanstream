@@ -42,24 +42,33 @@ func UnpackResult[T any](r Result[T]) (T, error) {
 	return r.Value, r.Err
 }
 
+// The ToErrCtx adapters are marked noinline so that each adapter closure is compiled once per
+// type (pair): inlined, the compiler emits a copy of the closure body at every call site — and in
+// every compiler-generated pointer-receiver wrapper of the generic callers in the stream and lazy
+// packages. They run at pipeline construction, never per element.
+
+//go:noinline
 func (em MapperWithErr[SRC, TGT]) ToErrCtx() MapperWithErrAndCtx[SRC, TGT] {
 	return func(_ context.Context, src SRC) (TGT, error) {
 		return em(src)
 	}
 }
 
+//go:noinline
 func (m Mapper[SRC, TGT]) ToErrCtx() MapperWithErrAndCtx[SRC, TGT] {
 	return func(_ context.Context, src SRC) (TGT, error) {
 		return m(src), nil
 	}
 }
 
+//go:noinline
 func (p Predicate[SRC]) ToErrCtx() PredicateWithErrAndCtx[SRC] {
 	return func(_ context.Context, src SRC) (bool, error) {
 		return p(src), nil
 	}
 }
 
+//go:noinline
 func (p PredicateWithErr[SRC]) ToErrCtx() PredicateWithErrAndCtx[SRC] {
 	return func(_ context.Context, src SRC) (bool, error) {
 		return p(src)

@@ -5,6 +5,7 @@ import (
 	"math/rand"
 )
 
+//go:noinline
 func (s Stream[T]) CollectRandomSample(ctx context.Context, sampleSize int) ([]T, error) {
 	if sampleSize <= 0 {
 		return nil, nil
@@ -31,8 +32,12 @@ func (s Stream[T]) CollectRandomSample(ctx context.Context, sampleSize int) ([]T
 	return reservoir, nil
 }
 
+// RandomSample returns a stream of sampleSize elements sampled from the source. The sample is drawn
+// when the returned stream is opened (once per materialization), so it is re-consumable.
+//
+//go:noinline
 func (s Stream[T]) RandomSample(sampleSize int) Stream[T] {
-	return newStreamFromCollector(s, func(ctx context.Context, src Stream[T]) ([]T, error) {
-		return src.CollectRandomSample(ctx, sampleSize)
+	return FromSliceProvider(func(ctx context.Context) ([]T, error) {
+		return s.CollectRandomSample(ctx, sampleSize)
 	})
 }

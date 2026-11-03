@@ -13,14 +13,5 @@ import (
 // work (e.g. issuing a DB query), and DoFinally fires with the terminal outcome — including when
 // an upstream Open fails, so a DoFirst-armed timer still gets its duration sample.
 func (s Stream[T]) DoFirst(f func(ctx context.Context)) Stream[T] {
-	return newStream(
-		s.provider,
-		append([]Lifecycle{NewLifecycle(
-			func(ctx context.Context) error {
-				invokeObservationalHook("DoFirst", func() { f(ctx) })
-				return nil
-			},
-			nil,
-		)}, s.allLifecycleElement...),
-	)
+	return newStream(s.provider, prependLifecycle(doFirstLifecycle(f), s.allLifecycleElement))
 }

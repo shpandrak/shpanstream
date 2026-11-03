@@ -1,6 +1,7 @@
 # Ask: a Stream element type costs ~220 KB of machine code and ~0.5 s of compile time
 
-Status: open. Reproduction: `tools/compilesize/measure.sh`. Source of the
+Status: items 1–4 done on branch `claude/compile-size-ask` (results at the end);
+item 5 not done. Reproduction: `tools/compilesize/measure.sh`. Source of the
 finding: the shpankids application (its spec
 `docs/superpowers/specs/2026-11-03-check-gate-performance.md`).
 
@@ -103,3 +104,59 @@ version and re-measures `go build ./...` after a one-line change in
 `domain/exercise` (baseline 48 s).
 
 Bytes are measured; compile-time gains are estimates until measured.
+
+## Results (items 1–4, Go 1.24.7, 4 cores)
+
+`tools/compilesize/measure.sh 50`, one commit per item. Bytes are exact; the
+compile seconds are single runs on a shared VM whose speed drifted by ±20 %
+during the session, so read them as a trend (the interleaved series below is
+the fair comparison).
+
+| Step | Compile | Shape instantiations | Per type |
+|---|---|---|---|
+| baseline (`27ae006`) | 28.4 s | 10,881,584 B (35,561 symbols) | 217,631 B |
+| 1. concurrent fan-out over `any` | 28.3 s | 9,400,605 B (33,598) | 188,012 B |
+| 2. `Untyped()` without `Map` | 26.1 s | 8,918,305 B (30,997) | 178,366 B |
+| 3. thin `Stream[T]` bodies over a non-generic core | 13.9 s | 3,904,722 B (17,062) | 78,094 B |
+| 4. `Lazy[T]` over a non-generic core | 11.9 s | 3,707,300 B (16,557) | 74,146 B |
+
+Interleaved baseline/final runs, same machine, same minutes:
+
+| Run | Baseline | Final |
+|---|---|---|
+| 1 | 36.9 s | 12.9 s |
+| 2 | 32.9 s | 13.8 s |
+| 3 | 31.0 s | 11.5 s |
+
+By family, final: `stream.Stream` 1.48 MB (was 3.89), `stream.(*Stream)`
+0.42 MB (was 2.07), `lazy.Lazy` + `lazy.(*Lazy)` 0.93 MB (was 1.55),
+`concurrentStreamMapperProvider` 0.03 MB (was 1.22), `mapStreamConcurrently`
+0.07 MB (was 0.51), `MapWithErrAndCtx` 0.05 MB (was 0.41).
+
+What the remaining 3.7 MB is: every `Stream[shape]` still carries all 27
+methods (29 before item 1 moved the two concurrent-consume methods out of the
+type) and `Lazy[shape]` all 21 (the thin bodies, about 34 KB per shape in
+total), plus the compiler-generated pointer-receiver wrappers, which are
+call-through stubs whose size comes from moving `T` by value through the
+shape dictionary (so `//go:noinline` cannot shrink them). The probe's other
+2.1 MB of text are the per-concrete-type dictionary wrappers Go emits for
+each method. Only item 5 (fewer methods) reduces either further.
+
+Where the bytes came from, mechanically: besides the four items, the single
+biggest lever was that the compiler inlines a method that creates a closure
+into every call site and into its pointer wrapper, emitting a fresh copy of
+the closure body each time (nine copies of the Filter closure per element
+type in the baseline). Closure-creating generic methods and helpers are now
+marked `//go:noinline`; they run at pipeline construction, never per element.
+
+Hot path (`stream/hot_path_bench_test.go`, 1024 struct elements): no
+sequential benchmark got slower. The deterministic part is the allocation
+count per drain: Consume 6 → 4, Map+Filter+Collect 16 → 14, Limit+Skip
+10 → 8, DoFinally 6 → 4 (FindFirst stays at 9, +24 B for the Lazy fetcher
+adapter), because the consume step now calls the provider and the consumer
+directly instead of through two adapter closures. In ns/op, Consume is
+reliably faster (about 7 % on interleaved baseline/final runs, `-count=3`);
+the other benchmarks move within the VM's run-to-run noise (±15 %), so the
+single-run speedups seen during the session are not claimed here. Boxing
+into `any` happens only on the opt-in concurrent paths and in `Untyped()`,
+where it always did.

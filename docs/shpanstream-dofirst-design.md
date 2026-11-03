@@ -7,7 +7,7 @@ narrow observational hook instead of exposing lifecycle-order control.*
 ## Problem
 
 An external wrapper cannot observe a drain's full wall time. `WithAdditionalLifecycle` appends
-and `doOpenStream` opens lifecycles in list order (both in `stream/shpan_stream.go`), so a
+and `openStreamLifecycles` opens lifecycles in list order (both in `stream/stream_core.go`), so a
 wrapper-added Open always runs after every upstream Open.
 For DB-backed streams the real work (pool acquire, query, time-to-first-row) happens in the
 source's Open, so a metrics wrapper measures iteration time only. Additionally, when an upstream
@@ -16,7 +16,7 @@ Open fails, an appended Open never ran, so a timer never armed: the wrapper coun
 
 ## Why not `WithPrependedLifecycle`
 
-`doCloseSubStream` (`stream/shpan_stream.go`) closes in **forward** list order — same as open,
+`closeStreamLifecycles` (`stream/stream_core.go`) closes in **forward** list order — same as open,
 not reverse. A prepended lifecycle therefore opens first *and closes first*, before the source
 closes. That is fine for a purely observational bracket, but the API cannot enforce
 "observational only": the natural misuse — prepending a resource lifecycle (pool handle, span,
@@ -47,14 +47,14 @@ Semantics:
 - **Position.** Prepends an internal lifecycle node, so its Open runs before all lifecycle
   elements registered so far. Operators applied later append to the end, so the node stays first;
   a later `DoFirst` prepends again, giving last-declared-first order (matches Reactor `doFirst`).
-- **Ctx.** `f` receives the drain's context (`ctxWithCancel` from `doOpenStream`), useful for
+- **Ctx.** `f` receives the drain's context (`ctxWithCancel` from `openStreamLifecycles`), useful for
   tracing.
 - **No error, no Close.** `f` returns nothing; the node's Close is a no-op. There is nothing to
   misorder at teardown.
 - **Panic guard.** `f` runs under the same recover-and-`slog.Error` guard as `finallyNode.invoke`
   so a buggy hook cannot crash the consumer.
 - **Open failure.** If a downstream (later-in-list) Open fails after `f` ran, existing rollback in
-  `doOpenStream` closes the node (no-op) and `fireFinallyHooksOnOpenFailure` still delivers the
+  `openStreamLifecycles` closes the node (no-op) and `fireFinallyHooksOnOpenFailure` still delivers the
   error to `DoFinally` hooks — so a `DoFirst`-armed timer gets its duration sample on open
   failure, restoring `duration_seconds_count == successes + errors`.
 - **Re-consumption.** Open fires per drain, so `f` runs again on each re-consumption.
@@ -69,7 +69,7 @@ is guarded once at the chokepoint where the in-place append happens: `WithAdditi
 clips its slice (`slices.Clip`) before appending, so every producer of a lifecycle slice —
 `DoFirst`, `DoFinally`, or a future operator — is covered without per-call-site defenses.
 The panic guard is shared with `DoFinally` (`invokeObservationalHook` in
-`stream/do_finally.go`). No changes to `doOpenStream`, `doCloseSubStream`, or
+`stream/do_finally.go`). No changes to `openStreamLifecycles`, `closeStreamLifecycles`, or
 `fireFinallyHooksOnOpenFailure`; all already handle a prepended element correctly.
 
 Customer usage (their `MeasureTimer` wrapper):

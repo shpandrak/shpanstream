@@ -9,9 +9,9 @@ Two options drive the pipeline from their own goroutines, and neither recovers p
 so a pipeline panic that the sequential consume paths would recover and return as an error
 instead kills the whole process:
 
-- `consumeConcurrently` (`stream/shpan_stream_concurrent.go`): the provider runs in a producer
+- `consumeConcurrently` (`stream/concurrent_core.go`): the provider runs in a producer
   goroutine and the consumer callback runs in worker goroutines, neither with a `recover`.
-- `MapConcurrently` / `WithConcurrentMapOption` (`stream/concurrent_stream.go`): the source
+- `MapConcurrently` / `WithConcurrentMapOption` (`stream/concurrent_core.go`, `concurrentMapCore`): the source
   provider runs in a reader goroutine and the mapper runs in worker goroutines, neither with a
   `recover`. Reproduced: a panicking upstream mapper consumed through
   `MapWithErrAndCtx(..., WithConcurrentMapOption(2))` crashes the process; a `DoFinally` node in
@@ -21,7 +21,7 @@ instead kills the whole process:
 For `consumeConcurrently` specifically:
 
 - **A pipeline panic (e.g. panicking mapper) kills the whole process.** Reproduced: unrecovered
-  panic in the producer goroutine at `shpan_stream_concurrent.go:94`.
+  panic in the producer goroutine of `doConsumeConcurrently` (`stream/concurrent_core.go`).
 - **Worse, there is a race where the caller sees success first.** The panicking producer's deferred
   `close(itemChan)` / `close(producerDone)` run during unwinding, letting the workers drain, the
   `wg.Wait()` return, and `Consume` return `err == nil` — moments before the runtime crashes the
@@ -36,13 +36,13 @@ them as errors.
 `consumeConcurrently`:
 
 - Producer goroutine: deferred `recover` that converts the panic via `recoveredPanicToError`
-  (added in the DoFinally fix, `stream/shpan_stream.go`) and sends it on `itemChan` as a
+  (added in the DoFinally fix, now in `stream/stream_core.go`) and sends it on `itemChan` as a
   `Result{Err: ...}`, so it flows through `setErr` and is returned as `firstErr`. The DoFinally
   provider wrapper already records the panic before it unwinds, so hooks report it consistently.
 - Worker goroutines: deferred `recover` feeding `setErr` with the converted error (consumer-side
   failure — DoFinally hooks must still fire `nil`, matching the sequential boundary).
 
-`MapConcurrently` / `WithConcurrentMapOption` (`stream/concurrent_stream.go`):
+`MapConcurrently` / `WithConcurrentMapOption` (`concurrentMapCore`, `stream/concurrent_core.go`):
 
 - Reader and mapper-worker goroutines: deferred `recover` converting the panic into an error
   forwarded through the existing error channel/first-error machinery, so it surfaces as the
