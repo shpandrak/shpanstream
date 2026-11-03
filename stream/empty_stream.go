@@ -2,10 +2,12 @@ package stream
 
 import (
 	"context"
-	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
+
+	"github.com/shpandrak/shpanstream/internal/util"
 )
 
+//go:noinline
 func Empty[T any]() Stream[T] {
 	return newStream(func(ctx context.Context) (T, error) {
 		return util.DefaultValue[T](), io.EOF

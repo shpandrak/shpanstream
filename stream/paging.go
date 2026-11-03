@@ -2,10 +2,12 @@ package stream
 
 import (
 	"context"
-	"github.com/shpandrak/shpanstream/internal/util"
 	"io"
+
+	"github.com/shpandrak/shpanstream/internal/util"
 )
 
+//go:noinline
 func (s Stream[T]) Limit(limit int) Stream[T] {
 	if limit <= 0 {
 		return Empty[T]()
@@ -26,6 +28,7 @@ func (s Stream[T]) Limit(limit int) Stream[T] {
 	}, s.allLifecycleElement)
 }
 
+//go:noinline
 func (s Stream[T]) Skip(skip int) Stream[T] {
 	alreadySkipped := false
 	return newStream[T](func(ctx context.Context) (T, error) {

@@ -2,12 +2,7 @@ package stream
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
-	"log/slog"
-	"runtime/debug"
-	"slices"
 
 	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
@@ -41,25 +36,7 @@ func WithCloseFuncOption(closeFunc func()) CreateStreamOption {
 }
 
 func NewSimpleStream[T any](streamProviderFunc ProviderFunc[T], options ...CreateStreamOption) Stream[T] {
-	var openFunc func(ctx context.Context) error
-	var closeFunc func()
-
-	for _, option := range options {
-		if option.openFunc != nil {
-			openFunc = option.openFunc
-		}
-		if option.closeFunc != nil {
-			closeFunc = option.closeFunc
-		}
-	}
-
-	var lifeCycleElements []Lifecycle
-	if openFunc != nil || closeFunc != nil {
-		lifeCycleElements = []Lifecycle{
-			NewLifecycle(openFunc, closeFunc),
-		}
-	}
-	return Stream[T]{provider: streamProviderFunc, allLifecycleElement: lifeCycleElements}
+	return Stream[T]{provider: streamProviderFunc, allLifecycleElement: lifecyclesFromOptions(options)}
 }
 
 type ProviderFunc[T any] func(ctx context.Context) (T, error)
@@ -68,11 +45,23 @@ type ProviderFunc[T any] func(ctx context.Context) (T, error)
 // It returns an error if the stream materialization fails in any stage of the pipeline
 // For empty streams, it returns immediately with no error
 // For infinite streams, it will block until the stream either ctx is cancelled, stream is done or an error occurs
+//
+//go:noinline
 func (s Stream[T]) Consume(ctx context.Context, f func(T), options ...ConsumeOption) error {
-	return s.ConsumeWithErr(ctx, func(v T) error {
+	if len(options) > 0 {
+		return s.ConsumeWithErr(ctx, func(v T) error {
+			f(v)
+			return nil
+		}, options...)
+	}
+	return consumeLoop(ctx, s.allLifecycleElement, func(ctx context.Context) (bool, error) {
+		v, err := s.provider(ctx)
+		if err != nil {
+			return false, err
+		}
 		f(v)
-		return nil
-	}, options...)
+		return true, nil
+	})
 }
 
 // MustConsume is a convenience method that panics if the stream errors
@@ -86,95 +75,44 @@ func (s Stream[T]) MustConsume(f func(T)) {
 // ConsumeWithErr consumes the entire stream and applies the provided function to each element (sometimes named ForEach).
 // Allow returning an error from the function to stop the pipeline
 // It returns an error if the stream materialization fails in any stage of the pipeline
+//
+//go:noinline
 func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error, options ...ConsumeOption) error {
-	return s.ConsumeWithErrAndCtx(ctx, func(_ context.Context, v T) error {
-		return f(v)
-	}, options...)
-}
-
-// recoveredPanicToError converts a recovered panic value into the error reported to callers and
-// DoFinally hooks, preserving the error chain when the panic value is an error.
-func recoveredPanicToError(rvr any) error {
-	if asErr, ok := rvr.(error); ok {
-		return fmt.Errorf("stream recovered error: %w", asErr)
+	if len(options) > 0 {
+		return s.ConsumeWithErrAndCtx(ctx, func(_ context.Context, v T) error {
+			return f(v)
+		}, options...)
 	}
-	return fmt.Errorf("stream recovered error value: %v", rvr)
-}
-
-// consumeWithPanicGuard is the consumer-boundary panic guard shared by the sequential and
-// concurrent consume paths: a panic unwinding out of body is logged with its stack and converted
-// into the error the consumer returns. The completed flag (rather than recover() != nil) is what
-// detects unwinding, so a legacy panic(nil) under GODEBUG=panicnil=1 — where recover() returns nil
-// and thereby cancels the panic — surfaces as an error instead of a clean, silently truncated
-// drain. A runtime.Goexit trips the flag too, but the error it fabricates is only assigned to a
-// return value Goexit discards, so it stays harmless.
-func consumeWithPanicGuard(body func() error) (err error) {
-	completed := false
-	defer func() {
-		if completed {
-			return
+	return consumeLoop(ctx, s.allLifecycleElement, func(ctx context.Context) (bool, error) {
+		v, err := s.provider(ctx)
+		if err != nil {
+			return false, err
 		}
-		if rvr := recover(); rvr != nil {
-			slog.Error(fmt.Sprintf("Panic recovered: %v\n%s", rvr, debug.Stack()))
-			err = recoveredPanicToError(rvr)
-			return
-		}
-		err = recoveredPanicToError(nil)
-	}()
-	err = body()
-	completed = true
-	return err
+		return true, f(v)
+	})
 }
 
 // ConsumeWithErrAndCtx consumes the entire stream and applies the provided function to each element (sometimes named ForEach).
 // Allow returning an error from the function to stop the pipeline,
 // passing through the context allowing the function to gracefully cancel
 // It returns an error if the stream materialization fails in any stage of the pipeline
+//
+//go:noinline
 func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error, options ...ConsumeOption) error {
 	// Check for the concurrent option
-	for _, opt := range options {
-		switch cOpt := opt.(type) {
-		case *concurrentConsumeOption:
-			return s.consumeConcurrently(ctx, cOpt.concurrency, f)
-		}
+	if concurrency, concurrent := concurrentConsumeOptionOf(options); concurrent {
+		return consumeConcurrently(ctx, concurrency, s.allLifecycleElement, boxProvider(s.provider), boxConsumer(f))
 	}
-	// The panic guard avoids leaking resources and allows returning an error via panic instead of returning it
-	return consumeWithPanicGuard(func() error {
-		cancelFunc, errVar := doOpenStream[T](ctx, s)
-		if errVar != nil {
-			return fmt.Errorf("failed to open stream: %w", errVar)
+	return consumeLoop(ctx, s.allLifecycleElement, func(ctx context.Context) (bool, error) {
+		v, err := s.provider(ctx)
+		if err != nil {
+			return false, err
 		}
-
-		// If we reach here, all lifecycle elements have been opened successfully
-		// We can defer closing them until the end of the function
-		defer func() {
-			doCloseSubStream(s)
-			cancelFunc()
-		}()
-
-		for {
-
-			// Make sure to check if the context is done before trying to get the next item
-			if ctx.Err() != nil {
-				// If the context is cancelled, we need to close all lifecycle elements
-				// return
-				return ctx.Err()
-			}
-			v, errVar := s.provider(ctx)
-			if errVar != nil {
-				if errVar == io.EOF {
-					return nil
-				}
-				return errVar
-			}
-			errVar = f(ctx, v)
-			if errVar != nil {
-				return errVar
-			}
-		}
+		return true, f(ctx, v)
 	})
 }
 
+//go:noinline
 func (s Stream[T]) FindFirst() lazy.Lazy[T] {
 	return lazy.NewLazyOptional[T](func(ctx context.Context) (*T, error) {
 		itemArr, err := s.Limit(1).Collect(ctx)
@@ -188,11 +126,10 @@ func (s Stream[T]) FindFirst() lazy.Lazy[T] {
 		// If we reach here, it means the stream is empty, so we need to return nil
 		return nil, nil
 
-	}).OrElseThrow(func() error {
-		return errors.New("no \"first element\" in an empty stream")
-	})
+	}).OrElseThrow(errNoFirstElement)
 }
 
+//go:noinline
 func (s Stream[T]) FindLast() lazy.Lazy[T] {
 	return lazy.NewLazyOptional[T](func(ctx context.Context) (*T, error) {
 		var result *T
@@ -203,9 +140,7 @@ func (s Stream[T]) FindLast() lazy.Lazy[T] {
 			return nil, err
 		}
 		return result, nil
-	}).OrElseThrow(func() error {
-		return errors.New("no \"last element\" in an empty stream")
-	})
+	}).OrElseThrow(errNoLastElement)
 
 }
 
@@ -231,14 +166,14 @@ func FindFirstAndLast[T any](s Stream[T]) lazy.Lazy[shpanstream.Tuple2[T, T]] {
 			A: *first,
 			B: *last,
 		}, nil
-	}).OrElseThrow(func() error {
-		return errors.New("no \"first and last element\" in an empty stream")
-	})
+	}).OrElseThrow(errNoFirstAndLastElement)
 
 }
 
 // Collect materializes the stream, and collects all elements of the stream into a slice
 // It returns an error if the stream materialization fails in any stage of the pipeline
+//
+//go:noinline
 func (s Stream[T]) Collect(ctx context.Context) ([]T, error) {
 	var result []T
 	err := s.Consume(ctx, func(v T) {
@@ -253,10 +188,7 @@ func (s Stream[T]) Collect(ctx context.Context) ([]T, error) {
 // MustCollect is a convenience method that panics if the stream errors
 // should be used for testing purpose or when streams are static (e.g. slice sourced streams)
 func (s Stream[T]) MustCollect() []T {
-	var result []T
-	err := s.Consume(context.Background(), func(v T) {
-		result = append(result, v)
-	})
+	result, err := s.Collect(context.Background())
 	if err != nil {
 		panic(err)
 	}
@@ -271,6 +203,7 @@ func (s Stream[T]) FilterWithErr(predicate shpanstream.PredicateWithErr[T]) Stre
 	return s.FilterWithErAndCtx(predicate.ToErrCtx())
 }
 
+//go:noinline
 func (s Stream[T]) FilterWithErAndCtx(predicate shpanstream.PredicateWithErrAndCtx[T]) Stream[T] {
 	return newStream[T](func(ctx context.Context) (T, error) {
 		for {
@@ -281,7 +214,7 @@ func (s Stream[T]) FilterWithErAndCtx(predicate shpanstream.PredicateWithErrAndC
 			shouldKeep, err := predicate(ctx, v)
 			if err != nil {
 				// Wrapping errors, e.g. we don't want EOF accidentally returned from here
-				return util.DefaultValue[T](), fmt.Errorf("filter failed for Stream: %w", err)
+				return util.DefaultValue[T](), wrapFilterError(err)
 			}
 			if shouldKeep {
 				return v, nil
@@ -291,6 +224,8 @@ func (s Stream[T]) FilterWithErAndCtx(predicate shpanstream.PredicateWithErrAndC
 }
 
 // Count counts the number of elements in the stream (materializes the stream)
+//
+//go:noinline
 func (s Stream[T]) Count(ctx context.Context) (int, error) {
 	count := 0
 	err := s.Consume(ctx, func(v T) {
@@ -317,55 +252,24 @@ func (s Stream[T]) IsEmpty(ctx context.Context) (bool, error) {
 }
 
 func (s Stream[T]) WithAdditionalLifecycle(lch Lifecycle) Stream[T] {
-	// Clip so the append always reallocates: s.allLifecycleElement may have spare capacity
-	// shared with sibling streams derived from the same parent, and an in-place append would
-	// overwrite their appended element.
-	return newStream(s.provider, append(slices.Clip(s.allLifecycleElement), lch))
-}
-
-func doOpenStream[T any](ctx context.Context, s Stream[T]) (context.CancelFunc, error) {
-	ctxWithCancel, cancelFunc := context.WithCancel(ctx)
-	// Running all lifecycle elements
-	for lcIdx, l := range s.allLifecycleElement {
-		err := l.Open(ctxWithCancel)
-		if err != nil {
-			// If we fail to open a lifecycle element, we need to close all previously opened elements
-			// and return the error
-
-			openErr := fmt.Errorf("failed to open stream lifecycle element %d: %w", lcIdx, err)
-
-			// Notify DoFinally hooks of the open-stage terminal error before the rollback close,
-			// so this error wins over any already-opened hook's Close (which would fire nil).
-			fireFinallyHooksOnOpenFailure(s.allLifecycleElement, openErr)
-
-			// Close only the successfully opened lifecycle elements
-			for i := 0; i < lcIdx; i++ {
-				s.allLifecycleElement[i].Close()
-			}
-			// Cancel the context to stop any ongoing operations
-			cancelFunc()
-
-			return nil, openErr
-		}
-	}
-	return cancelFunc, nil
-}
-
-func doCloseSubStream[T any](s Stream[T]) {
-	for _, l := range s.allLifecycleElement {
-		l.Close()
-	}
+	return newStream(s.provider, appendLifecycle(s.allLifecycleElement, lch))
 }
 
 // Peek allows to peek at the elements of the stream without consuming them
 // Peek will not materialize the stream, and will be invoked only (and if) the stream is materialized
+//
+//go:noinline
 func (s Stream[T]) Peek(f func(v T)) Stream[T] {
-	return Map(
-		s,
-		func(v T) T {
-			f(v)
-			return v
-		})
+	// Written directly rather than as Map(s, ...) so a Stream shape does not instantiate the whole
+	// Map machinery for its own [T, T] pair.
+	return newStream[T](func(ctx context.Context) (T, error) {
+		v, err := s.provider(ctx)
+		if err != nil {
+			return util.DefaultValue[T](), err
+		}
+		f(v)
+		return v, nil
+	}, s.allLifecycleElement)
 }
 
 // FromLazy converts the Lazy to a Stream (or either a single element, empty stream, or an error stream)

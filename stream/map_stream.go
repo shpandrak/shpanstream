@@ -27,6 +27,20 @@ func (c *concurrentMapOption) mapStreamOptionName() string {
 	return "concurrent"
 }
 
+// concurrentMapOptionOf interprets the map options: the first option decides, as it always did. It
+// reports the concurrency if that option is a concurrent one, or an error for an unsupported option.
+func concurrentMapOptionOf(options []MapOption) (concurrency int, concurrent bool, err error) {
+	for _, opt := range options {
+		switch cOpt := opt.(type) {
+		case *concurrentMapOption:
+			return cOpt.concurrency, true, nil
+		default:
+			return 0, false, fmt.Errorf("unsupported map stream option type: %T", opt)
+		}
+	}
+	return 0, false, nil
+}
+
 // Map maps the source stream to a target stream using the provided mapper function.
 func Map[SRC any, TGT any](
 	src Stream[SRC],
@@ -51,15 +65,10 @@ func MapWithErrAndCtx[SRC any, TGT any](
 	mapper shpanstream.MapperWithErrAndCtx[SRC, TGT],
 	options ...MapOption,
 ) Stream[TGT] {
-	if len(options) > 0 {
-		for _, opt := range options {
-			switch cOpt := opt.(type) {
-			case *concurrentMapOption:
-				return mapStreamConcurrently[SRC, TGT](src, cOpt.concurrency, mapper)
-			default:
-				return Error[TGT](fmt.Errorf("unsupported map stream option type: %T", opt))
-			}
-		}
+	if concurrency, concurrent, err := concurrentMapOptionOf(options); err != nil {
+		return Error[TGT](err)
+	} else if concurrent {
+		return mapStreamConcurrently[SRC, TGT](src, concurrency, mapper)
 	}
 	return newStream[TGT](
 		func(ctx context.Context) (TGT, error) {
