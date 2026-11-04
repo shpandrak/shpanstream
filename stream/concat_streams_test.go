@@ -116,3 +116,40 @@ func TestConcatResourceMgmtStreamWithErr(t *testing.T) {
 	tu.requireOnlyWatchersVisited("1", "2", "3", "6")
 
 }
+
+// TestConcatRematerializeAfterEarlyStop: a materialization stopped early leaves Concat inside a
+// sub-stream; the next materialization must not resume it, even when its outer stream is empty.
+func TestConcatRematerializeAfterEarlyStop(t *testing.T) {
+	ctx := context.Background()
+	earlyStops := map[string]func(s Stream[int]){
+		"Limit": func(s Stream[int]) {
+			first, err := s.Limit(1).Collect(ctx)
+			require.NoError(t, err)
+			require.Equal(t, []int{1}, first)
+		},
+		"Iterator break": func(s Stream[int]) {
+			for range s.Iterator {
+				break
+			}
+		},
+	}
+	for name, stopEarly := range earlyStops {
+		t.Run(name, func(t *testing.T) {
+			// The outer stream yields sub-streams on the first materialization only
+			runs := 0
+			s := Concat(FromSliceProvider(func(context.Context) ([]Stream[int], error) {
+				runs++
+				if runs == 1 {
+					return []Stream[int]{Just(1, 2, 3), Just(4)}, nil
+				}
+				return nil, nil
+			}))
+
+			stopEarly(s)
+
+			second, err := s.Collect(ctx)
+			require.NoError(t, err)
+			require.Empty(t, second)
+		})
+	}
+}

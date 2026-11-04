@@ -8,6 +8,11 @@ import (
 
 type mergeSortedStreamsProvider[T any] struct {
 	comparator func(a, b T) int
+	mergeSortedRun[T]
+}
+
+// mergeSortedRun is the state of one materialization; Open replaces it with a fresh one.
+type mergeSortedRun[T any] struct {
 	nextBuffer []*T
 }
 
@@ -17,17 +22,23 @@ func MergeSortedStreams[T any](comparator func(a, b T) int, streams ...Stream[T]
 	if len(streams) == 0 {
 		return Empty[T]()
 	}
-	ms := &mergeSortedStreamsProvider[T]{
-		comparator: comparator,
-		nextBuffer: make([]*T, len(streams)),
-	}
-	return NewDownMultiStreamSimple(
+	return NewDownMultiStream[T, T](
 		streams,
-		ms.emitMerged,
+		&mergeSortedStreamsProvider[T]{comparator: comparator},
 	)
 }
 
-func (ms *mergeSortedStreamsProvider[T]) emitMerged(ctx context.Context, srcProviders []ProviderFunc[T]) (T, error) {
+// Open starts each materialization from a fresh run, so nothing an earlier one left behind, whether
+// it ran to EOF or was stopped early (FindFirst, Limit, an iterator break), carries over.
+func (ms *mergeSortedStreamsProvider[T]) Open(_ context.Context, _ []ProviderFunc[T]) error {
+	ms.mergeSortedRun = mergeSortedRun[T]{}
+	return nil
+}
+
+func (ms *mergeSortedStreamsProvider[T]) Close() {
+}
+
+func (ms *mergeSortedStreamsProvider[T]) Emit(ctx context.Context, srcProviders []ProviderFunc[T]) (T, error) {
 	if ms.nextBuffer == nil {
 		ms.nextBuffer = make([]*T, len(srcProviders))
 		for i, currProvider := range srcProviders {

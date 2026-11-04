@@ -10,12 +10,16 @@ import (
 )
 
 type clusterSortedStream[T any, O any, C any] struct {
-	nextItem              *T
-	currClassifier        C
 	comparator            shpanstream.Comparator[C]
 	clusterClassifierFunc func(a T) C
 	merger                func(ctx context.Context, clusterClassifier C, clusterStream Stream[T], lastItemOnPreviousCluster *T) (O, error)
+	clusterSortedRun[T, C]
+}
 
+// clusterSortedRun is the state of one materialization; Open replaces it with a fresh one.
+type clusterSortedRun[T any, C any] struct {
+	nextItem                  *T
+	currClassifier            C
 	lastItemOnPreviousCluster *T
 }
 
@@ -77,11 +81,13 @@ func ClusterSortedStreamOrdered[T any, O any, C cmp.Ordered](
 	)
 }
 
+// Open starts each materialization from a fresh run, so nothing an earlier one left behind, whether
+// it ran to EOF or was stopped early (FindFirst, Limit, an iterator break), carries over.
 func (fs *clusterSortedStream[T, O, C]) Open(ctx context.Context, srcProviderFunc ProviderFunc[T]) error {
+	fs.clusterSortedRun = clusterSortedRun[T, C]{}
 	nextItem, firstErr := srcProviderFunc(ctx)
 	if firstErr != nil {
 		if firstErr == io.EOF {
-			fs.nextItem = nil
 			return nil
 		}
 		return firstErr

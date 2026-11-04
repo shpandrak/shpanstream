@@ -9,8 +9,13 @@ import (
 )
 
 type leftJoinMultipleSortedStreamsProvider[S any, T any] struct {
-	comparator  shpanstream.Comparator[S]
-	joiner      func(left S, others []*S) T
+	comparator shpanstream.Comparator[S]
+	joiner     func(left S, others []*S) T
+	leftJoinMultipleRun[S]
+}
+
+// leftJoinMultipleRun is the state of one materialization; Open replaces it with a fresh one.
+type leftJoinMultipleRun[S any] struct {
 	nextBuffer  []*S
 	lastLeftKey *S
 }
@@ -24,19 +29,23 @@ func LeftJoinMultipleSortedStreams[S any, T any](
 		return Empty[T]()
 	}
 
-	ljms := &leftJoinMultipleSortedStreamsProvider[S, T]{
-		comparator: comparator,
-		joiner:     joiner,
-		nextBuffer: nil, // Initialize as nil to trigger initialization on first call
-	}
-
-	return NewDownMultiStreamSimple(
+	return NewDownMultiStream[S, T](
 		s,
-		ljms.emitLeftJoin,
+		&leftJoinMultipleSortedStreamsProvider[S, T]{comparator: comparator, joiner: joiner},
 	)
 }
 
-func (ljms *leftJoinMultipleSortedStreamsProvider[S, T]) emitLeftJoin(ctx context.Context, srcProviders []ProviderFunc[S]) (T, error) {
+// Open starts each materialization from a fresh run, so nothing an earlier one left behind, whether
+// it ran to EOF or was stopped early (FindFirst, Limit, an iterator break), carries over.
+func (ljms *leftJoinMultipleSortedStreamsProvider[S, T]) Open(_ context.Context, _ []ProviderFunc[S]) error {
+	ljms.leftJoinMultipleRun = leftJoinMultipleRun[S]{}
+	return nil
+}
+
+func (ljms *leftJoinMultipleSortedStreamsProvider[S, T]) Close() {
+}
+
+func (ljms *leftJoinMultipleSortedStreamsProvider[S, T]) Emit(ctx context.Context, srcProviders []ProviderFunc[S]) (T, error) {
 	// Initialize buffer on first call
 	if ljms.nextBuffer == nil {
 		ljms.nextBuffer = make([]*S, len(srcProviders))

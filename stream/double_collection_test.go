@@ -117,3 +117,109 @@ func TestFromMapValuesDoubleCollection(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(result2), "Second collection should return same results - BUG: Iterator not reset!")
 }
+
+// requireRematerializesFresh materializes s fully, then stops a materialization early (with Limit
+// and with an iterator break) and materializes it fully again after each: every full
+// materialization must start from fresh state and yield the same elements.
+func requireRematerializesFresh[T any](t *testing.T, s Stream[T]) {
+	t.Helper()
+	ctx := context.Background()
+	want, err := s.Collect(ctx)
+	require.NoError(t, err)
+	require.Greater(t, len(want), 2, "the stream must outlive the early stop")
+
+	partial, err := s.Limit(2).Collect(ctx)
+	require.NoError(t, err)
+	require.Equal(t, want[:2], partial)
+
+	got, err := s.Collect(ctx)
+	require.NoError(t, err)
+	require.Equal(t, want, got, "full materialization after a Limit")
+
+	seen := 0
+	for range s.Iterator {
+		seen++
+		if seen == 2 {
+			break
+		}
+	}
+
+	got, err = s.Collect(ctx)
+	require.NoError(t, err)
+	require.Equal(t, want, got, "full materialization after an iterator break")
+}
+
+func TestRematerializeAfterEarlyStop(t *testing.T) {
+	sum := func(values []int) int {
+		total := 0
+		for _, v := range values {
+			total += v
+		}
+		return total
+	}
+	sumPresent := func(values []*int) int {
+		total := 0
+		for _, v := range values {
+			if v != nil {
+				total += *v
+			}
+		}
+		return total
+	}
+
+	t.Run("Concat", func(t *testing.T) {
+		requireRematerializesFresh(t, ConcatStreams(Just(1, 2, 3), Just(4, 5)))
+	})
+	t.Run("FlatMap", func(t *testing.T) {
+		requireRematerializesFresh(t, FlatMap(Just(1, 2), func(x int) Stream[int] {
+			return Just(x*10, x*10+1, x*10+2)
+		}))
+	})
+	t.Run("MergeSortedStreams", func(t *testing.T) {
+		requireRematerializesFresh(t, MergeSortedStreams(cmp.Compare, Just(1, 4, 7), Just(2, 5, 8)))
+	})
+	t.Run("JoinSortedStreams", func(t *testing.T) {
+		requireRematerializesFresh(t, JoinSortedStreams(
+			Just(1, 2, 3, 4), Just(1, 2, 3, 4), identity[int], identity[int], cmp.Compare[int],
+		))
+	})
+	t.Run("LeftJoinSortedStreams", func(t *testing.T) {
+		requireRematerializesFresh(t, LeftJoinSortedStreams(
+			Just(1, 2, 3, 4), Just(1, 2, 4), identity[int], identity[int], cmp.Compare[int],
+		))
+	})
+	t.Run("JoinMultipleSortedStreams", func(t *testing.T) {
+		requireRematerializesFresh(t, JoinMultipleSortedStreams(
+			[]Stream[int]{Just(1, 2, 3, 4), Just(1, 2, 3, 4, 5)}, cmp.Compare[int], sum,
+		))
+	})
+	t.Run("LeftJoinMultipleSortedStreams", func(t *testing.T) {
+		requireRematerializesFresh(t, LeftJoinMultipleSortedStreams(
+			[]Stream[int]{Just(1, 2, 3, 4), Just(1, 2, 4)}, cmp.Compare[int],
+			func(left int, others []*int) int { return left + sumPresent(others) },
+		))
+	})
+	t.Run("FullJoinMultipleSortedStreams", func(t *testing.T) {
+		requireRematerializesFresh(t, FullJoinMultipleSortedStreams(
+			[]Stream[int]{Just(1, 2, 3, 4), Just(1, 3, 5)}, cmp.Compare[int], sumPresent,
+		))
+	})
+	t.Run("ClusterSortedStream", func(t *testing.T) {
+		// Each cluster reports the last item of the previous one (-1 for the first cluster)
+		requireRematerializesFresh(t, ClusterSortedStreamOrdered(
+			func(ctx context.Context, _ int, cluster Stream[int], lastItemOnPreviousCluster *int) (int, error) {
+				if err := cluster.Consume(ctx, func(int) {}); err != nil {
+					return 0, err
+				}
+				if lastItemOnPreviousCluster == nil {
+					return -1, nil
+				}
+				return *lastItemOnPreviousCluster, nil
+			},
+			identity[int],
+			Just(1, 1, 2, 2, 3, 4),
+		))
+	})
+}
+
+func identity[T any](v T) T { return v }

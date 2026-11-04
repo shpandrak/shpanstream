@@ -11,6 +11,11 @@ import (
 type joinMultipleSortedStreamsProvider[S any, T any] struct {
 	comparator shpanstream.Comparator[S]
 	joiner     func(values []S) T
+	joinMultipleRun[S]
+}
+
+// joinMultipleRun is the state of one materialization; Open replaces it with a fresh one.
+type joinMultipleRun[S any] struct {
 	nextBuffer []*S
 	lastKeys   []*S
 }
@@ -24,20 +29,23 @@ func JoinMultipleSortedStreams[S any, T any](
 		return Empty[T]()
 	}
 
-	jms := &joinMultipleSortedStreamsProvider[S, T]{
-		comparator: comparator,
-		joiner:     joiner,
-		nextBuffer: nil, // Initialize as nil to trigger initialization on first call
-		lastKeys:   nil,
-	}
-
-	return NewDownMultiStreamSimple(
+	return NewDownMultiStream[S, T](
 		s,
-		jms.emitJoin,
+		&joinMultipleSortedStreamsProvider[S, T]{comparator: comparator, joiner: joiner},
 	)
 }
 
-func (jms *joinMultipleSortedStreamsProvider[S, T]) emitJoin(ctx context.Context, srcProviders []ProviderFunc[S]) (T, error) {
+// Open starts each materialization from a fresh run, so nothing an earlier one left behind, whether
+// it ran to EOF or was stopped early (FindFirst, Limit, an iterator break), carries over.
+func (jms *joinMultipleSortedStreamsProvider[S, T]) Open(_ context.Context, _ []ProviderFunc[S]) error {
+	jms.joinMultipleRun = joinMultipleRun[S]{}
+	return nil
+}
+
+func (jms *joinMultipleSortedStreamsProvider[S, T]) Close() {
+}
+
+func (jms *joinMultipleSortedStreamsProvider[S, T]) Emit(ctx context.Context, srcProviders []ProviderFunc[S]) (T, error) {
 	// Initialize buffer on first call
 	if jms.nextBuffer == nil {
 		jms.nextBuffer = make([]*S, len(srcProviders))
