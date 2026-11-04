@@ -1,22 +1,50 @@
 package stream
 
+import (
+	"context"
+	"io"
+)
+
+// Iterator is a range-over-func iterator over the stream: for v := range s.Iterator { ... }.
+// Breaking out of the loop stops the stream and closes it; no further element is pulled. It
+// panics if the stream fails.
+//
 //go:noinline
 func (s Stream[T]) Iterator(yield func(T) bool) {
-	s.Filter(func(v T) bool {
-		// Yield return false if we need to stop (e.g. break within the loop)
-		return !yield(v)
-	}).FindFirst().
-		MustGetOptional()
+	err := consumeLoop(context.Background(), s.allLifecycleElement, func(ctx context.Context) (bool, error) {
+		v, err := s.provider(ctx)
+		if err != nil {
+			return false, err
+		}
+		if !yield(v) {
+			// The loop body broke out: end the drain as a normal completion.
+			return false, io.EOF
+		}
+		return true, nil
+	})
+	if err != nil {
+		panic(err)
+	}
 }
 
+// IndexedIterator is Iterator with the element's zero-based index:
+// for i, v := range s.IndexedIterator { ... }.
+//
 //go:noinline
 func (s Stream[T]) IndexedIterator(yield func(int, T) bool) {
-	// Use a counter to keep track of the index
 	index := -1
-	s.Filter(func(v T) bool {
+	err := consumeLoop(context.Background(), s.allLifecycleElement, func(ctx context.Context) (bool, error) {
+		v, err := s.provider(ctx)
+		if err != nil {
+			return false, err
+		}
 		index++
-		// Yield return false if we need to stop (e.g. break within the loop)
-		return !yield(index, v)
-	}).FindFirst().
-		MustGetOptional()
+		if !yield(index, v) {
+			return false, io.EOF
+		}
+		return true, nil
+	})
+	if err != nil {
+		panic(err)
+	}
 }

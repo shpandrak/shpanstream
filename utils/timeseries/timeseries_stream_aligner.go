@@ -2,6 +2,7 @@ package timeseries
 
 import (
 	"context"
+	"errors"
 	"github.com/shpandrak/shpanstream/internal/util"
 	"github.com/shpandrak/shpanstream/stream"
 	"time"
@@ -23,9 +24,13 @@ func AlignStream[N Number](
 			lastItemOnPreviousCluster *TsRecord[N],
 		) (TsRecord[N], error) {
 
-			firstItem, err := clusterStream.FindFirst().Get(ctx)
+			firstItem, found, err := clusterStream.FindFirst(ctx)
 			if err != nil {
 				return util.DefaultValue[TsRecord[N]](), err
+			}
+			if !found {
+				// A cluster always holds at least one element; this is defensive.
+				return util.DefaultValue[TsRecord[N]](), errors.New("no \"first element\" in an empty stream")
 			}
 
 			// If this is the first cluster, smudge the first item to the start of the cluster

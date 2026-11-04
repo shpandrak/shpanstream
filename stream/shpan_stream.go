@@ -6,7 +6,6 @@ import (
 
 	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
-	"github.com/shpandrak/shpanstream/lazy"
 )
 
 type Stream[T any] struct {
@@ -112,62 +111,65 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 	})
 }
 
+// FindFirst materializes the stream only up to its first element and returns it. found is false
+// when the stream is empty, which is not an error; err reports a failure of the pipeline (including
+// a failure to open it). The stream is closed as soon as the first element has been read: no
+// further element is pulled from the upstream. Once that element has been read, a cancellation of
+// ctx is no longer reported: FindFirst returns the element (a DoFinally inside the pipeline may
+// still observe the cancellation as it is closed).
+//
 //go:noinline
-func (s Stream[T]) FindFirst() lazy.Lazy[T] {
-	return lazy.NewLazyOptional[T](func(ctx context.Context) (*T, error) {
-		itemArr, err := s.Limit(1).Collect(ctx)
-		if err != nil {
-			return nil, err
+func (s Stream[T]) FindFirst(ctx context.Context) (first T, found bool, err error) {
+	err = consumeLoop(ctx, s.allLifecycleElement, func(ctx context.Context) (bool, error) {
+		v, pullErr := s.provider(ctx)
+		if pullErr != nil {
+			return false, pullErr
 		}
-		if len(itemArr) > 0 {
-			// If we have at least one item, we return the first one
-			return &itemArr[0], nil
-		}
-		// If we reach here, it means the stream is empty, so we need to return nil
-		return nil, nil
-
-	}).OrElseThrow(errNoFirstElement)
+		first, found = v, true
+		// Stop right here: reporting io.EOF ends the drain and closes the stream without
+		// pulling a second element.
+		return false, io.EOF
+	})
+	if err != nil {
+		return util.DefaultValue[T](), false, err
+	}
+	return first, found, nil
 }
 
+// FindLast materializes the whole stream and returns its last element. found is false when the
+// stream is empty, which is not an error; err reports a failure of the pipeline.
+//
 //go:noinline
-func (s Stream[T]) FindLast() lazy.Lazy[T] {
-	return lazy.NewLazyOptional[T](func(ctx context.Context) (*T, error) {
-		var result *T
-		err := s.Consume(ctx, func(v T) {
-			result = &v
-		})
-		if err != nil {
-			return nil, err
+func (s Stream[T]) FindLast(ctx context.Context) (last T, found bool, err error) {
+	err = consumeLoop(ctx, s.allLifecycleElement, func(ctx context.Context) (bool, error) {
+		v, pullErr := s.provider(ctx)
+		if pullErr != nil {
+			return false, pullErr
 		}
-		return result, nil
-	}).OrElseThrow(errNoLastElement)
-
+		last, found = v, true
+		return true, nil
+	})
+	if err != nil {
+		return util.DefaultValue[T](), false, err
+	}
+	return last, found, nil
 }
 
-// FindFirstAndLast returns the first and last element of the stream, unless the stream is empty
-// if the stream contains only one element, the first and last element are the same
-func FindFirstAndLast[T any](s Stream[T]) lazy.Lazy[shpanstream.Tuple2[T, T]] {
-	return lazy.NewLazyOptional[shpanstream.Tuple2[T, T]](func(ctx context.Context) (*shpanstream.Tuple2[T, T], error) {
-		var first *T
-		var last *T
-		err := s.Consume(ctx, func(v T) {
-			if first == nil {
-				first = &v
-			}
-			last = &v
-		})
-		if err != nil {
-			return nil, err
+// FindFirstAndLast materializes the whole stream and returns its first and last elements (the
+// same element when the stream has exactly one). found is false when the stream is empty, which
+// is not an error; err reports a failure of the pipeline.
+func FindFirstAndLast[T any](ctx context.Context, s Stream[T]) (firstAndLast shpanstream.Tuple2[T, T], found bool, err error) {
+	err = s.Consume(ctx, func(v T) {
+		if !found {
+			firstAndLast.A = v
+			found = true
 		}
-		if first == nil {
-			return nil, nil
-		}
-		return &shpanstream.Tuple2[T, T]{
-			A: *first,
-			B: *last,
-		}, nil
-	}).OrElseThrow(errNoFirstAndLastElement)
-
+		firstAndLast.B = v
+	})
+	if err != nil {
+		return shpanstream.Tuple2[T, T]{}, false, err
+	}
+	return firstAndLast, found, nil
 }
 
 // Collect materializes the stream, and collects all elements of the stream into a slice
@@ -248,7 +250,11 @@ func (s Stream[T]) MustCount() int {
 }
 
 func (s Stream[T]) IsEmpty(ctx context.Context) (bool, error) {
-	return s.FindFirst().IsEmpty(ctx)
+	_, found, err := s.FindFirst(ctx)
+	if err != nil {
+		return false, err
+	}
+	return !found, nil
 }
 
 func (s Stream[T]) WithAdditionalLifecycle(lch Lifecycle) Stream[T] {
@@ -270,25 +276,4 @@ func (s Stream[T]) Peek(f func(v T)) Stream[T] {
 		f(v)
 		return v, nil
 	}, s.allLifecycleElement)
-}
-
-// FromLazy converts the Lazy to a Stream (or either a single element, empty stream, or an error stream)
-func FromLazy[T any](l lazy.Lazy[T]) Stream[T] {
-	alreadyFetched := false
-	return NewSimpleStream(func(ctx context.Context) (T, error) {
-		if alreadyFetched {
-			return util.DefaultValue[T](), io.EOF
-		} else {
-			alreadyFetched = true
-		}
-
-		lazyValue, err := l.GetOptional(ctx)
-		if err != nil {
-			return util.DefaultValue[T](), err
-		}
-		if lazyValue == nil {
-			return util.DefaultValue[T](), io.EOF
-		}
-		return *lazyValue, nil
-	})
 }

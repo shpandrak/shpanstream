@@ -3,7 +3,6 @@ package stream
 import (
 	"github.com/shpandrak/shpanstream"
 	"github.com/shpandrak/shpanstream/internal/util"
-	"github.com/shpandrak/shpanstream/lazy"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -213,7 +212,12 @@ func TestLeftJoinSortedStreams(t *testing.T) {
 	mapperWithMinusOneForNil := func(v shpanstream.Tuple2[int, *int]) shpanstream.Tuple2[int, int] {
 		return shpanstream.Tuple2[int, int]{
 			A: v.A,
-			B: lazy.JustOptional(v.B).MustOrElse(-1),
+			B: func() int {
+				if v.B == nil {
+					return -1
+				}
+				return *v.B
+			}(),
 		}
 	}
 

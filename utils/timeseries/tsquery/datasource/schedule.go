@@ -515,8 +515,11 @@ func (s Schedule) MatchesPeriod(from, to time.Time) bool {
 // or nil if no match exists. Lazy: skips non-matching days in O(1) and stops
 // at the first match.
 func (s Schedule) NextMatch(from, to time.Time) *time.Time {
-	w := s.ActiveWindows(from, to).FindFirst().MustGetOptional()
-	if w == nil {
+	w, found, err := s.ActiveWindows(from, to).FindFirst(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	if !found {
 		return nil
 	}
 	return &w.From
