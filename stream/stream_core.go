@@ -2,7 +2,6 @@ package stream
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -27,6 +26,8 @@ import (
 // hands it to the consumer. pulled reports whether an element came out of the provider; when it is
 // false, err is the provider's error (io.EOF for normal completion). When it is true, err is the
 // consumer's error — and is never read as io.EOF, matching the pre-refactor loop exactly.
+// A step may also return (false, io.EOF) after it has pulled an element, to end the drain early
+// and cleanly (FindFirst, a break out of Iterator): the stream is closed without a further pull.
 type consumeStep func(ctx context.Context) (pulled bool, err error)
 
 // consumeLoop drives one sequential drain of a stream: it opens the lifecycle elements, runs step
@@ -215,21 +216,6 @@ func consumeWithPanicGuard(body func() error) (err error) {
 	err = body()
 	completed = true
 	return err
-}
-
-// The empty-stream error suppliers of FindFirst/FindLast/FindFirstAndLast, hoisted out of the
-// generic methods so they are compiled once rather than once per element type.
-
-func errNoFirstElement() error {
-	return errors.New("no \"first element\" in an empty stream")
-}
-
-func errNoLastElement() error {
-	return errors.New("no \"last element\" in an empty stream")
-}
-
-func errNoFirstAndLastElement() error {
-	return errors.New("no \"first and last element\" in an empty stream")
 }
 
 // wrapFilterError wraps a predicate error so that e.g. an io.EOF returned by a predicate is not

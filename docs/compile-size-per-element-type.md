@@ -160,3 +160,11 @@ the other benchmarks move within the VM's run-to-run noise (±15 %), so the
 single-run speedups seen during the session are not claimed here. Boxing
 into `any` happens only on the opt-in concurrent paths and in `Untyped()`,
 where it always did.
+
+## Follow-up: Stream without Lazy (item 4)
+
+`FindFirst`/`FindLast` now return `(T, bool, error)` and package `stream` no longer imports
+`lazy` (see [migration-stream-without-lazy.md](migration-stream-without-lazy.md)). `measure.sh 50`,
+three interleaved runs each: shape instantiations 3,707,300 → 2,809,445 bytes (74,146 → 56,188 per
+type), text 5,794,965 → 4,139,647 bytes, symbols 28,170 → 18,474, median compile 17.2 s → 10.3 s.
+No `lazy.` symbol is left in the probe.

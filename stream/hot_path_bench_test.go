@@ -75,8 +75,46 @@ func BenchmarkFindFirst(b *testing.B) {
 	s := FromSlice(benchSource(benchN))
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		if _, err := s.FindFirst().Get(context.Background()); err != nil {
-			b.Fatal(err)
+		if _, found, err := s.FindFirst(context.Background()); err != nil || !found {
+			b.Fatal(err, found)
+		}
+	}
+}
+
+func BenchmarkIsEmpty(b *testing.B) {
+	s := FromSlice(benchSource(benchN))
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if empty, err := s.IsEmpty(context.Background()); err != nil || empty {
+			b.Fatal(err, empty)
+		}
+	}
+}
+
+func BenchmarkIteratorBreak(b *testing.B) {
+	s := FromSlice(benchSource(benchN))
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		n := 0
+		for range s.Iterator {
+			n++
+			if n == 10 {
+				break
+			}
+		}
+	}
+}
+
+func BenchmarkIteratorFull(b *testing.B) {
+	s := FromSlice(benchSource(benchN))
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		n := 0
+		for range s.Iterator {
+			n++
+		}
+		if n != benchN {
+			b.Fatal(n)
 		}
 	}
 }

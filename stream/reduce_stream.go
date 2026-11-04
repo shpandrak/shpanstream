@@ -4,10 +4,13 @@ import (
 	"cmp"
 	"context"
 	"github.com/shpandrak/shpanstream/internal/util"
-	"github.com/shpandrak/shpanstream/lazy"
 )
 
-type Reducer[S any, T any] func(Stream[S]) lazy.Lazy[T]
+// Reducer reduces a stream to a single value when invoked with a context; Max and Min have this
+// shape. A deferred reduction is a plain closure over Reduce:
+//
+//	deferred := func(ctx context.Context) (R, error) { return Reduce(ctx, s, initial, f) }
+type Reducer[S any, T any] func(ctx context.Context, s Stream[S]) (T, error)
 
 // Reduce consumes the entire stream and combines values using the given reduceFunc,
 // starting from the provided initialValue. It returns the final accumulated result.
@@ -61,17 +64,6 @@ func Max[O cmp.Ordered](ctx context.Context, o Stream[O]) (O, error) {
 		return max(acc, v)
 	})
 }
-func MaxLazy[O cmp.Ordered](o Stream[O]) lazy.Lazy[O] {
-	return ReduceLazy[O](o, util.DefaultValue[O](), func(acc, v O) O {
-		return max(acc, v)
-	})
-}
-func MinLazy[O cmp.Ordered](o Stream[O]) lazy.Lazy[O] {
-	return ReduceLazy[O](o, util.DefaultValue[O](), func(acc, v O) O {
-		return min(acc, v)
-	})
-}
-
 func MustMax[O cmp.Ordered](o Stream[O]) O {
 	v, err := Max(context.Background(), o)
 	if err != nil {
@@ -92,36 +84,6 @@ func MustMin[O cmp.Ordered](o Stream[O]) O {
 		panic(err)
 	}
 	return v
-}
-
-func ReduceLazy[T any, R any](
-	s Stream[T],
-	initialValue R,
-	reduceFunc func(acc R, v T) R,
-) lazy.Lazy[R] {
-	return ReduceLazyWithErrAndCtx(s, initialValue, func(_ context.Context, acc R, v T) (R, error) {
-		return reduceFunc(acc, v), nil
-	})
-}
-
-func ReduceLazyWithErr[T any, R any](
-	s Stream[T],
-	initialValue R,
-	reduceFunc func(acc R, v T) (R, error),
-) lazy.Lazy[R] {
-	return ReduceLazyWithErrAndCtx(s, initialValue, func(_ context.Context, acc R, v T) (R, error) {
-		return reduceFunc(acc, v)
-	})
-}
-
-func ReduceLazyWithErrAndCtx[T any, R any](
-	s Stream[T],
-	initialValue R,
-	reduceFunc func(ctx context.Context, acc R, v T) (R, error),
-) lazy.Lazy[R] {
-	return lazy.NewLazy(func(ctx context.Context) (R, error) {
-		return ReduceWithErrAndCtx(ctx, s, initialValue, reduceFunc)
-	})
 }
 
 // MustReduce consumes the entire stream and combines values using the given reduceFunc,

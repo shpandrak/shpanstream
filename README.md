@@ -7,12 +7,11 @@ inspired by modern functional programming languages.
 
 ```go  
 // Find the first even number in a stream
-Just(1, 2, 3, 4, 5).
+first, found, err := Just(1, 2, 3, 4, 5).
     Filter(func(x int) bool {
         return x%2 == 0
     }).
-    FindFirst().
-    MustGet()
+    FindFirst(ctx)
 	
 ```
 
@@ -71,8 +70,7 @@ stream.Map(
 	func (p Person) string {
         return p.Name
     }).
-    FindFirst().
-    MustGet()
+    FindFirst(ctx)
 ```
 
 Together with go's verbose lambda syntax, and error handling model, it makes the code less fluent and more verbose than in other languages.
@@ -243,6 +241,16 @@ stream.FromSliceProvider(func(ctx context.Context) ([]Country, error) {
     //... the rest of the pipeline
 ```
 
+The same deferral exists for the other shapes: `FromValueProvider(func(ctx) (T, error))` for a single value,
+`FromOptionalProvider(func(ctx) (T, bool, error))` for a value that may be absent (the shape `FindFirst` returns, so
+`FromOptionalProvider(s.FindFirst)` is a stream of `s`'s first element) and `FromStreamProvider(func(ctx) (Stream[T], error))`
+for a stream that has to be fetched before it can be streamed.
+
+### Finding elements
+`FindFirst(ctx)` and `FindLast(ctx)` return `(T, bool, error)`: the bool reports whether the stream had an element,
+an empty stream is not an error. `FindFirst` stops (and closes) the stream as soon as the first element is read.
+Since v0.5.0 package `stream` no longer depends on package `lazy`; see the [migration note](docs/migration-stream-without-lazy.md).
+
 ### Iterate over a stream
 Shpanstream supports iterating over a stream using the range operator via the `Iterate` function.
 The stream will be automatically closed when the iteration is done, and the pipeline will be collapsed accordingly.
@@ -335,7 +343,7 @@ Shpanstream provides a simple way to create sliding windows over streams of data
 ```go
 // demonstrates how to use the Window function with a sliding window.
 // It returns the first window of 3 elements that contains at least 2 even numbers.
-results := Window(
+results, found, err := Window(
     Just(1, 3, 3, 5, 11, 6, 7, 8, 8, 8, 10, 10, 12, 13, 14, 15, 16, 17, 18, 19),
     3,
     WithSlidingWindowStepOption(1),
@@ -345,11 +353,11 @@ results := Window(
             Filter(func(src int) bool {
                 return src%2 == 0
             }).MustCount() >= 2
-    }).FindFirst().MustGet()
+    }).FindFirst(ctx)
 
 // Print the result
-fmt.Println(results)
-// Output: [6 7 8]
+fmt.Println(results, found, err)
+// Output: [6 7 8] true <nil>
 ```
 
 ### Buffering
@@ -474,7 +482,7 @@ The repository is structured as follows:
 │   ├── all "Stream" types and functions
 │   ├── ...
 ├── lazy
-│   ├── all "Lazy" types and functions
+│   ├── all "Lazy" types and functions (and the Lazy bridges over streams, e.g. lazy.FindFirst)
 │   ├── ...
 ├── examples
 │   ├── example1

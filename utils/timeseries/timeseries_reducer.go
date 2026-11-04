@@ -12,14 +12,14 @@ type Reducer[N Number] func(forTime time.Time, stream stream.Stream[TsRecord[N]]
 
 func Max[N Number](forTime time.Time, s stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]] {
 	return lazy.Map(
-		stream.MaxLazy(stream.Map(s, mapRecordValue)),
+		lazy.Max(stream.Map(s, mapRecordValue)),
 		recordMapper[N](forTime),
 	)
 }
 
 func Min[N Number](forTime time.Time, s stream.Stream[TsRecord[N]]) lazy.Lazy[TsRecord[N]] {
 	return lazy.Map(
-		stream.MinLazy(stream.Map(s, mapRecordValue)),
+		lazy.Min(stream.Map(s, mapRecordValue)),
 		recordMapper[N](forTime),
 	)
 }

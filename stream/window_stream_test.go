@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/shpandrak/shpanstream/lazy"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -166,7 +165,7 @@ func TestEmptySource(t *testing.T) {
 // ExampleWindow demonstrates how to use the Window function with a sliding window.
 // It returns the first window of 3 elements that contains at least 2 even numbers.
 func ExampleWindow() {
-	results := Window(
+	results, found, err := Window(
 		Just(1, 3, 3, 5, 11, 6, 7, 8, 8, 8, 10, 10, 12, 13, 14, 15, 16, 17, 18, 19),
 		3,
 		WithSlidingWindowStepOption(1),
@@ -176,11 +175,11 @@ func ExampleWindow() {
 				Filter(func(src int) bool {
 					return src%2 == 0
 				}).MustCount() >= 2
-		}).FindFirst().MustGet()
+		}).FindFirst(context.Background())
 
 	// Print the result
-	fmt.Println(results)
-	// Output: [6 7 8]
+	fmt.Println(results, found, err)
+	// Output: [6 7 8] true <nil>
 }
 
 func Test_Alert(t *testing.T) {
@@ -201,51 +200,49 @@ func Test_Alert(t *testing.T) {
 
 	// Constructing a message first time server alerts (severity > 2) occur 2 times in the stream,
 	// within a sliding window of size 3
-	require.Equal(
-		t,
-		"Messages:\nAlert 3\nAlert 4",
-		lazy.Map(
+	msg, found, err := Map(
 
-			// Creating a sliding window of alerts of size 3 with a sliding step of 1
-			Window(
-				alertsStream,
-				3,
-				WithSlidingWindowStepOption(1),
-			).
+		// Creating a sliding window of alerts of size 3 with a sliding step of 1
+		Window(
+			alertsStream,
+			3,
+			WithSlidingWindowStepOption(1),
+		).
 
-				// Filtering the windows to only include those with at least 2 severe alerts
-				Filter(func(currWindow []alert) bool {
-					return Just(currWindow...).
-						Filter(func(a alert) bool {
-							return a.Severity > 2
-						}).MustCount() >= 2
-				}).
+			// Filtering the windows to only include those with at least 2 severe alerts
+			Filter(func(currWindow []alert) bool {
+				return Just(currWindow...).
+					Filter(func(a alert) bool {
+						return a.Severity > 2
+					}).MustCount() >= 2
+			}),
 
-				// Return the first occurrence of the violation as it happens
-				FindFirst(),
+		// Mapping the filtered windows to a the expected summary message
+		func(alertsInWindow []alert) string {
 
-			// Mapping the filtered windows to a the expected summary message
-			func(alertsInWindow []alert) string {
-
-				// Reducing the sever alerts to a single message with individual alert messages
-				return MustReduce(
-					MapWhileFiltering(
-						Just(alertsInWindow...),
-						func(a alert) *string {
-							// Only for the severe alerts
-							if a.Severity > 2 {
-								return &a.Message
-							} else {
-								return nil
-							}
-						},
-					),
-					"Messages:",
-					func(acc string, a string) string {
-						return acc + "\n" + a
+			// Reducing the sever alerts to a single message with individual alert messages
+			return MustReduce(
+				MapWhileFiltering(
+					Just(alertsInWindow...),
+					func(a alert) *string {
+						// Only for the severe alerts
+						if a.Severity > 2 {
+							return &a.Message
+						} else {
+							return nil
+						}
 					},
-				)
-			},
-		).MustGet(),
-	)
+				),
+				"Messages:",
+				func(acc string, a string) string {
+					return acc + "\n" + a
+				},
+			)
+		},
+	).
+		// Return the first occurrence of the violation as it happens
+		FindFirst(context.Background())
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, "Messages:\nAlert 3\nAlert 4", msg)
 }

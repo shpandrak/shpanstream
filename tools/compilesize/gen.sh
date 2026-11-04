@@ -14,6 +14,7 @@ mkdir -p "$out"
   echo
   echo 'import ('
   echo '	"context"'
+  echo '	"errors"'
   echo
   echo '	"github.com/shpandrak/shpanstream"'
   echo '	"github.com/shpandrak/shpanstream/stream"'
@@ -46,9 +47,12 @@ func Use$i(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	first, err := list$i(ctx).FindFirst().Get(ctx)
+	first, found, err := list$i(ctx).FindFirst(ctx)
 	if err != nil {
 		return 0, err
+	}
+	if !found {
+		return 0, errors.New("empty")
 	}
 	return len(all) + first.Rank, nil
 }

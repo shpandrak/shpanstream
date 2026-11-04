@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/shpandrak/shpanstream/internal/util"
-	"github.com/shpandrak/shpanstream/lazy"
 	"github.com/shpandrak/shpanstream/stream"
 	"time"
 )
@@ -83,7 +82,7 @@ func AlignDeltaStream[N Number](s stream.Stream[TsRecord[N]], ap AlignmentPeriod
 	// to the aligned stream, so that delta will be calculated correctly for that last slot
 	alignedStream = stream.ConcatStreams(
 		alignedStream,
-		stream.FromLazy(lazy.NewLazyOptional(func(ctx context.Context) (*TsRecord[N], error) {
+		stream.FromOptionalProvider(func(ctx context.Context) (TsRecord[N], bool, error) {
 			// Unless the last item magically aligns to a slot, append it to the stream
 			if globalLastItem != nil &&
 				globalLastItem.Timestamp != ap.GetStartTime(globalLastItem.Timestamp) &&
@@ -91,10 +90,10 @@ func AlignDeltaStream[N Number](s stream.Stream[TsRecord[N]], ap AlignmentPeriod
 				globalLastItem.Timestamp != globalFirstItem.Timestamp {
 				// If the last item is not aligned to the slot, we add it so it will be counted in delta
 				globalLastItem.Timestamp = ap.GetEndTime(globalLastItem.Timestamp)
-				return globalLastItem, nil
+				return *globalLastItem, true, nil
 			}
-			return nil, nil
-		})),
+			return TsRecord[N]{}, false, nil
+		}),
 	)
 	return DeltaStream(alignedStream)
 }
