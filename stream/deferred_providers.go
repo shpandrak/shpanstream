@@ -29,8 +29,9 @@ func FromValueProvider[T any](provider func(ctx context.Context) (T, error)) Str
 // FromOptionalProvider creates a Stream of at most one element, fetched by provider when the
 // stream is materialized: the stream emits the value when provider reports it present, and is
 // empty when it reports it absent. If provider fails, the stream fails with its error. The
-// provider shape matches Stream.FindFirst, so FromOptionalProvider(s.FindFirst) is a stream of s's
-// first element.
+// provider shape matches FindFirst bound to a stream, so
+// FromOptionalProvider(func(ctx context.Context) (T, bool, error) { return FindFirst(ctx, s) })
+// is a stream of s's first element.
 func FromOptionalProvider[T any](provider func(ctx context.Context) (T, bool, error)) Stream[T] {
 	return NewStream(&optionalProviderStream[T]{provider: provider})
 }

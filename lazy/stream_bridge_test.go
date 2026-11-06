@@ -37,19 +37,19 @@ func TestFindFirstAndLastBridge(t *testing.T) {
 }
 
 func TestToStream(t *testing.T) {
-	require.Equal(t, []int{7}, ToStream(Just(7)).MustCollect())
-	require.Empty(t, ToStream(Empty[int]()).MustCollect())
+	require.Equal(t, []int{7}, stream.MustCollect(ToStream(Just(7))))
+	require.Empty(t, stream.MustCollect(ToStream(Empty[int]())))
 	// An OrElseThrow Lazy that is empty is still an empty stream, as with stream.FromLazy.
-	require.Empty(t, ToStream(Empty[int]().OrElseThrow(func() error { return errors.New("x") })).MustCollect())
+	require.Empty(t, stream.MustCollect(ToStream(Empty[int]().OrElseThrow(func() error { return errors.New("x") }))))
 	boom := errors.New("boom")
-	_, err := ToStream(Error[int](boom)).Collect(context.Background())
+	_, err := stream.Collect(context.Background(), ToStream(Error[int](boom)))
 	require.Equal(t, boom, err)
 
 	// Each materialization fetches the Lazy again.
 	calls := 0
 	s := ToStream(NewLazy(func(ctx context.Context) (int, error) { calls++; return calls, nil }))
-	require.Equal(t, []int{1}, s.MustCollect())
-	require.Equal(t, []int{2}, s.MustCollect())
+	require.Equal(t, []int{1}, stream.MustCollect(s))
+	require.Equal(t, []int{2}, stream.MustCollect(s))
 }
 
 func TestReduceBridges(t *testing.T) {

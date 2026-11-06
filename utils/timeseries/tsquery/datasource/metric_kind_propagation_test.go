@@ -199,7 +199,7 @@ func TestKindPropagation_CumulativeThroughDelta(t *testing.T) {
 	require.Equal(t, tsquery.MetricKindDelta, filtered.Meta().MetricKind())
 
 	// Values should be deltas: 10, 15, 15
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	require.Len(t, collected, 3)
 	require.Equal(t, 10.0, collected[0].Value)
 	require.Equal(t, 15.0, collected[1].Value)

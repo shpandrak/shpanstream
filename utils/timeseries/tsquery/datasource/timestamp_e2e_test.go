@@ -56,7 +56,7 @@ func TestE2E_FilterBusinessHours(t *testing.T) {
 	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 
 	// 3 days * 8 business hours (9,10,11,12,13,14,15,16) = 24 records
@@ -108,7 +108,7 @@ func TestE2E_FilterWeekdaysOnly(t *testing.T) {
 	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 
 	// 5 weekdays (Monday through Friday)
@@ -156,7 +156,7 @@ func TestE2E_TimestampComparisonFilter(t *testing.T) {
 	filteredResult, err := conditionFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 
 	// June 16 and June 17 are before cutoff

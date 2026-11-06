@@ -71,7 +71,7 @@ func TestConditionFilter_GreaterThan_Decimal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2) // Only records with temp > 20
 
 	// Should have records at index 1 (25.0) and 3 (30.0)
@@ -116,7 +116,7 @@ func TestConditionFilter_GreaterThan_Integer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2) // Records with requests > 300
 
 	require.Equal(t, int64(500), records[0].Value[0])
@@ -159,7 +159,7 @@ func TestConditionFilter_LessThan_Decimal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2) // Records with temp < 20
 
 	require.Equal(t, 15.0, records[0].Value[0])
@@ -200,7 +200,7 @@ func TestConditionFilter_GreaterEqual_Integer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2) // Records with requests >= 200
 
 	require.Equal(t, int64(200), records[0].Value[0])
@@ -241,7 +241,7 @@ func TestConditionFilter_LessEqual_Decimal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 3) // Records with temp <= 20
 
 	require.Equal(t, 15.0, records[0].Value[0])
@@ -283,7 +283,7 @@ func TestConditionFilter_Equals_Integer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 3) // Records with requests == 100
 
 	require.Equal(t, int64(100), records[0].Value[0])
@@ -325,7 +325,7 @@ func TestConditionFilter_NotEquals_Decimal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2) // Records with temp != 20
 
 	require.Equal(t, 25.0, records[0].Value[0])
@@ -366,7 +366,7 @@ func TestConditionFilter_CompareTwoFields(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 3) // Records where requests > errors (100>5, 50>10, 200>8)
 
 	// Record 0: 100 > 5
@@ -415,7 +415,7 @@ func TestConditionFilter_NoMatchingRows(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify empty result
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 0)
 }
 
@@ -450,7 +450,7 @@ func TestConditionFilter_AllRowsMatch(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify all records returned
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 3)
 
 	require.Equal(t, 25.0, records[0].Value[0])
@@ -522,7 +522,7 @@ func TestConditionFilter_ChainedWithOtherFilters(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify final result
-	records := finalResult.Stream().MustCollect()
+	records := stream.MustCollect(finalResult.Stream())
 	require.Len(t, records, 2)
 	require.Len(t, records[0].Value, 1) // Only one field
 
@@ -600,7 +600,7 @@ func TestConditionFilter_Equals_String(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2) // Records with status == "running"
 
 	require.Equal(t, "running", records[0].Value[0])
@@ -642,7 +642,7 @@ func TestConditionFilter_NotEquals_String(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2) // Records with status != "running"
 
 	require.Equal(t, "stopped", records[0].Value[0])
@@ -683,7 +683,7 @@ func TestConditionFilter_Equals_Boolean(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2) // Records with active == true
 
 	require.Equal(t, "running", records[0].Value[0])
@@ -725,7 +725,7 @@ func TestConditionFilter_NotEquals_Boolean(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2) // Records with active != true
 
 	require.Equal(t, "stopped", records[0].Value[0])
@@ -846,7 +846,7 @@ func TestLogicalExpressionFilter_And_BothTrue(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records - should only have records where BOTH conditions are true
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2)
 
 	require.Equal(t, 25.0, records[0].Value[0])
@@ -904,7 +904,7 @@ func TestLogicalExpressionFilter_Or_AtLeastOneTrue(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records - should have records where AT LEAST ONE condition is true
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 3)
 
 	require.Equal(t, 25.0, records[0].Value[0])
@@ -963,7 +963,7 @@ func TestLogicalExpressionFilter_And_WithIntegerFields(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2)
 
 	require.Equal(t, int64(1000), records[0].Value[0])
@@ -1032,7 +1032,7 @@ func TestLogicalExpressionFilter_NestedLogicalExpressions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify filtered records
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2)
 
 	require.Equal(t, int64(1000), records[0].Value[0])
@@ -1086,7 +1086,7 @@ func TestLogicalExpressionFilter_Or_AllFalse(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify empty result - no records match
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 0)
 }
 
@@ -1125,7 +1125,7 @@ func TestLogicalExpressionFilter_And_AllTrue(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify all records match
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 3)
 
 	require.Equal(t, 25.0, records[0].Value[0])
@@ -1179,7 +1179,7 @@ func TestLogicalExpressionFilter_WithStringAndBooleanComparisons(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify only first record matches
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 1)
 
 	require.Equal(t, "running", records[0].Value[0])

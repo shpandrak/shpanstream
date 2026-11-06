@@ -224,10 +224,10 @@ func TestLeftJoinSortedStreams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			require.Equal(t, Map(
+			require.Equal(t, MustCollect(Map(
 				tt.want,
 				mapperWithMinusOneForNil,
-			).MustCollect(), Map(
+			)), MustCollect(Map(
 				LeftJoinSortedStreams(
 					tt.leftStream,
 					tt.rightStream,
@@ -242,7 +242,7 @@ func TestLeftJoinSortedStreams(t *testing.T) {
 						}
 					}),
 				mapperWithMinusOneForNil,
-			).MustCollect())
+			)))
 
 		})
 	}

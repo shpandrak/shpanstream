@@ -12,6 +12,6 @@ import (
 // Pairs with DoFinally to bracket a drain's full wall time: DoFirst fires before upstream open
 // work (e.g. issuing a DB query), and DoFinally fires with the terminal outcome — including when
 // an upstream Open fails, so a DoFirst-armed timer still gets its duration sample.
-func (s Stream[T]) DoFirst(f func(ctx context.Context)) Stream[T] {
-	return newStream(s.provider, prependLifecycle(doFirstLifecycle(f), s.allLifecycleElement))
+func (s Stream[T]) DoFirst[F ~func(ctx context.Context)](f F) Stream[T] {
+	return newStream(s.provider, prependLifecycle(doFirstLifecycle((func(context.Context))(f)), s.allLifecycleElement))
 }

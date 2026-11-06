@@ -13,14 +13,14 @@ import (
 // spurious trailing zero (from the io.EOF sentinel mapped to (zero, nil)) and swallow upstream
 // errors.
 func TestBuffered_NoSpuriousTrailingValue(t *testing.T) {
-	out, err := Buffered(Just(1, 2, 3, 4, 5), 3).Collect(context.Background())
+	out, err := Collect(context.Background(), Buffered(Just(1, 2, 3, 4, 5), 3))
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3, 4, 5}, out)
 }
 
 func TestBuffered_SurfacesUpstreamError(t *testing.T) {
 	boom := errors.New("boom")
-	_, err := Buffered(
+	_, err := Collect(context.Background(), Buffered(
 		MapWithErr(Just(1, 2, 3, 4), func(i int) (int, error) {
 			if i == 3 {
 				return 0, boom
@@ -28,12 +28,12 @@ func TestBuffered_SurfacesUpstreamError(t *testing.T) {
 			return i, nil
 		}),
 		2,
-	).Collect(context.Background())
+	))
 	require.ErrorIs(t, err, boom)
 }
 
 func TestBuffered_EmptyStream(t *testing.T) {
-	out, err := Buffered(Empty[int](), 3).Collect(context.Background())
+	out, err := Collect(context.Background(), Buffered(Empty[int](), 3))
 	require.NoError(t, err)
 	require.Empty(t, out)
 }
@@ -43,7 +43,7 @@ func TestBuffered_EmptyStream(t *testing.T) {
 func TestBuffered_ReConsumable(t *testing.T) {
 	s := Buffered(Just(1, 2, 3, 4, 5), 3)
 	for i := 0; i < 3; i++ {
-		out, err := s.Collect(context.Background())
+		out, err := Collect(context.Background(), s)
 		require.NoError(t, err)
 		require.Equal(t, []int{1, 2, 3, 4, 5}, out)
 	}
@@ -53,11 +53,11 @@ func TestBuffered_ReConsumable(t *testing.T) {
 // and resets state cleanly).
 func TestBuffered_ReConsumableAfterEarlyStop(t *testing.T) {
 	s := Buffered(Just(1, 2, 3, 4, 5), 2)
-	partial, err := s.Limit(2).Collect(context.Background())
+	partial, err := Collect(context.Background(), Limit(s, 2))
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2}, partial)
 
-	full, err := s.Collect(context.Background())
+	full, err := Collect(context.Background(), s)
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3, 4, 5}, full)
 }
@@ -72,7 +72,7 @@ func TestBuffered_EofCtxCancelledOnEarlyStop(t *testing.T) {
 	b := &bufferedStreamProvider[int]{src: Just(src...), size: 3}
 	s := NewSimpleStream(b.emit, WithOpenFuncOption(b.open), WithCloseFuncOption(b.close))
 
-	out, err := s.Limit(1).Collect(context.Background())
+	out, err := Collect(context.Background(), Limit(s, 1))
 	require.NoError(t, err)
 	require.Len(t, out, 1)
 	require.Error(t, b.eofCtx.Err(), "close must cancel eofCtx so its resources are released")
@@ -84,15 +84,14 @@ func TestBuffered_EofCtxCancelledOnEarlyStop(t *testing.T) {
 func TestBuffered_SourceClosedBeforeConsumeReturns(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		var sourceClosed atomic.Bool
-		src := Just(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).
-			WithAdditionalLifecycle(NewLifecycle(
-				func(ctx context.Context) error { return nil },
-				func() { sourceClosed.Store(true) },
-			))
+		src := WithAdditionalLifecycle(Just(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), NewLifecycle(
+			func(ctx context.Context) error { return nil },
+			func() { sourceClosed.Store(true) },
+		))
 
 		// Stop early so the buffering goroutine is still in flight (blocked on a full buffer)
 		// when teardown runs.
-		out, err := Buffered(src, 3).Limit(2).Collect(context.Background())
+		out, err := Collect(context.Background(), Limit(Buffered(src, 3), 2))
 		require.NoError(t, err)
 		require.Equal(t, []int{1, 2}, out)
 		require.True(t, sourceClosed.Load(), "source must be closed by the time Consume returns")
@@ -105,18 +104,17 @@ func TestBuffered_SourceClosedBeforeConsumeReturns(t *testing.T) {
 func TestBuffered_TeardownReleasesBlockedSource(t *testing.T) {
 	var sourceClosed atomic.Bool
 	neverWritten := make(chan int)
-	src := FromChannel(neverWritten).
-		WithAdditionalLifecycle(NewLifecycle(
-			func(ctx context.Context) error { return nil },
-			func() {
-				time.Sleep(20 * time.Millisecond)
-				sourceClosed.Store(true)
-			},
-		))
+	src := WithAdditionalLifecycle(FromChannel(neverWritten), NewLifecycle(
+		func(ctx context.Context) error { return nil },
+		func() {
+			time.Sleep(20 * time.Millisecond)
+			sourceClosed.Store(true)
+		},
+	))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 	defer cancel()
-	_, err := Buffered(src, 3).Collect(ctx)
+	_, err := Collect(ctx, Buffered(src, 3))
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.True(t, sourceClosed.Load(), "source must be closed by the time Consume returns")
 }
@@ -135,7 +133,7 @@ func TestStream_Buffered(t *testing.T) {
 		iterationCounter.Add(1)
 	})
 
-	for idx := range buffered.IndexedIterator {
+	for idx := range MustAll(buffered) {
 		// Allowing for the buffer to be filled
 		time.Sleep(time.Millisecond * 1)
 		require.EqualValues(t, idx+1, iterationCounter.Load())

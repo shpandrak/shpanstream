@@ -153,11 +153,11 @@ func TestLeftJoinMultipleSortedStreams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := LeftJoinMultipleSortedStreams(
+			got := MustCollect(LeftJoinMultipleSortedStreams(
 				tt.streams,
 				shpanstream.ComparatorForOrdered[int](),
 				joiner,
-			).MustCollect()
+			))
 
 			require.Equal(t, tt.want, got)
 		})
@@ -177,7 +177,7 @@ func TestLeftJoinMultipleSortedStreams_UnsortedStreamError(t *testing.T) {
 	)
 
 	require.Panics(t, func() {
-		stream.MustCollect()
+		MustCollect(stream)
 	})
 }
 
@@ -216,11 +216,11 @@ func TestLeftJoinMultipleSortedStreams_CustomJoiner(t *testing.T) {
 		return p
 	}
 
-	result := LeftJoinMultipleSortedStreams(
+	result := MustCollect(LeftJoinMultipleSortedStreams(
 		[]Stream[int]{ids, addresses, phones},
 		shpanstream.ComparatorForOrdered[int](),
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []person{
 		{id: 1, name: "Alice", address: util.Pointer("123 Main St"), phone: nil},

@@ -39,7 +39,7 @@ func TestDeltaFilter_Decimal(t *testing.T) {
 	require.True(t, meta.Required())
 
 	// Verify deltas
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3) // First record dropped
 
 	// Delta 1: 150 - 100 = 50
@@ -79,7 +79,7 @@ func TestDeltaFilter_Integer(t *testing.T) {
 	require.Equal(t, "count", meta.Unit())
 
 	// Verify deltas
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	require.Equal(t, int64(42), records[0].Value) // 1042 - 1000
@@ -105,7 +105,7 @@ func TestDeltaFilter_NegativeDelta(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	require.Equal(t, -20.0, records[0].Value) // 80 - 100 = -20
@@ -126,7 +126,7 @@ func TestDeltaFilter_EmptyStream(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Empty(t, records)
 }
 
@@ -143,7 +143,7 @@ func TestDeltaFilter_SingleItem(t *testing.T) {
 	require.NoError(t, err)
 
 	// Single item produces empty output (need at least 2 for delta)
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Empty(t, records)
 }
 
@@ -227,7 +227,7 @@ func TestDeltaFilter_NonNegative_ResetToZero(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	require.Equal(t, 50.0, records[0].Value) // 150 - 100 = 50
@@ -254,7 +254,7 @@ func TestDeltaFilter_NonNegative_ResetToNonZero(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	require.Equal(t, 50.0, records[0].Value) // 150 - 100 = 50
@@ -281,7 +281,7 @@ func TestDeltaFilter_NonNegative_NegativeValueDropped(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2) // -5 point is dropped
 
 	require.Equal(t, 50.0, records[0].Value) // 150 - 100 = 50
@@ -307,7 +307,7 @@ func TestDeltaFilter_NonNegative_NormalIncrease(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	require.Equal(t, 50.0, records[0].Value) // 150 - 100 = 50
@@ -333,7 +333,7 @@ func TestDeltaFilter_NonNegative_Integer(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	require.Equal(t, int64(50), records[0].Value) // 1050 - 1000 = 50
@@ -359,7 +359,7 @@ func TestDeltaFilter_MaxCounterValue_Wraparound(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	require.Equal(t, 50.0, records[0].Value)  // 950 - 900 = 50
@@ -384,7 +384,7 @@ func TestDeltaFilter_MaxCounterValue_NormalIncrease(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	require.Equal(t, 100.0, records[0].Value) // 200 - 100 = 100
@@ -412,7 +412,7 @@ func TestDeltaFilter_EmitOnReset_ResetToNonZero(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	require.Equal(t, 50.0, records[0].Value) // 150 - 100 = 50
@@ -439,7 +439,7 @@ func TestDeltaFilter_EmitOnReset_Integer(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	require.Equal(t, int64(50), records[0].Value)  // 1050 - 1000 = 50
@@ -470,7 +470,7 @@ func TestDeltaFilter_NonNegative_GlitchClampedToZero(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 4)
 
 	require.Equal(t, 100.0, records[0].Value) // 12800100 - 12800000 = 100
@@ -499,7 +499,7 @@ func TestDeltaFilter_EmitOnReset_GlitchCausesSpike(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	require.Equal(t, 100.0, records[0].Value)      // 12800100 - 12800000 = 100
@@ -525,7 +525,7 @@ func TestDeltaFilter_NonNegative_False_StillAllowsNegative(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	require.Equal(t, -20.0, records[0].Value) // 80 - 100 = -20
@@ -554,7 +554,7 @@ func TestDeltaFilter_MaxGapDuration_DropsLargeGap(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// Delta 1: 200 - 100 = 100 (1h gap, allowed)
@@ -585,7 +585,7 @@ func TestDeltaFilter_MaxGapDuration_NormalSpacingPasses(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	require.Equal(t, 100.0, records[0].Value)
@@ -609,7 +609,7 @@ func TestDeltaFilter_MaxGapDuration_ExactBoundaryAllowed(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1) // gap == maxGap is NOT dropped (strictly greater than)
 
 	require.Equal(t, 200.0, records[0].Value)
@@ -633,7 +633,7 @@ func TestDeltaFilter_MaxGapDuration_ConsecutiveGaps(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1) // only delta at 21h emitted
 
 	require.Equal(t, 20.0, records[0].Value) // 920 - 900
@@ -658,7 +658,7 @@ func TestDeltaFilter_MaxGapDuration_BaselineReset(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// After gap, delta is 520-500=20, NOT 520-200=320
@@ -684,7 +684,7 @@ func TestDeltaFilter_MaxGapDuration_NilDisabled(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3) // all deltas emitted, including the spike
 
 	require.Equal(t, 100.0, records[0].Value) // 200 - 100
@@ -711,7 +711,7 @@ func TestDeltaFilter_MaxGapDuration_WithNonNegative(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// Delta 1: 200 - 100 = 100 (normal)
@@ -735,7 +735,7 @@ func TestDeltaFilter_MaxGapDuration_SingleItem(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 0)
 }
 
@@ -750,6 +750,6 @@ func TestDeltaFilter_MaxGapDuration_EmptyStream(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 0)
 }

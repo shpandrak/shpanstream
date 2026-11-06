@@ -6,7 +6,8 @@ import (
 )
 
 // The hot-path benchmarks pin the per-element cost of the sequential pipeline, so a refactor of the
-// Stream method bodies (see docs/compile-size-per-element-type.md) can be checked not to slow it down.
+// generic shells or of the non-generic core (see docs/stream-api-generic-methods.md) can be
+// checked not to slow it down.
 // Each element type is a struct, so any accidental boxing into `any` would show up as an allocation.
 
 type benchElem struct {
@@ -41,7 +42,7 @@ func BenchmarkMapFilterCollect(b *testing.B) {
 		Filter(func(r int) bool { return r%2 == 0 })
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		out, err := s.Collect(context.Background())
+		out, err := Collect(context.Background(), s)
 		if err != nil || len(out) != benchN/2 {
 			b.Fatal(err, len(out))
 		}
@@ -53,7 +54,7 @@ func BenchmarkLimitSkip(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		// Limit and Skip keep their counters in the closure, so the chain is rebuilt per iteration.
-		n, err := src.Skip(8).Limit(benchN - 16).Count(context.Background())
+		n, err := Count(context.Background(), Limit(Skip(src, 8), benchN-16))
 		if err != nil || n != benchN-16 {
 			b.Fatal(err, n)
 		}
@@ -64,7 +65,7 @@ func BenchmarkDoFinally(b *testing.B) {
 	s := FromSlice(benchSource(benchN)).DoFinally(func(error) {})
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		n, err := s.Count(context.Background())
+		n, err := Count(context.Background(), s)
 		if err != nil || n != benchN {
 			b.Fatal(err, n)
 		}
@@ -75,7 +76,7 @@ func BenchmarkFindFirst(b *testing.B) {
 	s := FromSlice(benchSource(benchN))
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		if _, found, err := s.FindFirst(context.Background()); err != nil || !found {
+		if _, found, err := FindFirst(context.Background(), s); err != nil || !found {
 			b.Fatal(err, found)
 		}
 	}
@@ -85,18 +86,18 @@ func BenchmarkIsEmpty(b *testing.B) {
 	s := FromSlice(benchSource(benchN))
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		if empty, err := s.IsEmpty(context.Background()); err != nil || empty {
+		if empty, err := IsEmpty(context.Background(), s); err != nil || empty {
 			b.Fatal(err, empty)
 		}
 	}
 }
 
-func BenchmarkIteratorBreak(b *testing.B) {
+func BenchmarkMustValuesBreak(b *testing.B) {
 	s := FromSlice(benchSource(benchN))
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		n := 0
-		for range s.Iterator {
+		for range MustValues(s) {
 			n++
 			if n == 10 {
 				break
@@ -105,12 +106,12 @@ func BenchmarkIteratorBreak(b *testing.B) {
 	}
 }
 
-func BenchmarkIteratorFull(b *testing.B) {
+func BenchmarkMustValuesFull(b *testing.B) {
 	s := FromSlice(benchSource(benchN))
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		n := 0
-		for range s.Iterator {
+		for range MustValues(s) {
 			n++
 		}
 		if n != benchN {

@@ -52,12 +52,11 @@ func TestStreamingAcrossHttp(t *testing.T) {
 	// The POST request will accept a stream of JSON objects in its body and store it on the request stream variable
 	mux.HandleFunc("/post", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancelFunc := context.WithCancel(r.Context())
-		requestStream = ReadJsonArray[tstData](func(ctx context.Context) (io.ReadCloser, error) {
+		requestStream = stream.WithAdditionalLifecycle(ReadJsonArray[tstData](func(ctx context.Context) (io.ReadCloser, error) {
 			return r.Body, nil
-		}).
-			// When the request stream is closed, cancel the context and return the post request
+		}), // When the request stream is closed, cancel the context and return the post request
 			// We can easily do that using WithAdditionalLifecycle to attach handlers for stream lifecycle events
-			WithAdditionalLifecycle(stream.NewLifecycle(
+			stream.NewLifecycle(
 				func(ctx context.Context) error {
 					log.Println("Starting stream")
 					return nil
@@ -109,9 +108,8 @@ func TestStreamingAcrossHttp(t *testing.T) {
 			context.Background(),
 			http.DefaultClient,
 			server.URL+"/post",
-			createTestInfiniteStream().
-				// Remove the "Limit" to experience zero-memory infinite streaming
-				Limit(1000),
+			stream.Limit(createTestInfiniteStream(), // Remove the "Limit" to experience zero-memory infinite streaming
+				1000),
 		)
 		require.NoError(t, err)
 		_ = postResp.Body.Close()
@@ -215,7 +213,7 @@ func TestStreamJsonToHttpResponseWriter_LargeSuccessStreamsValidJson(t *testing.
 	err := StreamJsonToHttpResponseWriter(
 		context.Background(),
 		rec,
-		createTestInfiniteStream().Limit(1000),
+		stream.Limit(createTestInfiniteStream(), 1000),
 		WithCommitThreshold(1<<10),
 	)
 	require.NoError(t, err)
@@ -248,7 +246,7 @@ func TestStreamJsonToHttpResponseWriter_PostCommitFailureAbortsConnection(t *tes
 	for _, h2 := range []bool{false, true} {
 		t.Run(fmt.Sprintf("http2=%v", h2), func(t *testing.T) {
 			// ~230 KiB of good elements are flushed to the client before the failure
-			s := stream.MapWithErr(createTestInfiniteStream().Limit(10001), func(v tstData) (tstData, error) {
+			s := stream.MapWithErr(stream.Limit(createTestInfiniteStream(), 10001), func(v tstData) (tstData, error) {
 				if v.Int == 10001 {
 					return v, errors.New("boom")
 				}

@@ -202,7 +202,7 @@ func testAlignAsExpected[N Number](
 	alignedStream := AlignStream[N](inputStream, NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Collect the resulting aligned records
-	result := alignedStream.MustCollect() // Use MustCollect for simplicity in tests
+	result := stream.MustCollect(alignedStream) // Use MustCollect for simplicity in tests
 
 	// Assert the results
 	// Compare timestamps first for easier debugging if lengths differ

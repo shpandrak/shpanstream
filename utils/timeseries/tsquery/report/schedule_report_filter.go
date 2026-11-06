@@ -20,7 +20,7 @@ func NewScheduleFilter(schedule datasource.Schedule) ScheduleFilter {
 }
 
 func (sf ScheduleFilter) Filter(ctx context.Context, result Result) (Result, error) {
-	filteredStream := result.Stream().FilterWithErAndCtx(
+	filteredStream := result.Stream().FilterWithErrAndCtx(
 		func(ctx context.Context, record timeseries.TsRecord[[]any]) (bool, error) {
 			return sf.schedule.Matches(record.Timestamp), nil
 		})

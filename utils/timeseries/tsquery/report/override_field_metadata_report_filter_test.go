@@ -47,7 +47,7 @@ func TestOverrideFieldMetadataFilter_OverrideUrnOnly(t *testing.T) {
 	require.Equal(t, "", filteredResult.FieldsMeta()[0].GetCustomMetaStringValue("source"))
 
 	// Verify stream data is unchanged
-	collectedRecords := filteredResult.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, collectedRecords, 2)
 	require.Equal(t, []any{25.0}, collectedRecords[0].Value)
 	require.Equal(t, []any{30.0}, collectedRecords[1].Value)
@@ -348,7 +348,7 @@ func TestOverrideFieldMetadataFilter_PreservesStreamData(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify stream data is completely unchanged
-	collectedRecords := filteredResult.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, collectedRecords, 3)
 	require.Equal(t, []any{1.5}, collectedRecords[0].Value)
 	require.Equal(t, []any{2.5}, collectedRecords[1].Value)

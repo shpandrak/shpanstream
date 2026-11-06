@@ -507,7 +507,7 @@ func (s Schedule) ActiveWindows(from, to time.Time) stream.Stream[TimeWindow] {
 // MatchesPeriod reports whether any moment within [from, to) matches the schedule.
 // Efficient: stops at the first matching minute without scanning the entire range.
 func (s Schedule) MatchesPeriod(from, to time.Time) bool {
-	empty, _ := s.ActiveWindows(from, to).IsEmpty(context.Background())
+	empty, _ := stream.IsEmpty(context.Background(), s.ActiveWindows(from, to))
 	return !empty
 }
 
@@ -515,7 +515,7 @@ func (s Schedule) MatchesPeriod(from, to time.Time) bool {
 // or nil if no match exists. Lazy: skips non-matching days in O(1) and stops
 // at the first match.
 func (s Schedule) NextMatch(from, to time.Time) *time.Time {
-	w, found, err := s.ActiveWindows(from, to).FindFirst(context.Background())
+	w, found, err := stream.FindFirst(context.Background(), s.ActiveWindows(from, to))
 	if err != nil {
 		panic(err)
 	}

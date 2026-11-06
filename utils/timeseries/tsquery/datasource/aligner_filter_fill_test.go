@@ -39,7 +39,7 @@ func testInterpolatingAlignerFilterAsExpected(
 	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := outputResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	require.EqualValues(t,
@@ -85,7 +85,7 @@ func testInterpolatingAlignerFilterWithFieldMeta(
 	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := outputResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	require.EqualValues(t,
@@ -135,7 +135,7 @@ func TestAlignerFilter_FillLinear_BasicGapFilling(t *testing.T) {
 	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := outputResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	// Should produce 61 points: t=0, t=60, t=120, ..., t=3600
@@ -212,7 +212,7 @@ func TestAlignerFilter_FillForwardFill_BasicGapFilling(t *testing.T) {
 	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := outputResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	require.Len(t, resultData, 61, "Expected 61 dense points from t=0 to t=3600 at 60s intervals")
@@ -288,7 +288,7 @@ func TestAlignerFilter_FillLinear_LargeGaps(t *testing.T) {
 	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := outputResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	require.Len(t, resultData, 121, "Expected 121 dense points from t=0 to t=7200 at 60s intervals")
@@ -344,7 +344,7 @@ func TestAlignerFilter_FillLinear_IntegerDataType(t *testing.T) {
 	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := outputResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	require.Len(t, resultData, 61, "Expected 61 dense points from t=0 to t=3600 at 60s intervals")

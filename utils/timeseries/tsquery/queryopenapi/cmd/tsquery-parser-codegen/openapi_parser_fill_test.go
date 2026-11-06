@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/stretchr/testify/assert"
@@ -67,7 +68,7 @@ func TestParseFilter_AlignerFilter_WithFillMode(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 5, "Linear fill with 15-min alignment over 1 hour should produce 5 points")
 
 	// Verify timestamps and linearly interpolated values
@@ -139,7 +140,7 @@ func TestParseFilter_AlignerFilter_WithoutFillMode(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2, "Without fillMode, aligner should produce only sparse aligned points")
 
 	// First point aligned to its 15-min bucket start
@@ -205,7 +206,7 @@ func TestParseFilter_AlignerFilter_ForwardFill(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 5, "Forward fill with 15-min alignment over 1 hour should produce 5 points")
 
 	// Verify timestamps and forward-filled values

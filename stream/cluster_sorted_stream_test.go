@@ -14,7 +14,7 @@ func intClusterPredicate(i int) int {
 // Simple integer merger that combines a cluster into its sum.
 func intClusterMerger(ctx context.Context, _ int, clusterStream Stream[int], _ *int) (int, error) {
 	sum := 0
-	collect, err := clusterStream.Collect(ctx)
+	collect, err := Collect(ctx, clusterStream)
 	if err != nil {
 		return 0, err
 	}
@@ -36,7 +36,7 @@ func TestClusterSortedStream(t *testing.T) {
 	expected := []int{2, 4, 3, 4, 5, 6, 7, 16, 18}
 
 	// Collect results from the clustered Stream and compare with expected
-	require.Equal(t, expected, clusteredStream.MustCollect())
+	require.Equal(t, expected, MustCollect(clusteredStream))
 }
 
 func TestClusterSortedStream_Empty(t *testing.T) {
@@ -44,7 +44,7 @@ func TestClusterSortedStream_Empty(t *testing.T) {
 	clusteredStream := ClusterSortedStreamOrdered(intClusterMerger, intClusterPredicate, Empty[int]())
 	// Collect results from the clustered Stream
 
-	require.Len(t, clusteredStream.MustCollect(), 0)
+	require.Len(t, MustCollect(clusteredStream), 0)
 }
 
 func TestClusterSortedStream_SingleElement(t *testing.T) {
@@ -53,7 +53,7 @@ func TestClusterSortedStream_SingleElement(t *testing.T) {
 	// Create an empty clustered Stream
 	clusteredStream := ClusterSortedStreamOrdered(intClusterMerger, intClusterPredicate, Just(12))
 	// Collect results from the clustered Stream
-	results, err := clusteredStream.Collect(ctx)
+	results, err := Collect(ctx, clusteredStream)
 
 	require.NoError(t, err)
 

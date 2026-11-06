@@ -9,5 +9,5 @@ import (
 func TestFromIterator(t *testing.T) {
 	slc := []int{1, 2, 3}
 	values := slices.Values(slc)
-	require.Equal(t, slc, FromIterator[int](values).MustCollect())
+	require.Equal(t, slc, MustCollect(FromIterator[int](values)))
 }

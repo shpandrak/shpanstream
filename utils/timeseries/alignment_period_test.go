@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,7 +16,7 @@ func TestAlignedTimestampsStream_FixedPeriod(t *testing.T) {
 	from := time.Unix(0, 0).UTC()
 	to := time.Unix(300, 0).UTC() // 5 minutes
 
-	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
+	timestamps, err := stream.Collect(context.Background(), AlignedTimestampsStream(ap, from, to))
 	require.NoError(t, err)
 	require.Len(t, timestamps, 5)
 
@@ -37,7 +38,7 @@ func TestAlignedTimestampsStream_NonAlignedFrom(t *testing.T) {
 	from := time.Unix(30, 0).UTC() // 30 seconds in
 	to := time.Unix(180, 0).UTC()  // 3 minutes
 
-	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
+	timestamps, err := stream.Collect(context.Background(), AlignedTimestampsStream(ap, from, to))
 	require.NoError(t, err)
 	require.Len(t, timestamps, 3)
 
@@ -57,7 +58,7 @@ func TestAlignedTimestampsStream_ToExclusive(t *testing.T) {
 	from := time.Unix(0, 0).UTC()
 	to := time.Unix(120, 0).UTC() // exactly 2 minutes
 
-	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
+	timestamps, err := stream.Collect(context.Background(), AlignedTimestampsStream(ap, from, to))
 	require.NoError(t, err)
 	require.Len(t, timestamps, 2)
 
@@ -74,7 +75,7 @@ func TestAlignedTimestampsStream_EmptyRange(t *testing.T) {
 	from := time.Unix(120, 0).UTC()
 	to := time.Unix(60, 0).UTC() // to < from
 
-	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
+	timestamps, err := stream.Collect(context.Background(), AlignedTimestampsStream(ap, from, to))
 	require.NoError(t, err)
 	require.Empty(t, timestamps)
 }
@@ -85,7 +86,7 @@ func TestAlignedTimestampsStream_SameFromTo(t *testing.T) {
 	from := time.Unix(60, 0).UTC()
 	to := time.Unix(60, 0).UTC()
 
-	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
+	timestamps, err := stream.Collect(context.Background(), AlignedTimestampsStream(ap, from, to))
 	require.NoError(t, err)
 	require.Empty(t, timestamps)
 }
@@ -97,7 +98,7 @@ func TestAlignedTimestampsStream_DayPeriod(t *testing.T) {
 	from := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC) // noon on Jan 1
 	to := time.Date(2024, 1, 4, 0, 0, 0, 0, time.UTC)    // midnight Jan 4
 
-	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
+	timestamps, err := stream.Collect(context.Background(), AlignedTimestampsStream(ap, from, to))
 	require.NoError(t, err)
 	require.Len(t, timestamps, 3)
 
@@ -115,7 +116,7 @@ func TestAlignedTimestampsStream_MonthPeriod(t *testing.T) {
 	from := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC) // mid-January
 	to := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)    // April 1
 
-	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
+	timestamps, err := stream.Collect(context.Background(), AlignedTimestampsStream(ap, from, to))
 	require.NoError(t, err)
 	require.Len(t, timestamps, 3)
 
@@ -180,7 +181,7 @@ func TestAlignedTimestampsStream_WithOffset(t *testing.T) {
 	from := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
 
-	timestamps, err := AlignedTimestampsStream(ap, from, to).Collect(context.Background())
+	timestamps, err := stream.Collect(context.Background(), AlignedTimestampsStream(ap, from, to))
 	require.NoError(t, err)
 	require.Len(t, timestamps, 5)
 
@@ -203,7 +204,7 @@ func TestAlignedTimestampsStream_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
-	_, err := AlignedTimestampsStream(ap, from, to).Collect(ctx)
+	_, err := stream.Collect(ctx, AlignedTimestampsStream(ap, from, to))
 	require.Error(t, err)
 	require.Equal(t, context.Canceled, err)
 }

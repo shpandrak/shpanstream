@@ -8,6 +8,16 @@ import (
 	"github.com/shpandrak/shpanstream/internal/util"
 )
 
+// Stream is a lazily evaluated sequence of T: nothing runs until a terminal operation
+// materializes it, and every materialization opens the stream's resources, pulls its elements and
+// closes the resources again.
+//
+// The operations that take a function are generic methods, so they chain: Filter, Map, Peek,
+// Consume and the rest. Every other operation is a package function that takes the stream:
+// terminal operations take ctx first (Collect(ctx, s), FindFirst(ctx, s), Count(ctx, s)),
+// transforms take the stream first (Limit(s, n), Skip(s, n), Page(s, page, size)), and MustValues(s)
+// returns an iter.Seq. Stream has no plain methods, so a program compiles only the operations it
+// calls for each element type (see docs/stream-api-generic-methods.md).
 type Stream[T any] struct {
 	provider            ProviderFunc[T]
 	allLifecycleElement []Lifecycle
@@ -44,14 +54,17 @@ type ProviderFunc[T any] func(ctx context.Context) (T, error)
 // It returns an error if the stream materialization fails in any stage of the pipeline
 // For empty streams, it returns immediately with no error
 // For infinite streams, it will block until the stream either ctx is cancelled, stream is done or an error occurs
-//
+func (s Stream[T]) Consume[F ~func(T)](ctx context.Context, f F, options ...ConsumeOption) error {
+	return consume(s, ctx, (func(T))(f), options)
+}
+
 //go:noinline
-func (s Stream[T]) Consume(ctx context.Context, f func(T), options ...ConsumeOption) error {
+func consume[T any](s Stream[T], ctx context.Context, f func(T), options []ConsumeOption) error {
 	if len(options) > 0 {
-		return s.ConsumeWithErr(ctx, func(v T) error {
+		return consumeWithErrAndCtx(s, ctx, func(_ context.Context, v T) error {
 			f(v)
 			return nil
-		}, options...)
+		}, options)
 	}
 	return consumeLoop(ctx, s.allLifecycleElement, func(ctx context.Context) (bool, error) {
 		v, err := s.provider(ctx)
@@ -63,9 +76,10 @@ func (s Stream[T]) Consume(ctx context.Context, f func(T), options ...ConsumeOpt
 	})
 }
 
-// MustConsume is a convenience method that panics if the stream errors
-func (s Stream[T]) MustConsume(f func(T)) {
-	err := s.Consume(context.Background(), f)
+// MustConsume is Consume with context.Background(), panicking if the stream fails. Use it in tests
+// or with static streams (e.g. slice sourced streams).
+func (s Stream[T]) MustConsume[F ~func(T)](f F) {
+	err := consume(s, context.Background(), (func(T))(f), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -74,13 +88,16 @@ func (s Stream[T]) MustConsume(f func(T)) {
 // ConsumeWithErr consumes the entire stream and applies the provided function to each element (sometimes named ForEach).
 // Allow returning an error from the function to stop the pipeline
 // It returns an error if the stream materialization fails in any stage of the pipeline
-//
+func (s Stream[T]) ConsumeWithErr[F ~func(T) error](ctx context.Context, f F, options ...ConsumeOption) error {
+	return consumeWithErr(s, ctx, (func(T) error)(f), options)
+}
+
 //go:noinline
-func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error, options ...ConsumeOption) error {
+func consumeWithErr[T any](s Stream[T], ctx context.Context, f func(T) error, options []ConsumeOption) error {
 	if len(options) > 0 {
-		return s.ConsumeWithErrAndCtx(ctx, func(_ context.Context, v T) error {
+		return consumeWithErrAndCtx(s, ctx, func(_ context.Context, v T) error {
 			return f(v)
-		}, options...)
+		}, options)
 	}
 	return consumeLoop(ctx, s.allLifecycleElement, func(ctx context.Context) (bool, error) {
 		v, err := s.provider(ctx)
@@ -95,9 +112,12 @@ func (s Stream[T]) ConsumeWithErr(ctx context.Context, f func(T) error, options 
 // Allow returning an error from the function to stop the pipeline,
 // passing through the context allowing the function to gracefully cancel
 // It returns an error if the stream materialization fails in any stage of the pipeline
-//
+func (s Stream[T]) ConsumeWithErrAndCtx[F ~func(ctx context.Context, value T) error](ctx context.Context, f F, options ...ConsumeOption) error {
+	return consumeWithErrAndCtx(s, ctx, (func(context.Context, T) error)(f), options)
+}
+
 //go:noinline
-func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.Context, value T) error, options ...ConsumeOption) error {
+func consumeWithErrAndCtx[T any](s Stream[T], ctx context.Context, f func(ctx context.Context, value T) error, options []ConsumeOption) error {
 	// Check for the concurrent option
 	if concurrency, concurrent := concurrentConsumeOptionOf(options); concurrent {
 		return consumeConcurrently(ctx, concurrency, s.allLifecycleElement, boxProvider(s.provider), boxConsumer(f))
@@ -119,7 +139,7 @@ func (s Stream[T]) ConsumeWithErrAndCtx(ctx context.Context, f func(ctx context.
 // still observe the cancellation as it is closed).
 //
 //go:noinline
-func (s Stream[T]) FindFirst(ctx context.Context) (first T, found bool, err error) {
+func FindFirst[T any](ctx context.Context, s Stream[T]) (first T, found bool, err error) {
 	err = consumeLoop(ctx, s.allLifecycleElement, func(ctx context.Context) (bool, error) {
 		v, pullErr := s.provider(ctx)
 		if pullErr != nil {
@@ -140,7 +160,7 @@ func (s Stream[T]) FindFirst(ctx context.Context) (first T, found bool, err erro
 // stream is empty, which is not an error; err reports a failure of the pipeline.
 //
 //go:noinline
-func (s Stream[T]) FindLast(ctx context.Context) (last T, found bool, err error) {
+func FindLast[T any](ctx context.Context, s Stream[T]) (last T, found bool, err error) {
 	err = consumeLoop(ctx, s.allLifecycleElement, func(ctx context.Context) (bool, error) {
 		v, pullErr := s.provider(ctx)
 		if pullErr != nil {
@@ -159,13 +179,13 @@ func (s Stream[T]) FindLast(ctx context.Context) (last T, found bool, err error)
 // same element when the stream has exactly one). found is false when the stream is empty, which
 // is not an error; err reports a failure of the pipeline.
 func FindFirstAndLast[T any](ctx context.Context, s Stream[T]) (firstAndLast shpanstream.Tuple2[T, T], found bool, err error) {
-	err = s.Consume(ctx, func(v T) {
+	err = consume(s, ctx, func(v T) {
 		if !found {
 			firstAndLast.A = v
 			found = true
 		}
 		firstAndLast.B = v
-	})
+	}, nil)
 	if err != nil {
 		return shpanstream.Tuple2[T, T]{}, false, err
 	}
@@ -176,37 +196,44 @@ func FindFirstAndLast[T any](ctx context.Context, s Stream[T]) (firstAndLast shp
 // It returns an error if the stream materialization fails in any stage of the pipeline
 //
 //go:noinline
-func (s Stream[T]) Collect(ctx context.Context) ([]T, error) {
+func Collect[T any](ctx context.Context, s Stream[T]) ([]T, error) {
 	var result []T
-	err := s.Consume(ctx, func(v T) {
+	err := consume(s, ctx, func(v T) {
 		result = append(result, v)
-	})
+	}, nil)
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-// MustCollect is a convenience method that panics if the stream errors
-// should be used for testing purpose or when streams are static (e.g. slice sourced streams)
-func (s Stream[T]) MustCollect() []T {
-	result, err := s.Collect(context.Background())
+// MustCollect is Collect with context.Background(), panicking if the stream fails. Use it in tests
+// or with static streams (e.g. slice sourced streams).
+func MustCollect[T any](s Stream[T]) []T {
+	result, err := Collect(context.Background(), s)
 	if err != nil {
 		panic(err)
 	}
 	return result
 }
 
-func (s Stream[T]) Filter(predicate shpanstream.Predicate[T]) Stream[T] {
-	return s.FilterWithErAndCtx(predicate.ToErrCtx())
+// Filter keeps the elements for which predicate returns true.
+func (s Stream[T]) Filter[P ~func(T) bool](predicate P) Stream[T] {
+	return filterStream(s, shpanstream.Predicate[T](predicate).ToErrCtx())
 }
 
-func (s Stream[T]) FilterWithErr(predicate shpanstream.PredicateWithErr[T]) Stream[T] {
-	return s.FilterWithErAndCtx(predicate.ToErrCtx())
+// FilterWithErr keeps the elements for which predicate returns true; a predicate error fails the stream.
+func (s Stream[T]) FilterWithErr[P ~func(T) (bool, error)](predicate P) Stream[T] {
+	return filterStream(s, shpanstream.PredicateWithErr[T](predicate).ToErrCtx())
+}
+
+// FilterWithErrAndCtx is FilterWithErr with a predicate that also receives the stream's context.
+func (s Stream[T]) FilterWithErrAndCtx[P ~func(context.Context, T) (bool, error)](predicate P) Stream[T] {
+	return filterStream(s, shpanstream.PredicateWithErrAndCtx[T](predicate))
 }
 
 //go:noinline
-func (s Stream[T]) FilterWithErAndCtx(predicate shpanstream.PredicateWithErrAndCtx[T]) Stream[T] {
+func filterStream[T any](s Stream[T], predicate shpanstream.PredicateWithErrAndCtx[T]) Stream[T] {
 	return newStream[T](func(ctx context.Context) (T, error) {
 		for {
 			v, err := s.provider(ctx)
@@ -228,44 +255,51 @@ func (s Stream[T]) FilterWithErAndCtx(predicate shpanstream.PredicateWithErrAndC
 // Count counts the number of elements in the stream (materializes the stream)
 //
 //go:noinline
-func (s Stream[T]) Count(ctx context.Context) (int, error) {
+func Count[T any](ctx context.Context, s Stream[T]) (int, error) {
 	count := 0
-	err := s.Consume(ctx, func(v T) {
+	err := consume(s, ctx, func(v T) {
 		count++
-	})
+	}, nil)
 	if err != nil {
 		return 0, err
 	}
 	return count, nil
 }
 
-// MustCount is a convenience method that panics if the stream errors.
-// Should be used for testing purpose or when streams are static (e.g. slice sourced streams)
-func (s Stream[T]) MustCount() int {
-	count, err := s.Count(context.Background())
+// MustCount is Count with context.Background(), panicking if the stream fails. Use it in tests
+// or with static streams (e.g. slice sourced streams).
+func MustCount[T any](s Stream[T]) int {
+	count, err := Count(context.Background(), s)
 	if err != nil {
 		panic(err)
 	}
 	return count
 }
 
-func (s Stream[T]) IsEmpty(ctx context.Context) (bool, error) {
-	_, found, err := s.FindFirst(ctx)
+// IsEmpty reports whether the stream has no elements. It materializes the stream only up to its
+// first element, like FindFirst.
+func IsEmpty[T any](ctx context.Context, s Stream[T]) (bool, error) {
+	_, found, err := FindFirst(ctx, s)
 	if err != nil {
 		return false, err
 	}
 	return !found, nil
 }
 
-func (s Stream[T]) WithAdditionalLifecycle(lch Lifecycle) Stream[T] {
+// WithAdditionalLifecycle returns the stream with lch added to its lifecycle: lch is opened with
+// the stream's other lifecycle elements when the stream is materialized, and closed with them.
+func WithAdditionalLifecycle[T any](s Stream[T], lch Lifecycle) Stream[T] {
 	return newStream(s.provider, appendLifecycle(s.allLifecycleElement, lch))
 }
 
 // Peek allows to peek at the elements of the stream without consuming them
 // Peek will not materialize the stream, and will be invoked only (and if) the stream is materialized
-//
+func (s Stream[T]) Peek[F ~func(v T)](f F) Stream[T] {
+	return peekStream(s, (func(T))(f))
+}
+
 //go:noinline
-func (s Stream[T]) Peek(f func(v T)) Stream[T] {
+func peekStream[T any](s Stream[T], f func(v T)) Stream[T] {
 	// Written directly rather than as Map(s, ...) so a Stream shape does not instantiate the whole
 	// Map machinery for its own [T, T] pair.
 	return newStream[T](func(ctx context.Context) (T, error) {

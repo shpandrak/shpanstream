@@ -24,7 +24,7 @@ func AlignStream[N Number](
 			lastItemOnPreviousCluster *TsRecord[N],
 		) (TsRecord[N], error) {
 
-			firstItem, found, err := clusterStream.FindFirst(ctx)
+			firstItem, found, err := stream.FindFirst(ctx, clusterStream)
 			if err != nil {
 				return util.DefaultValue[TsRecord[N]](), err
 			}

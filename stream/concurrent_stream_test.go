@@ -15,13 +15,11 @@ import (
 // Run with -race; without the fix this fails, with the fix it is clean.
 func TestConcurrentMap_EarlyStopViaLimitNoRace(t *testing.T) {
 	for i := 0; i < 300; i++ {
-		out, err := Map(
+		out, err := Collect(context.Background(), Limit(Map(
 			Just(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
 			func(v int) int { return v * 2 },
 			WithConcurrentMapOption(4),
-		).
-			Limit(2).
-			Collect(context.Background())
+		), 2))
 		require.NoError(t, err)
 		require.Len(t, out, 2)
 	}
@@ -50,11 +48,11 @@ func TestConcurrentMap_EarlyStopViaCtxCancelNoRace(t *testing.T) {
 
 // Full drain must still produce every mapped element (order not guaranteed for concurrent map).
 func TestConcurrentMap_FullDrainCorrect(t *testing.T) {
-	out, err := Map(
+	out, err := Collect(context.Background(), Map(
 		Just(1, 2, 3, 4, 5, 6, 7, 8),
 		func(v int) int { return v * 10 },
 		WithConcurrentMapOption(3),
-	).Collect(context.Background())
+	))
 	require.NoError(t, err)
 	sort.Ints(out)
 	require.Equal(t, []int{10, 20, 30, 40, 50, 60, 70, 80}, out)
@@ -64,7 +62,7 @@ func TestConcurrentMap_FullDrainCorrect(t *testing.T) {
 func TestConcurrentMap_ReConsumable(t *testing.T) {
 	s := Map(Just(1, 2, 3, 4), func(v int) int { return v * 10 }, WithConcurrentMapOption(2))
 	for i := 0; i < 3; i++ {
-		out, err := s.Collect(context.Background())
+		out, err := Collect(context.Background(), s)
 		require.NoError(t, err)
 		sort.Ints(out)
 		require.Equal(t, []int{10, 20, 30, 40}, out)
@@ -85,7 +83,7 @@ func TestConcurrentMap_EofCtxCancelledOnEarlyStop(t *testing.T) {
 	}
 	s := NewSimpleStream(c.emit, WithOpenFuncOption(c.open), WithCloseFuncOption(c.close))
 
-	out, err := s.Limit(1).Collect(context.Background())
+	out, err := Collect(context.Background(), Limit(s, 1))
 	require.NoError(t, err)
 	require.Len(t, out, 1)
 	require.Error(t, c.eofCtx.Err(), "close must cancel eofCtx so its resources are released")
@@ -94,7 +92,7 @@ func TestConcurrentMap_EofCtxCancelledOnEarlyStop(t *testing.T) {
 // A mapper error is surfaced.
 func TestConcurrentMap_MapperErrorSurfaced(t *testing.T) {
 	boom := errors.New("boom")
-	_, err := MapWithErr(
+	_, err := Collect(context.Background(), MapWithErr(
 		Just(1, 2, 3, 4, 5, 6),
 		func(v int) (int, error) {
 			if v == 4 {
@@ -103,6 +101,6 @@ func TestConcurrentMap_MapperErrorSurfaced(t *testing.T) {
 			return v, nil
 		},
 		WithConcurrentMapOption(3),
-	).Collect(context.Background())
+	))
 	require.ErrorIs(t, err, boom)
 }

@@ -41,7 +41,7 @@ func TestConditionFilter_FilterTrue(t *testing.T) {
 	require.NoError(t, err)
 
 	// All records should pass through
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 	require.Len(t, resultData, 3)
 }
@@ -77,7 +77,7 @@ func TestConditionFilter_FilterFalse(t *testing.T) {
 	require.NoError(t, err)
 
 	// No records should pass through
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 	require.Len(t, resultData, 0)
 }
@@ -236,7 +236,7 @@ func TestConditionFilter_WithDynamicCondition(t *testing.T) {
 	require.NoError(t, err)
 
 	// Only records with value > 25 should pass (30, 40, 50)
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 	require.Len(t, resultData, 3)
 	require.Equal(t, int64(30), resultData[0].Value)
@@ -270,7 +270,7 @@ func TestConditionFilter_EmptyStream(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should still be empty
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 	require.Len(t, resultData, 0)
 }

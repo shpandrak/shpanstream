@@ -13,41 +13,41 @@ func TestConcatStreams(t *testing.T) {
 	require.EqualValues(
 		t,
 		[]int{1, 2, 3, 4, 5, 6, 7, 8},
-		ConcatStreams(
+		MustCollect(ConcatStreams(
 			Just(1, 2, 3),
 			Just(4, 5),
 			Empty[int](),
 			Just(6),
 			Just(7, 8),
-		).MustCollect(),
+		)),
 	)
 }
 
 func TestConcatenatedStreamEmpty(t *testing.T) {
 
-	require.Len(t, Concat(Just(Empty[int](), Empty[int](), Empty[int]())).MustCollect(), 0)
+	require.Len(t, MustCollect(Concat(Just(Empty[int](), Empty[int](), Empty[int]()))), 0)
 
-	require.Len(t, Concat(Empty[Stream[int]]()).MustCollect(), 0)
+	require.Len(t, MustCollect(Concat(Empty[Stream[int]]())), 0)
 
-	require.Len(t, Concat(Just(Empty[int]())).MustCollect(), 0)
+	require.Len(t, MustCollect(Concat(Just(Empty[int]()))), 0)
 }
 
 func TestConcatStreamsError(t *testing.T) {
 	ctx := context.Background()
 
 	// Check if the error is propagated correctly
-	_, err := Concat(Just(Empty[int](), Error[int](fmt.Errorf("hi")), Empty[int]())).Collect(ctx)
+	_, err := Collect(ctx, Concat(Just(Empty[int](), Error[int](fmt.Errorf("hi")), Empty[int]())))
 	require.Error(t, err)
 
-	_, err = Concat(Error[Stream[Stream[int]]](fmt.Errorf("hi"))).Collect(ctx)
+	_, err = Collect(ctx, Concat(Error[Stream[Stream[int]]](fmt.Errorf("hi"))))
 	require.Error(t, err)
 
-	_, err = Concat(Just(Error[int](fmt.Errorf("hi")))).Collect(ctx)
+	_, err = Collect(ctx, Concat(Just(Error[int](fmt.Errorf("hi")))))
 	require.Error(t, err)
 
-	_, err = Concat(Just(Just(1), Error[int](fmt.Errorf("hi")))).Collect(ctx)
+	_, err = Collect(ctx, Concat(Just(Just(1), Error[int](fmt.Errorf("hi")))))
 	require.Error(t, err)
-	_, err = Concat(Just(Error[int](fmt.Errorf("hi")), Just(1))).Collect(ctx)
+	_, err = Collect(ctx, Concat(Just(Error[int](fmt.Errorf("hi")), Just(1))))
 	require.Error(t, err)
 
 }
@@ -57,15 +57,15 @@ func TestConcatResourceMgmt(t *testing.T) {
 	tu := newTestStreamUtil(t)
 
 	// Assert the results are as expected
-	Concat(
-		Just(
-			Just(1, 2, 3).WithAdditionalLifecycle(tu.AddLifecycleWatcher("1")),
-			Just(4, 5).WithAdditionalLifecycle(tu.AddLifecycleWatcher("2")),
-			Empty[int]().WithAdditionalLifecycle(tu.AddLifecycleWatcher("3")),
-			Just(6).WithAdditionalLifecycle(tu.AddLifecycleWatcher("4")),
-			Just(7, 8).WithAdditionalLifecycle(tu.AddLifecycleWatcher("5")),
-		).WithAdditionalLifecycle(tu.AddLifecycleWatcher("6")),
-	).MustCollect()
+	MustCollect(Concat(
+		WithAdditionalLifecycle(Just(
+			WithAdditionalLifecycle(Just(1, 2, 3), tu.AddLifecycleWatcher("1")),
+			WithAdditionalLifecycle(Just(4, 5), tu.AddLifecycleWatcher("2")),
+			WithAdditionalLifecycle(Empty[int](), tu.AddLifecycleWatcher("3")),
+			WithAdditionalLifecycle(Just(6), tu.AddLifecycleWatcher("4")),
+			WithAdditionalLifecycle(Just(7, 8), tu.AddLifecycleWatcher("5")),
+		), tu.AddLifecycleWatcher("6")),
+	))
 	// Assert all lifecycle watchers were visited
 	tu.requireAllWatchersVisited()
 }
@@ -75,15 +75,15 @@ func TestConcatResourceMgmtErrorStream(t *testing.T) {
 	tu := newTestStreamUtil(t)
 
 	// Assert the results are as expected
-	_, err := Concat(
-		Just(
-			Just(1, 2, 3).WithAdditionalLifecycle(tu.AddLifecycleWatcher("1")),
-			Just(4, 5).WithAdditionalLifecycle(tu.AddLifecycleWatcher("2")),
-			Error[int](errors.New("test error")).WithAdditionalLifecycle(tu.AddLifecycleWatcher("3")),
-			Just(6).WithAdditionalLifecycle(tu.AddLifecycleWatcher("4")),
-			Just(7, 8).WithAdditionalLifecycle(tu.AddLifecycleWatcher("5")),
-		).WithAdditionalLifecycle(tu.AddLifecycleWatcher("6")),
-	).Collect(context.Background())
+	_, err := Collect(context.Background(), Concat(
+		WithAdditionalLifecycle(Just(
+			WithAdditionalLifecycle(Just(1, 2, 3), tu.AddLifecycleWatcher("1")),
+			WithAdditionalLifecycle(Just(4, 5), tu.AddLifecycleWatcher("2")),
+			WithAdditionalLifecycle(Error[int](errors.New("test error")), tu.AddLifecycleWatcher("3")),
+			WithAdditionalLifecycle(Just(6), tu.AddLifecycleWatcher("4")),
+			WithAdditionalLifecycle(Just(7, 8), tu.AddLifecycleWatcher("5")),
+		), tu.AddLifecycleWatcher("6")),
+	))
 	require.Error(t, err)
 
 	// Assert lifecycle watchers were visited
@@ -96,20 +96,20 @@ func TestConcatResourceMgmtStreamWithErr(t *testing.T) {
 	tu := newTestStreamUtil(t)
 
 	// Assert the results are as expected
-	_, err := Concat(
-		Just(
-			Just(1, 2, 3).WithAdditionalLifecycle(tu.AddLifecycleWatcher("1")),
-			Just(4, 5).WithAdditionalLifecycle(tu.AddLifecycleWatcher("2")),
-			MapWithErr(Just[int](1, 2, 3, 4), func(i int) (int, error) {
+	_, err := Collect(context.Background(), Concat(
+		WithAdditionalLifecycle(Just(
+			WithAdditionalLifecycle(Just(1, 2, 3), tu.AddLifecycleWatcher("1")),
+			WithAdditionalLifecycle(Just(4, 5), tu.AddLifecycleWatcher("2")),
+			WithAdditionalLifecycle(MapWithErr(Just[int](1, 2, 3, 4), func(i int) (int, error) {
 				if i == 3 {
 					return 0, errors.New("test error")
 				}
 				return i, nil
-			}).WithAdditionalLifecycle(tu.AddLifecycleWatcher("3")),
-			Just(6).WithAdditionalLifecycle(tu.AddLifecycleWatcher("4")),
-			Just(7, 8).WithAdditionalLifecycle(tu.AddLifecycleWatcher("5")),
-		).WithAdditionalLifecycle(tu.AddLifecycleWatcher("6")),
-	).Collect(context.Background())
+			}), tu.AddLifecycleWatcher("3")),
+			WithAdditionalLifecycle(Just(6), tu.AddLifecycleWatcher("4")),
+			WithAdditionalLifecycle(Just(7, 8), tu.AddLifecycleWatcher("5")),
+		), tu.AddLifecycleWatcher("6")),
+	))
 	require.Error(t, err)
 
 	// Assert lifecycle watchers were visited

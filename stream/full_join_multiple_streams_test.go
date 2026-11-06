@@ -202,11 +202,11 @@ func TestFullJoinMultipleSortedStreams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := FullJoinMultipleSortedStreams(
+			got := MustCollect(FullJoinMultipleSortedStreams(
 				tt.streams,
 				shpanstream.ComparatorForOrdered[int](),
 				joiner,
-			).MustCollect()
+			))
 
 			require.Equal(t, tt.want, got)
 		})
@@ -231,7 +231,7 @@ func TestFullJoinMultipleSortedStreams_UnsortedStreamError(t *testing.T) {
 	)
 
 	require.Panics(t, func() {
-		stream.MustCollect()
+		MustCollect(stream)
 	})
 }
 
@@ -254,7 +254,7 @@ func TestFullJoinMultipleSortedStreams_MultipleUnsortedStreams(t *testing.T) {
 	)
 
 	require.Panics(t, func() {
-		stream.MustCollect()
+		MustCollect(stream)
 	})
 }
 
@@ -303,11 +303,11 @@ func TestFullJoinMultipleSortedStreams_CustomJoiner(t *testing.T) {
 		return p
 	}
 
-	result := FullJoinMultipleSortedStreams(
+	result := MustCollect(FullJoinMultipleSortedStreams(
 		[]Stream[int]{ids, addresses, phones},
 		shpanstream.ComparatorForOrdered[int](),
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []person{
 		{id: 1, name: "Alice", address: util.Pointer("123 Main St"), phone: nil},
@@ -331,7 +331,7 @@ func TestFullJoinMultipleSortedStreams_CountNonNil(t *testing.T) {
 		return count
 	}
 
-	result := FullJoinMultipleSortedStreams(
+	result := MustCollect(FullJoinMultipleSortedStreams(
 		[]Stream[int]{
 			Just(1, 2, 3, 4, 5),
 			Just(2, 3, 4),
@@ -339,7 +339,7 @@ func TestFullJoinMultipleSortedStreams_CountNonNil(t *testing.T) {
 		},
 		shpanstream.ComparatorForOrdered[int](),
 		countJoiner,
-	).MustCollect()
+	))
 
 	// 1: only in first stream = 1
 	// 2: in first and second = 2

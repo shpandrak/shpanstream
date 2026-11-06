@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/report"
@@ -49,7 +50,7 @@ func TestParseStaticDatasource_Valid(t *testing.T) {
 	assert.Equal(t, tsquery.DataTypeDecimal, fieldMeta.DataType())
 
 	// Verify data
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	assert.Equal(t, baseTime, records[0].Timestamp)
@@ -146,7 +147,7 @@ func TestParseStaticDatasource_AllDataTypes(t *testing.T) {
 			result, err := ds.Execute(ctx, baseTime, baseTime.Add(1*time.Hour))
 			require.NoError(t, err)
 
-			records := result.Data().MustCollect()
+			records := stream.MustCollect(result.Data())
 			require.Len(t, records, 1)
 
 			// Verify the value
@@ -189,7 +190,7 @@ func TestParseDatasource_Static(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(1*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	assert.Equal(t, 100.0, records[0].Value)
 }
@@ -215,7 +216,7 @@ func TestParseStaticDatasource_EmptyData(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(1*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 0)
 }
 
@@ -382,7 +383,7 @@ func TestParseReductionDatasource_WithPipeline(t *testing.T) {
 	// 5*5=25, sqrt(25)=5, cast to int = 5
 	// 7*7=49, sqrt(49)=7, cast to int = 7
 	// 9*9=81, sqrt(81)=9, cast to int = 9
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	assert.Equal(t, baseTime, records[0].Timestamp)
@@ -450,7 +451,7 @@ func TestParseFilter_AlignerFilter(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	assert.Greater(t, len(records), 0, "Aligner should produce aligned records")
 }
 
@@ -509,7 +510,7 @@ func TestParseFilter_AlignerFilter_WithBucketReduction(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2, "Should produce one record per bucket")
 
 	// First bucket [00:00, 01:00): sum of 10+20+30 = 60
@@ -587,7 +588,7 @@ func TestParseFilter_ConditionFilter(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(3*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	assert.Equal(t, 25.0, records[0].Value)
 }
@@ -706,7 +707,7 @@ func TestParseFilter_FieldValueFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "doubled", result.Meta().Urn())
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	assert.Equal(t, 20.0, records[0].Value)
 }
@@ -778,7 +779,7 @@ func TestParseFieldValue_Constant(t *testing.T) {
 			result, err := ds.Execute(ctx, baseTime, baseTime.Add(1*time.Hour))
 			require.NoError(t, err)
 
-			records := result.Data().MustCollect()
+			records := stream.MustCollect(result.Data())
 			require.Len(t, records, 1)
 			assert.Equal(t, tt.value, records[0].Value)
 		})
@@ -877,7 +878,7 @@ func TestParseFieldValue_LogicalExpression(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	assert.Equal(t, 15.0, records[0].Value) // Only 15 satisfies 10 < x < 20
 }
@@ -974,7 +975,7 @@ func TestParseFieldValue_Selector(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 	assert.Equal(t, 50.0, records[0].Value)  // 15 <= 20, so false branch
 	assert.Equal(t, 100.0, records[1].Value) // 25 > 20, so true branch
@@ -1040,7 +1041,7 @@ func TestParseFieldValue_Nvl(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 	assert.Equal(t, 10.0, records[0].Value) // Original value
 	assert.Equal(t, 99.0, records[1].Value) // Default value for nil
@@ -1098,7 +1099,7 @@ func TestParseFieldValue_Cast(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, tsquery.DataTypeInteger, result.Meta().DataType())
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	assert.Equal(t, int64(42), records[0].Value)
 }
@@ -1180,7 +1181,7 @@ func TestParseFieldValue_NumericExpression_AllOperators(t *testing.T) {
 			result, err := ds.Execute(ctx, baseTime, baseTime.Add(1*time.Hour))
 			require.NoError(t, err)
 
-			records := result.Data().MustCollect()
+			records := stream.MustCollect(result.Data())
 			require.Len(t, records, 1)
 			assert.InDelta(t, tt.expected, records[0].Value, 0.0001)
 		})
@@ -1263,7 +1264,7 @@ func TestParseFieldValue_UnaryNumericOperator_AllOperators(t *testing.T) {
 			result, err := ds.Execute(ctx, baseTime, baseTime.Add(1*time.Hour))
 			require.NoError(t, err)
 
-			records := result.Data().MustCollect()
+			records := stream.MustCollect(result.Data())
 			require.Len(t, records, 1)
 			assert.InDelta(t, tt.expected, records[0].Value, 0.0001)
 		})
@@ -1359,7 +1360,7 @@ func TestParseDatasource_Reduction_AllTypes(t *testing.T) {
 			result, err := ds.Execute(ctx, baseTime, baseTime.Add(3*time.Hour))
 			require.NoError(t, err)
 
-			records := result.Data().MustCollect()
+			records := stream.MustCollect(result.Data())
 			require.Len(t, records, 3)
 			for i, expected := range tt.expected {
 				assert.InDelta(t, expected, records[i].Value, 0.0001, "Mismatch at index %d", i)
@@ -1433,7 +1434,7 @@ func TestParseDatasource_CustomAlignmentPeriod(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(1*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	assert.Greater(t, len(records), 0, "Custom alignment period should produce records")
 }
 
@@ -1534,7 +1535,7 @@ func TestParseFilter_DeltaFilter(t *testing.T) {
 	assert.Equal(t, "kWh", meta.Unit())
 
 	// Verify deltas: 50, 30, 70
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3) // First record dropped
 
 	assert.Equal(t, 50.0, records[0].Value) // 150 - 100
@@ -1588,7 +1589,7 @@ func TestParseFilter_DeltaFilter_NonNegative(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(4*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	assert.Equal(t, 50.0, records[0].Value) // 150 - 100
@@ -1642,7 +1643,7 @@ func TestParseFilter_DeltaFilter_MaxCounterValue(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(3*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	assert.Equal(t, 50.0, records[0].Value)  // 950 - 900 = 50
@@ -1695,7 +1696,7 @@ func TestParseFilter_DeltaFilter_DefaultOptions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Negative deltas preserved (old behavior)
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	assert.Equal(t, -20.0, records[0].Value) // 80 - 100 = -20
@@ -1755,7 +1756,7 @@ func TestParseFilter_RateFilter(t *testing.T) {
 	assert.Equal(t, "kW", meta.Unit())                        // Overridden unit
 
 	// Verify rates
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2) // First record dropped
 
 	// Rate 1: (150 - 100) / 3600 = 50/3600 ≈ 0.01389 kW
@@ -1865,7 +1866,7 @@ func TestParseFilter_DeltaFilter_NegativeDelta(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(3*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 	assert.Equal(t, -20.0, records[0].Value) // 80 - 100 = -20
 	assert.Equal(t, -30.0, records[1].Value) // 50 - 80 = -30
@@ -1932,7 +1933,7 @@ func TestParseReportFilter_Condition(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify data - only rows where include=true should remain
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 	assert.Equal(t, 10.0, records[0].Value[0])
 	assert.Equal(t, 30.0, records[1].Value[0])
@@ -2011,7 +2012,7 @@ func TestParseReportFilter_AppendField(t *testing.T) {
 	assert.Equal(t, "sum", fieldsMeta[2].Urn())
 
 	// Verify data
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 	assert.Equal(t, 10.0, records[0].Value[0])
 	assert.Equal(t, 5.0, records[0].Value[1])
@@ -2074,7 +2075,7 @@ func TestParseReportFilter_DropFields(t *testing.T) {
 	assert.Equal(t, "fieldC", fieldsMeta[1].Urn())
 
 	// Verify data
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 	assert.Equal(t, 10.0, records[0].Value[0])
 	assert.Equal(t, 30.0, records[0].Value[1])
@@ -2141,7 +2142,7 @@ func TestParseReportFilter_SingleField(t *testing.T) {
 	assert.Equal(t, "renamedA", fieldsMeta[0].Urn())
 
 	// Verify data
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 	assert.Equal(t, 10.0, records[0].Value[0])
 	assert.Equal(t, 20.0, records[1].Value[0])
@@ -2200,7 +2201,7 @@ func TestParseReportFilter_Projection(t *testing.T) {
 	assert.Equal(t, "fieldC", fieldsMeta[1].Urn())
 
 	// Verify data - should have values for fieldA and fieldC only
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 
 	// First row: fieldA=10.0, fieldC=30.0
@@ -2271,7 +2272,7 @@ func TestParseReportFilter_OverrideFieldMetadata(t *testing.T) {
 	assert.Equal(t, "%", fieldsMeta[1].Unit())
 
 	// Data is preserved
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 	assert.Equal(t, 20.0, records[0].Value[0])
 	assert.Equal(t, 60.0, records[0].Value[1])
@@ -2347,7 +2348,7 @@ func TestParseReportFilter_Aligner_LinearFill(t *testing.T) {
 	assert.Equal(t, "count", fieldsMeta[1].Urn())
 	assert.Equal(t, tsquery.DataTypeInteger, fieldsMeta[1].DataType())
 
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 3, "Linear fill with 30-min alignment over 1 hour should produce 3 points")
 
 	// t=0:00 — original first point
@@ -2428,7 +2429,7 @@ func TestParseReportFilter_Aligner_ForwardFill(t *testing.T) {
 	assert.Equal(t, "price", fieldsMeta[0].Urn())
 	assert.Equal(t, "count", fieldsMeta[1].Urn())
 
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 3, "Forward fill with 30-min alignment over 1 hour should produce 3 points")
 
 	// t=0:00 — original first point
@@ -2509,7 +2510,7 @@ func TestParseReportFilter_Aligner_DeltaSumsByDefault(t *testing.T) {
 
 	result, err := ds.Execute(testContext(), baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 
 	// Bucket [0,1h): energy = 100+200 (Delta→Sum); rate = 0.10 (Gauge smudge first, not avg).
@@ -2548,7 +2549,7 @@ func TestParseReportFilter_Aligner_FieldReductionOverride(t *testing.T) {
 
 	result, err := ds.Execute(testContext(), baseTime, baseTime.Add(1*time.Hour))
 	require.NoError(t, err)
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 1)
 	assert.InDelta(t, 300.0, records[0].Value[0], 1e-9, "energy: Delta default Sum")
 	assert.InDelta(t, 0.30, records[0].Value[1], 1e-9, "rate: Sum override (0.10+0.20)")
@@ -2581,7 +2582,7 @@ func TestParseReportFilter_Aligner_PerFieldFillMode(t *testing.T) {
 
 	result, err := ds.Execute(testContext(), baseTime, baseTime.Add(3*time.Hour))
 	require.NoError(t, err)
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 3)
 
 	// Gap at t=1h: lin interpolates 10→30 (=20); ff forward-fills previous (=100).
@@ -2692,7 +2693,7 @@ func TestParseFilteredMultiDatasource(t *testing.T) {
 	result, err := ds.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	// Delta of counter1: 100.0, 100.0
 	// Delta of counter2: 20.0, 30.0
 	// Sum: 120.0, 130.0
@@ -2762,14 +2763,14 @@ func TestParseFilteredReportMultiDatasource(t *testing.T) {
 	require.NotNil(t, multiDs)
 
 	// Collect datasources
-	datasources := multiDs.GetDatasources(testContext()).MustCollect()
+	datasources := stream.MustCollect(multiDs.GetDatasources(testContext()))
 	require.Len(t, datasources, 2)
 
 	// Execute each and verify they work
 	for _, ds := range datasources {
 		result, err := ds.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 		require.NoError(t, err)
-		records := result.Stream().MustCollect()
+		records := stream.MustCollect(result.Stream())
 		require.NotEmpty(t, records)
 	}
 }
@@ -2825,7 +2826,7 @@ func TestParseReductionDatasource_WithAlignerFillMode(t *testing.T) {
 	result, err := ds.Execute(testContext(), time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	// With linear fill: 10, 20, 30 (interpolated), 40
 	require.Len(t, records, 4)
 	assert.Equal(t, 10.0, records[0].Value)
@@ -2897,7 +2898,7 @@ func TestParseRowTimestampFieldValue(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	// Only the first record matches the exact timestamp
 	require.Len(t, records, 1)
 	assert.Equal(t, baseTime, records[0].Timestamp)
@@ -2974,7 +2975,7 @@ func TestParseTimestampExtractFieldValue(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(168*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	// Only weekdays (Mon-Fri) should pass
 	require.Len(t, records, 5)
 	for _, rec := range records {
@@ -3042,7 +3043,7 @@ func TestParseFilter_ScheduleFilter(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime.Add(-3*24*time.Hour), baseTime.Add(3*24*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 	assert.Equal(t, 2.0, records[0].Value) // Mon 10:00
 	assert.Equal(t, 4.0, records[1].Value) // Tue 12:00
@@ -3098,7 +3099,7 @@ func TestParseFilter_ScheduleFilter_WithTimezone(t *testing.T) {
 	result, err := ds.Execute(ctx, time.Date(2024, 12, 24, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 26, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	// 23:30 UTC Dec 24 is Dec 25 in Paris → matches
 	// 00:30 UTC Dec 25 is Dec 25 in Paris → matches
 	require.Len(t, records, 2)
@@ -3160,7 +3161,7 @@ func TestParseFilter_ScheduleFilter_WithExclude(t *testing.T) {
 	result, err := ds.Execute(ctx, time.Date(2024, 12, 24, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 27, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 	assert.Equal(t, 1.0, records[0].Value) // Dec 24
 	assert.Equal(t, 3.0, records[1].Value) // Dec 26
@@ -3258,7 +3259,7 @@ func TestParseFilter_ScheduleFilter_WithPeriods(t *testing.T) {
 	result, err := ds.Execute(ctx, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 	assert.Equal(t, 1.0, records[0].Value) // June 15
 	assert.Equal(t, 2.0, records[1].Value) // June 30
@@ -3317,7 +3318,7 @@ func TestParseFilter_ScheduleFilter_WithStartEndTime(t *testing.T) {
 	result, err := ds.Execute(ctx, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	assert.Equal(t, 2.0, records[0].Value) // June 15 — within startTime/endTime bounds
 }
@@ -3371,7 +3372,7 @@ func TestParseReportFilter_ScheduleFilter(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(24*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 1)
 	assert.Equal(t, 2.0, records[0].Value[0]) // Mon 10:00
 }
@@ -3842,7 +3843,7 @@ func TestParseFilter_TimeShiftFilter(t *testing.T) {
 	assert.Equal(t, tsquery.DataTypeDecimal, meta.DataType())
 	assert.Equal(t, "kWh", meta.Unit())
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// Timestamps shifted back 1 hour
@@ -3930,7 +3931,7 @@ func TestParseReportFilter_TimeShiftFilter(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime.Add(-1*time.Hour), baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 
 	assert.Equal(t, time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), records[0].Timestamp)

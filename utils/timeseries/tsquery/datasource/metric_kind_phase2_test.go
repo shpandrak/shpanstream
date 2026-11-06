@@ -31,7 +31,7 @@ func TestAlignerFilter_AutoSum_DeltaInOneBucket(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tsquery.MetricKindDelta, filtered.Meta().MetricKind())
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	require.Len(t, collected, 1)
 	require.Equal(t, 45.0, collected[0].Value) // 10 + 15 + 20
 }
@@ -54,7 +54,7 @@ func TestAlignerFilter_AutoSum_DeltaMultipleBuckets(t *testing.T) {
 	filtered, err := af.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	require.Len(t, collected, 2)
 	require.Equal(t, 25.0, collected[0].Value) // 10 + 15
 	require.Equal(t, 45.0, collected[1].Value) // 20 + 25
@@ -80,7 +80,7 @@ func TestAlignerFilter_AutoInterpolate_CumulativeInOneBucket(t *testing.T) {
 	// Cumulative falls through to the interpolation path (same as gauge): the
 	// first cluster smudges the first item value to bucket-start, preserving
 	// the boundary-state invariant a counter needs.
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	require.Len(t, collected, 1)
 	require.Equal(t, 100.0, collected[0].Value)
 }
@@ -109,7 +109,7 @@ func TestAlignerFilter_AutoInterpolate_CumulativeStandaloneDownsampling(t *testi
 	//   and current-cluster-first (125 @ 0:16) at target=0:15.
 	//   weight = (0:15 - 0:10) / (0:16 - 0:10) = 5/6
 	//   value  = 110 + (125 - 110) * 5/6 = 122.5
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	require.Len(t, collected, 2)
 	require.InDelta(t, 100.0, collected[0].Value, 1e-10)
 	require.InDelta(t, 122.5, collected[1].Value, 1e-10)
@@ -132,7 +132,7 @@ func TestAlignerFilter_ExplicitOverridesAutoSum(t *testing.T) {
 	filtered, err := af.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	require.Len(t, collected, 1)
 	require.Equal(t, 15.0, collected[0].Value) // avg(10, 20) = 15
 }
@@ -154,7 +154,7 @@ func TestAlignerFilter_ExplicitOverridesAutoInterpolate_Cumulative(t *testing.T)
 	filtered, err := af.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	require.Len(t, collected, 1)
 	require.Equal(t, 300.0, collected[0].Value) // sum(100, 200) = 300
 }
@@ -254,7 +254,7 @@ func TestDeltaFilter_ImplicitGap_DetectsGap(t *testing.T) {
 	filtered, err := df.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	// First delta: 110-100=10, gap delta skipped, third delta: 215-200=15
 	require.Len(t, collected, 2)
 	require.Equal(t, 10.0, collected[0].Value)
@@ -279,7 +279,7 @@ func TestDeltaFilter_ImplicitGap_ExactlyTwoXIsNotGap(t *testing.T) {
 	filtered, err := df.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	// All deltas computed: 10, 20, 15
 	require.Len(t, collected, 3)
 	require.Equal(t, 10.0, collected[0].Value)
@@ -305,7 +305,7 @@ func TestDeltaFilter_ImplicitGap_JustOverTwoXIsGap(t *testing.T) {
 	filtered, err := df.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	// Gap detected, delta skipped: 10, then 15
 	require.Len(t, collected, 2)
 	require.Equal(t, 10.0, collected[0].Value)
@@ -331,7 +331,7 @@ func TestDeltaFilter_ImplicitGap_ExplicitMaxGapWins(t *testing.T) {
 	filtered, err := df.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	// All deltas computed: 10, 90, 15
 	require.Len(t, collected, 3)
 	require.Equal(t, 10.0, collected[0].Value)
@@ -356,7 +356,7 @@ func TestDeltaFilter_ImplicitGap_NoSamplePeriodNoGapDetection(t *testing.T) {
 	filtered, err := df.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	// All deltas computed (no gap detection): 10, 90, 15
 	require.Len(t, collected, 3)
 }
@@ -378,7 +378,7 @@ func TestDeltaFilter_ImplicitGap_NonNegativePath(t *testing.T) {
 	filtered, err := df.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	// Gap detected in nonNegative path too: 10, (skip), 15
 	require.Len(t, collected, 2)
 	require.Equal(t, 10.0, collected[0].Value)
@@ -438,7 +438,7 @@ func TestRateFilter_ImplicitGapFromSamplePeriod(t *testing.T) {
 	filtered, err := rf.Filter(ctx, result)
 	require.NoError(t, err)
 
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	// First rate: (160-100)/300s, gap skipped, third rate: (560-500)/300s
 	require.Len(t, collected, 2)
 }
@@ -597,7 +597,7 @@ func TestGolden_CumulativeToDeltaToAligner(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tsquery.MetricKindDelta, alignedResult.Meta().MetricKind())
 
-	collected := alignedResult.Data().MustCollect()
+	collected := stream.MustCollect(alignedResult.Data())
 	require.Len(t, collected, 2)
 
 	// Deltas: 10, 15, 15, 15, 15
@@ -625,7 +625,7 @@ func TestGolden_GaugeThroughAligner_Unchanged(t *testing.T) {
 	require.Equal(t, tsquery.MetricKindGauge, filtered.Meta().MetricKind())
 
 	// Gauge uses interpolation path, not Sum
-	collected := filtered.Data().MustCollect()
+	collected := stream.MustCollect(filtered.Data())
 	require.Len(t, collected, 1)
 	require.Equal(t, 20.0, collected[0].Value) // first item smudged to bucket start
 }
@@ -670,7 +670,7 @@ func TestGolden_PipelineWithGap(t *testing.T) {
 	alignedResult, err := af.Filter(ctx, deltaResult)
 	require.NoError(t, err)
 
-	collected := alignedResult.Data().MustCollect()
+	collected := stream.MustCollect(alignedResult.Data())
 	// Deltas: 10 @ 0:05, (gap skip), 15 @ 0:22, 15 @ 0:27
 	// Bucket [0:00-0:15): delta 10 = 10
 	// Bucket [0:15-0:30): deltas 15 + 15 = 30
@@ -728,7 +728,7 @@ func TestGolden_CumulativeAlignThenDelta_PreservesTotal(t *testing.T) {
 	require.Equal(t, tsquery.MetricKindCumulative, alignedResult.Meta().MetricKind(),
 		"aligner must preserve cumulative kind so DeltaFilter accepts it")
 
-	alignedCollected := alignedResult.Data().MustCollect()
+	alignedCollected := stream.MustCollect(alignedResult.Data())
 	require.Len(t, alignedCollected, 3, "expected 3 hourly buckets (17:00, 18:00, 19:00)")
 	require.Equal(t, time.Date(2024, 1, 1, 17, 0, 0, 0, time.UTC), alignedCollected[0].Timestamp)
 	require.Equal(t, time.Date(2024, 1, 1, 18, 0, 0, 0, time.UTC), alignedCollected[1].Timestamp)
@@ -745,7 +745,7 @@ func TestGolden_CumulativeAlignThenDelta_PreservesTotal(t *testing.T) {
 	deltaResult, err := df.Filter(ctx, alignedResult)
 	require.NoError(t, err)
 
-	deltas := deltaResult.Data().MustCollect()
+	deltas := stream.MustCollect(deltaResult.Data())
 	require.Len(t, deltas, 2, "expected 2 deltas (first sample is skipped)")
 	require.InDelta(t, 100000.0, deltas[0].Value, 1e-6,
 		"hour [17:00,18:00) consumed 100k Wh")

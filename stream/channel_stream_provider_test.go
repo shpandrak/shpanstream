@@ -35,16 +35,16 @@ func ExampleFromChannel() {
 
 	// Output:
 	// [Oh no4,Oh no5,Oh no6 Oh no7,Oh no8,Oh no9]
-	fmt.Println(Map(
+	fmt.Println(MustCollect(Map(
 		Window(
 			FromChannel(ch),
 			3,
 			WithSlidingWindowStepOption(1),
 		).Filter(func(currWindow []tstLogEvent) bool {
-			return Just(currWindow...).
+			return MustCount(Just(currWindow...).
 				Filter(func(e tstLogEvent) bool {
 					return e.Level == "error"
-				}).MustCount() == 3
+				})) == 3
 		}),
 		func(currWindow []tstLogEvent) string {
 			return MustReduce(
@@ -59,6 +59,6 @@ func ExampleFromChannel() {
 				},
 			)
 		},
-	).MustCollect())
+	)))
 
 }

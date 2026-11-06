@@ -2,6 +2,7 @@ package tsquery_test
 
 import (
 	"context"
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/shpandrak/shpanstream/utils/timeseries"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery"
 	"github.com/shpandrak/shpanstream/utils/timeseries/tsquery/datasource"
@@ -63,7 +64,7 @@ func TestFilteredMultiDatasource_DeltaNonNegative_ThenReduce(t *testing.T) {
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 
 	// Delta of Counter1 (nonNeg): skip first, then: 100, 100, 0 (decrease 300→0, clamped to 0), 100
 	// Delta of Counter2: skip first, then: 20, 30, 40, 50
@@ -117,7 +118,7 @@ func TestReductionDatasource_AlignerWithFillMode(t *testing.T) {
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	// With linear fill, the gap at hour 2 should be interpolated: (20 + 40) / 2 = 30
 	require.Len(t, records, 4)
 	require.Equal(t, 10.0, records[0].Value) // hour 0

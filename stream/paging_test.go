@@ -101,7 +101,7 @@ func TestStreamPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := createNumberStream(tt.streamSize).Page(tt.pageNum, tt.pageSize).MustCollect()
+			result := MustCollect(Page(createNumberStream(tt.streamSize), tt.pageNum, tt.pageSize))
 			if len(tt.expected) == 0 {
 				require.Empty(t, result)
 			} else {
@@ -113,7 +113,7 @@ func TestStreamPage(t *testing.T) {
 	// Single element pages test (kept separate as it has a loop)
 	t.Run("Single element pages", func(t *testing.T) {
 		for i := 0; i < 5; i++ {
-			result := createNumberStream(5).Page(i, 1).MustCollect()
+			result := MustCollect(Page(createNumberStream(5), i, 1))
 			require.EqualValues(t, []int{i + 1}, result)
 		}
 	})

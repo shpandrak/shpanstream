@@ -30,7 +30,7 @@ func TestDropFieldsFilter_DropSingleField(t *testing.T) {
 	require.Equal(t, "field_c", result.FieldsMeta()[1].Urn())
 
 	// Verify values
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 2)
 	require.Equal(t, []any{1.0, 3.0}, collectedRecords[0].Value)
 	require.Equal(t, []any{4.0, 6.0}, collectedRecords[1].Value)
@@ -56,7 +56,7 @@ func TestDropFieldsFilter_DropMultipleFields(t *testing.T) {
 	require.Equal(t, "field_e", result.FieldsMeta()[2].Urn())
 
 	// Verify values
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 2)
 	require.Equal(t, []any{1.0, 3.0, 5.0}, collectedRecords[0].Value)
 	require.Equal(t, []any{10.0, 30.0, 50.0}, collectedRecords[1].Value)
@@ -80,7 +80,7 @@ func TestDropFieldsFilter_DropFirstField(t *testing.T) {
 	require.Equal(t, "field_c", result.FieldsMeta()[1].Urn())
 
 	// Verify values
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Equal(t, []any{2.0, 3.0}, collectedRecords[0].Value)
 }
 
@@ -102,7 +102,7 @@ func TestDropFieldsFilter_DropLastField(t *testing.T) {
 	require.Equal(t, "field_b", result.FieldsMeta()[1].Urn())
 
 	// Verify values
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Equal(t, []any{1.0, 2.0}, collectedRecords[0].Value)
 }
 
@@ -168,7 +168,7 @@ func TestDropFieldsFilter_EmptyStream(t *testing.T) {
 	require.Equal(t, "field_c", result.FieldsMeta()[1].Urn())
 
 	// Verify stream is empty
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 0)
 }
 
@@ -192,7 +192,7 @@ func TestDropFieldsFilter_PreservesTimestamps(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify timestamps are preserved
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 3)
 	require.Equal(t, timestamps[0], collectedRecords[0].Timestamp)
 	require.Equal(t, timestamps[1], collectedRecords[1].Timestamp)
@@ -222,7 +222,7 @@ func TestDropFieldsFilter_ManyRecords(t *testing.T) {
 	require.Len(t, result.FieldsMeta(), 2)
 
 	// Verify all records are processed correctly
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, numRecords)
 
 	// Spot check a few records
@@ -249,7 +249,7 @@ func TestDropFieldsFilter_DropAllButOne(t *testing.T) {
 	require.Equal(t, "field_c", result.FieldsMeta()[0].Urn())
 
 	// Verify values
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 2)
 	require.Equal(t, []any{3.0}, collectedRecords[0].Value)
 	require.Equal(t, []any{7.0}, collectedRecords[1].Value)

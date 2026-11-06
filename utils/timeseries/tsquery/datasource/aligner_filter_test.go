@@ -358,7 +358,7 @@ func TestAlignerFilter_StringDataType_UsesStepFunction(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify aligned records use nearest value instead of interpolation
-	alignedRecords := alignedResult.Data().MustCollect()
+	alignedRecords := stream.MustCollect(alignedResult.Data())
 	require.Len(t, alignedRecords, 2)
 	require.Equal(t, "value1", alignedRecords[0].Value) // smeared to 00:00:00
 	require.Equal(t, "value2", alignedRecords[1].Value) // step function: use nearest value at 00:01:00
@@ -393,7 +393,7 @@ func TestAlignerFilter_BooleanDataType_UsesStepFunction(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify aligned records use nearest value instead of interpolation
-	alignedRecords := alignedResult.Data().MustCollect()
+	alignedRecords := stream.MustCollect(alignedResult.Data())
 	require.Len(t, alignedRecords, 2)
 	require.Equal(t, true, alignedRecords[0].Value)  // smeared to 00:00:00
 	require.Equal(t, false, alignedRecords[1].Value) // step function: use nearest value at 00:01:00
@@ -425,7 +425,7 @@ func TestAlignerFilter_OptionalFieldNil_PropagatesNil(t *testing.T) {
 	out, err := af.Filter(ctx, result)
 	require.NoError(t, err)
 
-	got, err := out.Data().Collect(ctx)
+	got, err := stream.Collect(ctx, out.Data())
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 
@@ -461,7 +461,7 @@ func TestAlignerFilter_RequiredFieldNil_ReturnsTypedError(t *testing.T) {
 	out, err := af.Filter(ctx, result)
 	require.NoError(t, err)
 
-	_, err = out.Data().Collect(ctx)
+	_, err = stream.Collect(ctx, out.Data())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `aligner field "must_be_set" is required but has nil bracketing sample`)
 }
@@ -499,7 +499,7 @@ func testAlignerFilterAsExpected(
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
-	result_data, err := outputResult.Data().Collect(ctx)
+	result_data, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	// Assert the results
@@ -554,7 +554,7 @@ func testAlignerFilterWithFieldMeta(
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
-	result_data, err := outputResult.Data().Collect(ctx)
+	result_data, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	// Assert the results
@@ -611,7 +611,7 @@ func testBucketReductionFilter(
 	// Verify output data type
 	require.Equal(t, expectedDataType, outputResult.Meta().DataType(), "Output data type mismatch")
 
-	resultData, err := outputResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	require.EqualValues(t,
@@ -869,7 +869,7 @@ func TestAlignerFilter_BucketReduction_WithFillMode(t *testing.T) {
 	outputResult, err := alignerFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := outputResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	// Expect: [0]=30.0 (sum of 10+20), [60]=60.0 (linear fill between 30 and 90), [120]=90.0
@@ -932,7 +932,7 @@ func TestAlignerFilter_BucketReduction_Count_NonNumeric_WithFillMode(t *testing.
 	// Output type should be integer (count result)
 	require.Equal(t, tsquery.DataTypeInteger, outputResult.Meta().DataType())
 
-	resultData, err := outputResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, outputResult.Data())
 	require.NoError(t, err)
 
 	// Expect: [0]=2 (count of a,b), [60]=1 (linear fill between 2 and 1), [120]=1

@@ -39,7 +39,7 @@ ordering.
 // or abort the stream, and panics are recovered and logged (like DoFinally).
 // Multiple DoFirst hooks run in reverse declaration order (last declared, first run).
 // Pairs with DoFinally to bracket a drain's full wall time, including source Open.
-func (s Stream[T]) DoFirst(f func(ctx context.Context)) Stream[T]
+func (s Stream[T]) DoFirst[F ~func(ctx context.Context)](f F) Stream[T]
 ```
 
 Semantics:

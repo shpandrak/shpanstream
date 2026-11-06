@@ -8,9 +8,9 @@ import (
 )
 
 // TestStreamDoesNotImportLazy guards the decoupling of package stream from package lazy: every
-// method of a generic type is compiled for every element type it is instantiated with, so a single
-// Stream method mentioning lazy.Lazy[T] makes every Stream[T] compile all of Lazy's methods (see
-// docs/compile-size-per-element-type.md). It walks the imports of stream (including its in-package
+// plain method of a generic type is compiled for every element type it is instantiated with, so a
+// Stream API that mentions lazy.Lazy[T] in the wrong place makes every Stream[T] compile all of
+// Lazy's methods (see docs/stream-api-generic-methods.md). It walks the imports of stream (including its in-package
 // tests) and, transitively, of every package of this module that stream reaches. While package
 // lazy imports stream (its bridges), such an import is already an import cycle the compiler
 // rejects; this test is the guard that remains if the bridges ever move out of lazy.

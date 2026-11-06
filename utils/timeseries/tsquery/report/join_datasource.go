@@ -32,12 +32,12 @@ func NewJoinDatasource(multiDs MultiDataSource, joinType JoinType) JoinDatasourc
 
 func (mds JoinDatasource) Execute(ctx context.Context, from time.Time, to time.Time) (Result, error) {
 	var sourceStreams []stream.Stream[timeseries.TsRecord[[]any]]
-	downStreamResults, err := stream.MapWithErrAndCtx(
+	downStreamResults, err := stream.Collect(ctx, stream.MapWithErrAndCtx(
 		mds.multiDs.GetDatasources(ctx),
 		func(ctx context.Context, ds DataSource) (Result, error) {
 			return ds.Execute(ctx, from, to)
 		},
-	).Collect(ctx)
+	))
 
 	if err != nil {
 		return util.DefaultValue[Result](),

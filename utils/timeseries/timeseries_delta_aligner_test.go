@@ -122,7 +122,7 @@ func testAsExpected(
 	deltaStream := AlignDeltaStream[int64](inputStream, NewFixedAlignmentPeriod(fixedDuration, time.Local))
 
 	// Collect the resulting delta records
-	result := deltaStream.MustCollect()
+	result := stream.MustCollect(deltaStream)
 
 	// Assert the results
 	require.EqualValues(t,

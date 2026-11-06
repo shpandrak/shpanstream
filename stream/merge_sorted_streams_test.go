@@ -12,30 +12,30 @@ func TestMergedSortedStream(t *testing.T) {
 		t,
 		// Expected result after merging and sorting
 		[]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 9},
-		MergeSortedStreams(
+		MustCollect(MergeSortedStreams(
 			cmp.Compare,
 			Just(1, 4, 7),
 			Just(2, 5, 8, 9),
 			Empty[int](),
 			Just(3, 6, 9),
-		).MustCollect(),
+		)),
 	)
 }
 
 func TestMergedSortedStream_Empty(t *testing.T) {
 
 	// Merge Empty streams and assert that the merged stream is empty
-	require.Len(t, MergeSortedStreams(
+	require.Len(t, MustCollect(MergeSortedStreams(
 		cmp.Compare,
 		Empty[int](),
 		Empty[int](),
 		Empty[int](),
-	).MustCollect(), 0)
+	)), 0)
 
 	//Just one empty stream
 	require.Len(
 		t,
-		MergeSortedStreams(cmp.Compare, Empty[int]()).MustCollect(),
+		MustCollect(MergeSortedStreams(cmp.Compare, Empty[int]())),
 		0,
 	)
 }

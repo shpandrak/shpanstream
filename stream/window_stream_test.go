@@ -15,7 +15,7 @@ func TestWindow_NoOverlap(t *testing.T) {
 			{1, 2, 3},
 			{4, 5, 6},
 		},
-		Window(Just(1, 2, 3, 4, 5, 6), 3).MustCollect(),
+		MustCollect(Window(Just(1, 2, 3, 4, 5, 6), 3)),
 	)
 }
 
@@ -29,7 +29,7 @@ func TestWindow_EmitPartialStep(t *testing.T) {
 			{4, 5, 6},
 			{7},
 		},
-		Window(Just(1, 2, 3, 4, 5, 6, 7), 3).MustCollect(),
+		MustCollect(Window(Just(1, 2, 3, 4, 5, 6, 7), 3)),
 	)
 
 	// With the omit partial step option, the last window will be emitted
@@ -39,7 +39,7 @@ func TestWindow_EmitPartialStep(t *testing.T) {
 			{1, 2, 3},
 			{4, 5, 6},
 		},
-		Window(Just(1, 2, 3, 4, 5, 6, 7), 3, WithOmitLastPartialWindowOption()).MustCollect(),
+		MustCollect(Window(Just(1, 2, 3, 4, 5, 6, 7), 3, WithOmitLastPartialWindowOption())),
 	)
 }
 
@@ -51,7 +51,7 @@ func TestWindow_WithOverlap(t *testing.T) {
 			{2, 3, 4},
 			{3, 4, 5},
 		},
-		Window(Just(1, 2, 3, 4, 5), 3, WithSlidingWindowStepOption(1)).MustCollect(),
+		MustCollect(Window(Just(1, 2, 3, 4, 5), 3, WithSlidingWindowStepOption(1))),
 	)
 }
 
@@ -63,7 +63,7 @@ func TestStepIncompleteWindow(t *testing.T) {
 			{1, 2, 3, 4, 5},
 			{4, 5, 6, 7},
 		},
-		Window(Just(1, 2, 3, 4, 5, 6, 7), 5, WithSlidingWindowStepOption(3)).MustCollect(),
+		MustCollect(Window(Just(1, 2, 3, 4, 5, 6, 7), 5, WithSlidingWindowStepOption(3))),
 	)
 
 	// Omit the last partial window
@@ -72,8 +72,7 @@ func TestStepIncompleteWindow(t *testing.T) {
 		[][]int{
 			{1, 2, 3, 4, 5},
 		},
-		Window(Just(1, 2, 3, 4, 5, 6, 7), 5, WithSlidingWindowStepOption(3), WithOmitLastPartialWindowOption()).
-			MustCollect(),
+		MustCollect(Window(Just(1, 2, 3, 4, 5, 6, 7), 5, WithSlidingWindowStepOption(3), WithOmitLastPartialWindowOption())),
 	)
 }
 
@@ -81,22 +80,22 @@ func TestWindow_Errors(t *testing.T) {
 	errStream := Error[int](errors.New("boom"))
 	windowed := Window(errStream, 3)
 
-	_, err := windowed.Collect(context.Background())
+	_, err := Collect(context.Background(), windowed)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "boom")
 }
 
 func TestWindow_InvalidConfig(t *testing.T) {
 	// size = 0 should fail
-	_, err := Window(Just(1, 2, 3), 0).Collect(context.Background())
+	_, err := Collect(context.Background(), Window(Just(1, 2, 3), 0))
 	require.Error(t, err)
 
 	// step = 0 should fail
-	_, err = Window(Just(1, 2, 3), 3, WithSlidingWindowStepOption(0)).Collect(context.Background())
+	_, err = Collect(context.Background(), Window(Just(1, 2, 3), 3, WithSlidingWindowStepOption(0)))
 	require.Error(t, err)
 
 	// step larger than window should fail
-	_, err = Window(Just(1, 2, 3), 3, WithSlidingWindowStepOption(4)).Collect(context.Background())
+	_, err = Collect(context.Background(), Window(Just(1, 2, 3), 3, WithSlidingWindowStepOption(4)))
 	require.Error(t, err)
 }
 
@@ -108,7 +107,7 @@ func TestWindow_MaxOverlap(t *testing.T) {
 			{2, 3},
 			{3, 4},
 		},
-		Window(Just(1, 2, 3, 4), 2, WithSlidingWindowStepOption(1)).MustCollect(),
+		MustCollect(Window(Just(1, 2, 3, 4), 2, WithSlidingWindowStepOption(1))),
 	)
 }
 
@@ -118,7 +117,7 @@ func TestWindow_SingleFullWindow(t *testing.T) {
 		[][]int{
 			{1, 2, 3},
 		},
-		Window(Just(1, 2, 3), 3).MustCollect(),
+		MustCollect(Window(Just(1, 2, 3), 3)),
 	)
 }
 
@@ -128,13 +127,13 @@ func TestWindow_TooShort(t *testing.T) {
 		[][]int{
 			{1, 2},
 		},
-		Window(Just(1, 2), 3).MustCollect(),
+		MustCollect(Window(Just(1, 2), 3)),
 	)
 
 	// With omit last partial window
 	require.Len(
 		t,
-		Window(Just(1, 2), 3, WithOmitLastPartialWindowOption()).MustCollect(),
+		MustCollect(Window(Just(1, 2), 3, WithOmitLastPartialWindowOption())),
 		0,
 	)
 }
@@ -148,7 +147,7 @@ func TestWindow_Of_One(t *testing.T) {
 			{2},
 			{3},
 		},
-		Window(Just(1, 2, 3), 1).MustCollect(),
+		MustCollect(Window(Just(1, 2, 3), 1)),
 	)
 
 }
@@ -157,7 +156,7 @@ func TestEmptySource(t *testing.T) {
 	// for smart asses, this is a valid case
 	require.Len(
 		t,
-		Window(Empty[int](), 10).MustCollect(),
+		MustCollect(Window(Empty[int](), 10)),
 		0,
 	)
 }
@@ -165,17 +164,17 @@ func TestEmptySource(t *testing.T) {
 // ExampleWindow demonstrates how to use the Window function with a sliding window.
 // It returns the first window of 3 elements that contains at least 2 even numbers.
 func ExampleWindow() {
-	results, found, err := Window(
+	results, found, err := FindFirst(context.Background(), Window(
 		Just(1, 3, 3, 5, 11, 6, 7, 8, 8, 8, 10, 10, 12, 13, 14, 15, 16, 17, 18, 19),
 		3,
 		WithSlidingWindowStepOption(1),
 	).
 		Filter(func(currWindow []int) bool {
-			return Just(currWindow...).
+			return MustCount(Just(currWindow...).
 				Filter(func(src int) bool {
 					return src%2 == 0
-				}).MustCount() >= 2
-		}).FindFirst(context.Background())
+				})) >= 2
+		}))
 
 	// Print the result
 	fmt.Println(results, found, err)
@@ -200,7 +199,7 @@ func Test_Alert(t *testing.T) {
 
 	// Constructing a message first time server alerts (severity > 2) occur 2 times in the stream,
 	// within a sliding window of size 3
-	msg, found, err := Map(
+	msg, found, err := FindFirst(context.Background(), Map(
 
 		// Creating a sliding window of alerts of size 3 with a sliding step of 1
 		Window(
@@ -211,10 +210,10 @@ func Test_Alert(t *testing.T) {
 
 			// Filtering the windows to only include those with at least 2 severe alerts
 			Filter(func(currWindow []alert) bool {
-				return Just(currWindow...).
+				return MustCount(Just(currWindow...).
 					Filter(func(a alert) bool {
 						return a.Severity > 2
-					}).MustCount() >= 2
+					})) >= 2
 			}),
 
 		// Mapping the filtered windows to a the expected summary message
@@ -239,9 +238,8 @@ func Test_Alert(t *testing.T) {
 				},
 			)
 		},
-	).
-		// Return the first occurrence of the violation as it happens
-		FindFirst(context.Background())
+	), // Return the first occurrence of the violation as it happens
+	)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, "Messages:\nAlert 3\nAlert 4", msg)

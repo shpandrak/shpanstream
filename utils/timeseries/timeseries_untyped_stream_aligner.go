@@ -25,7 +25,7 @@ func AlignStreamUntyped(
 			lastItemOnPreviousCluster *TsRecord[[]any],
 		) (TsRecord[[]any], error) {
 
-			firstItem, found, err := clusterStream.FindFirst(ctx)
+			firstItem, found, err := stream.FindFirst(ctx, clusterStream)
 			if err != nil {
 				return util.DefaultValue[TsRecord[[]any]](), err
 			}

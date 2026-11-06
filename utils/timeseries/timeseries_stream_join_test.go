@@ -35,10 +35,10 @@ func TestLeftJoinStreams_TwoStreams_FullMatch(t *testing.T) {
 		return left
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream, rightStream},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 110},
@@ -72,10 +72,10 @@ func TestLeftJoinStreams_TwoStreams_PartialMatch(t *testing.T) {
 		return left
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream, rightStream},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 110},  // 10 + 100
@@ -120,10 +120,10 @@ func TestLeftJoinStreams_ThreeStreams_MixedMatches(t *testing.T) {
 		return result
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream, stream2, stream3},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[string]{
 		{Timestamp: unixInLoc(60, loc), Value: "1A"},   // left=1, stream2=10, stream3=nil
@@ -149,10 +149,10 @@ func TestLeftJoinStreams_EmptyRightStream(t *testing.T) {
 		return left * 2 // Just double the left value
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream, rightStream},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 20},
@@ -179,10 +179,10 @@ func TestLeftJoinStreams_EmptyLeftStream(t *testing.T) {
 		return left
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream, rightStream},
 		joiner,
-	).MustCollect()
+	))
 
 	require.Empty(t, result)
 }
@@ -215,10 +215,10 @@ func TestLeftJoinStreams_ComplexJoiner(t *testing.T) {
 		return Metrics{CPU: cpu, Memory: memory}
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[float64]]{cpuStream, memoryStream},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[Metrics]{
 		{Timestamp: unixInLoc(60, loc), Value: Metrics{CPU: 50.5, Memory: 1024.0}},
@@ -241,10 +241,10 @@ func TestLeftJoinStreams_SingleStream(t *testing.T) {
 		return left * 10
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 100},
@@ -276,10 +276,10 @@ func TestLeftJoinStreams_RightStreamStartsLater(t *testing.T) {
 		return left
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream, rightStream},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 1},    // No match
@@ -313,10 +313,10 @@ func TestLeftJoinStreams_NonMatchingTimestamps(t *testing.T) {
 		return left
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream, rightStream},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 1},  // No match
@@ -360,10 +360,10 @@ func TestLeftJoinStreams_FourStreams(t *testing.T) {
 		return sum
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream, stream2, stream3, stream4},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 11},    // 1 + 10
@@ -397,10 +397,10 @@ func TestLeftJoinStreams_NilPointerDistinction(t *testing.T) {
 		return "empty"
 	}
 
-	result := LeftJoinStreams(
+	result := stream.MustCollect(LeftJoinStreams(
 		[]stream.Stream[TsRecord[int]]{leftStream, rightStream},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[string]{
 		{Timestamp: unixInLoc(60, loc), Value: "zero"}, // Has value (0), not nil
@@ -436,10 +436,10 @@ func TestInnerJoinStreams_TwoStreams_FullMatch(t *testing.T) {
 		return sum
 	}
 
-	result := InnerJoinStreams(
+	result := stream.MustCollect(InnerJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 110},
@@ -474,10 +474,10 @@ func TestInnerJoinStreams_TwoStreams_PartialMatch(t *testing.T) {
 		return sum
 	}
 
-	result := InnerJoinStreams(
+	result := stream.MustCollect(InnerJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	// Only timestamps 60 and 180 appear in both streams
 	expected := []TsRecord[int]{
@@ -516,10 +516,10 @@ func TestInnerJoinStreams_ThreeStreams_CommonTimestamps(t *testing.T) {
 		return sum
 	}
 
-	result := InnerJoinStreams(
+	result := stream.MustCollect(InnerJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2, stream3},
 		joiner,
-	).MustCollect()
+	))
 
 	// Only timestamp 180 appears in all three streams
 	expected := []TsRecord[int]{
@@ -550,10 +550,10 @@ func TestInnerJoinStreams_NoCommonTimestamps(t *testing.T) {
 		return sum
 	}
 
-	result := InnerJoinStreams(
+	result := stream.MustCollect(InnerJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	require.Empty(t, result)
 }
@@ -576,10 +576,10 @@ func TestInnerJoinStreams_EmptyStream(t *testing.T) {
 		return sum
 	}
 
-	result := InnerJoinStreams(
+	result := stream.MustCollect(InnerJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	require.Empty(t, result)
 }
@@ -619,10 +619,10 @@ func TestInnerJoinStreams_ComplexJoiner(t *testing.T) {
 		}
 	}
 
-	result := InnerJoinStreams(
+	result := stream.MustCollect(InnerJoinStreams(
 		[]stream.Stream[TsRecord[float64]]{cpuStream, memoryStream, diskStream},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[Metrics]{
 		{Timestamp: unixInLoc(60, loc), Value: Metrics{CPU: 50.5, Memory: 1024.0, Disk: 512.0}},
@@ -661,10 +661,10 @@ func TestFullJoinStreams_TwoStreams_FullMatch(t *testing.T) {
 		return sum
 	}
 
-	result := FullJoinStreams(
+	result := stream.MustCollect(FullJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 110},
@@ -700,10 +700,10 @@ func TestFullJoinStreams_TwoStreams_NoOverlap(t *testing.T) {
 		return sum
 	}
 
-	result := FullJoinStreams(
+	result := stream.MustCollect(FullJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 10},   // Only stream1
@@ -741,10 +741,10 @@ func TestFullJoinStreams_TwoStreams_PartialMatch(t *testing.T) {
 		return sum
 	}
 
-	result := FullJoinStreams(
+	result := stream.MustCollect(FullJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 10},   // Only stream1
@@ -792,10 +792,10 @@ func TestFullJoinStreams_ThreeStreams_MixedMatches(t *testing.T) {
 		return result
 	}
 
-	result := FullJoinStreams(
+	result := stream.MustCollect(FullJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2, stream3},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[string]{
 		{Timestamp: unixInLoc(60, loc), Value: "AB"},   // stream1 + stream2
@@ -828,10 +828,10 @@ func TestFullJoinStreams_EmptyStream(t *testing.T) {
 		return sum
 	}
 
-	result := FullJoinStreams(
+	result := stream.MustCollect(FullJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 10},
@@ -856,10 +856,10 @@ func TestFullJoinStreams_AllEmptyStreams(t *testing.T) {
 		return sum
 	}
 
-	result := FullJoinStreams(
+	result := stream.MustCollect(FullJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	require.Empty(t, result)
 }
@@ -889,10 +889,10 @@ func TestFullJoinStreams_InterleavedTimestamps(t *testing.T) {
 		return sum
 	}
 
-	result := FullJoinStreams(
+	result := stream.MustCollect(FullJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[int]{
 		{Timestamp: unixInLoc(60, loc), Value: 1},
@@ -939,10 +939,10 @@ func TestFullJoinStreams_ComplexJoiner(t *testing.T) {
 		}
 	}
 
-	result := FullJoinStreams(
+	result := stream.MustCollect(FullJoinStreams(
 		[]stream.Stream[TsRecord[float64]]{cpuStream, memoryStream, diskStream},
 		joiner,
-	).MustCollect()
+	))
 
 	cpu60 := 50.5
 	mem60 := 1024.0
@@ -985,10 +985,10 @@ func TestFullJoinStreams_NilPointerDistinction(t *testing.T) {
 		return result
 	}
 
-	result := FullJoinStreams(
+	result := stream.MustCollect(FullJoinStreams(
 		[]stream.Stream[TsRecord[int]]{stream1, stream2},
 		joiner,
-	).MustCollect()
+	))
 
 	expected := []TsRecord[string]{
 		{Timestamp: unixInLoc(60, loc), Value: "AB"}, // Both have values (even though they're 0)

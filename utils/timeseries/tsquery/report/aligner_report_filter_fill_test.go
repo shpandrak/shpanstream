@@ -50,7 +50,7 @@ func testInterpolatingReportAlignerFilterAsExpected(
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
-	result := outputResult.Stream().MustCollect()
+	result := stream.MustCollect(outputResult.Stream())
 
 	// Assert the results
 	// Compare timestamps first for easier debugging if lengths differ
@@ -107,7 +107,7 @@ func testInterpolatingReportAlignerFilterWithFieldMeta(
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
-	result := outputResult.Stream().MustCollect()
+	result := stream.MustCollect(outputResult.Stream())
 
 	// Assert the results
 	require.EqualValues(t,
@@ -156,7 +156,7 @@ func TestAlignerFilter_FillLinear_BasicGapFilling(t *testing.T) {
 	outputResult, err := alignerFilter.Filter(ctx, NewResult(fieldsMeta, inputStream))
 	require.NoError(t, err)
 
-	result := outputResult.Stream().MustCollect()
+	result := stream.MustCollect(outputResult.Stream())
 
 	// Should have 61 points: t=0, t=60, t=120, ..., t=3600
 	require.Len(t, result, 61)
@@ -232,7 +232,7 @@ func TestAlignerFilter_FillForwardFill_BasicGapFilling(t *testing.T) {
 	outputResult, err := alignerFilter.Filter(ctx, NewResult(fieldsMeta, inputStream))
 	require.NoError(t, err)
 
-	result := outputResult.Stream().MustCollect()
+	result := stream.MustCollect(outputResult.Stream())
 
 	// Should have 61 points: t=0, t=60, t=120, ..., t=3600
 	require.Len(t, result, 61)
@@ -306,7 +306,7 @@ func TestAlignerFilter_FillLinear_IntegerDataType(t *testing.T) {
 	outputResult, err := alignerFilter.Filter(ctx, NewResult(fieldsMeta, inputStream))
 	require.NoError(t, err)
 
-	result := outputResult.Stream().MustCollect()
+	result := stream.MustCollect(outputResult.Stream())
 
 	// Should have 61 points
 	require.Len(t, result, 61)

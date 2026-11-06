@@ -43,11 +43,11 @@ func entries$i(ctx context.Context) stream.Stream[shpanstream.Entry[string, T$i]
 
 // Use$i exercises the five operations every repository type pays for.
 func Use$i(ctx context.Context) (int, error) {
-	all, err := entries$i(ctx).Filter(func(e shpanstream.Entry[string, T$i]) bool { return e.Value.Rank > 0 }).Collect(ctx)
+	all, err := stream.Collect(ctx, entries$i(ctx).Filter(func(e shpanstream.Entry[string, T$i]) bool { return e.Value.Rank > 0 }))
 	if err != nil {
 		return 0, err
 	}
-	first, found, err := list$i(ctx).FindFirst(ctx)
+	first, found, err := stream.FindFirst(ctx, list$i(ctx))
 	if err != nil {
 		return 0, err
 	}

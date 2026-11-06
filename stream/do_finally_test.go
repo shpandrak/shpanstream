@@ -25,9 +25,8 @@ func TestDoFinally_OpenFailureFiresError(t *testing.T) {
 	var calls int
 	var got error
 
-	_, err := Error[int](boom).
-		DoFinally(func(e error) { calls++; got = e }).
-		Collect(context.Background())
+	_, err := Collect(context.Background(), Error[int](boom).
+		DoFinally(func(e error) { calls++; got = e }))
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, boom)
@@ -41,9 +40,8 @@ func TestDoFinally_OpenFailureBuriedUnderOperatorFiresError(t *testing.T) {
 	var got error
 
 	s := Error[int](boom).DoFinally(func(e error) { calls++; got = e })
-	_, err := Map(s, func(i int) int { return i }).
-		Filter(func(i int) bool { return true }).
-		Collect(context.Background())
+	_, err := Collect(context.Background(), Map(s, func(i int) int { return i }).
+		Filter(func(i int) bool { return true }))
 
 	require.Error(t, err)
 	require.Equal(t, 1, calls)
@@ -69,9 +67,9 @@ func TestDoFinally_OpenFailureFiresOncePerConsumption(t *testing.T) {
 	var calls int
 	s := Error[int](boom).DoFinally(func(e error) { calls++ })
 
-	_, err := s.Collect(context.Background())
+	_, err := Collect(context.Background(), s)
 	require.Error(t, err)
-	_, err = s.Collect(context.Background())
+	_, err = Collect(context.Background(), s)
 	require.Error(t, err)
 
 	require.Equal(t, 2, calls)
@@ -82,9 +80,8 @@ func TestDoFinally_SuccessFiresNilOnce(t *testing.T) {
 	var got error
 	got = errors.New("sentinel-not-called")
 
-	out, err := Just(1, 2, 3).
-		DoFinally(func(e error) { calls++; got = e }).
-		Collect(context.Background())
+	out, err := Collect(context.Background(), Just(1, 2, 3).
+		DoFinally(func(e error) { calls++; got = e }))
 
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3}, out)
@@ -97,9 +94,8 @@ func TestDoFinally_ProviderErrorFiresThatError(t *testing.T) {
 	var calls int
 	var got error
 
-	_, err := errAt(Just(1, 2, 3, 4), 3, boom).
-		DoFinally(func(e error) { calls++; got = e }).
-		Collect(context.Background())
+	_, err := Collect(context.Background(), errAt(Just(1, 2, 3, 4), 3, boom).
+		DoFinally(func(e error) { calls++; got = e }))
 
 	require.Error(t, err)
 	require.Equal(t, 1, calls)
@@ -132,10 +128,8 @@ func TestDoFinally_LimitTruncationFiresNil(t *testing.T) {
 	var calls int
 	var got error = errors.New("sentinel-not-called")
 
-	out, err := Just(1, 2, 3, 4, 5).
-		DoFinally(func(e error) { calls++; got = e }).
-		Limit(2).
-		Collect(context.Background())
+	out, err := Collect(context.Background(), Limit(Just(1, 2, 3, 4, 5).
+		DoFinally(func(e error) { calls++; got = e }), 2))
 
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2}, out)
@@ -150,7 +144,7 @@ func TestDoFinally_BuriedInConcatFiresLocally(t *testing.T) {
 	s1 := Just(1, 2).DoFinally(func(e error) { calls++; got = e })
 	s2 := Just(3, 4)
 
-	out, err := ConcatStreams(s1, s2).Collect(context.Background())
+	out, err := Collect(context.Background(), ConcatStreams(s1, s2))
 
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3, 4}, out)
@@ -173,8 +167,7 @@ func TestDoFinally_MergeErrorIsPerNode(t *testing.T) {
 	s2 := Just(15, 25).
 		DoFinally(func(e error) { s2Calls++; s2Err = e })
 
-	_, err := MergeSortedStreams(func(a, b int) int { return a - b }, s1, s2).
-		Collect(context.Background())
+	_, err := Collect(context.Background(), MergeSortedStreams(func(a, b int) int { return a - b }, s1, s2))
 
 	require.Error(t, err)
 
@@ -190,10 +183,8 @@ func TestDoFinally_SurvivesDownstreamOperators(t *testing.T) {
 	var got error = errors.New("sentinel-not-called")
 
 	s := Just(1, 2, 3, 4, 5, 6).DoFinally(func(e error) { calls++; got = e })
-	out, err := Map(s, func(i int) int { return i * 10 }).
-		Filter(func(i int) bool { return i > 20 }).
-		Limit(2).
-		Collect(context.Background())
+	out, err := Collect(context.Background(), Limit(Map(s, func(i int) int { return i * 10 }).
+		Filter(func(i int) bool { return i > 20 }), 2))
 
 	require.NoError(t, err)
 	require.Equal(t, []int{30, 40}, out)
@@ -205,18 +196,17 @@ func TestDoFinally_FiresOncePerConsumption(t *testing.T) {
 	var calls int
 	s := Just(1, 2, 3).DoFinally(func(e error) { calls++ })
 
-	_, err := s.Collect(context.Background())
+	_, err := Collect(context.Background(), s)
 	require.NoError(t, err)
-	_, err = s.Collect(context.Background())
+	_, err = Collect(context.Background(), s)
 	require.NoError(t, err)
 
 	require.Equal(t, 2, calls)
 }
 
 func TestDoFinally_PanickingHookDoesNotCrashConsumer(t *testing.T) {
-	out, err := Just(1, 2, 3).
-		DoFinally(func(e error) { panic("hook boom") }).
-		Collect(context.Background())
+	out, err := Collect(context.Background(), Just(1, 2, 3).
+		DoFinally(func(e error) { panic("hook boom") }))
 
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3}, out)
@@ -273,9 +263,8 @@ func TestDoFinally_EmptyStreamFiresNil(t *testing.T) {
 	var calls int
 	var got error = errors.New("sentinel-not-called")
 
-	out, err := Empty[int]().
-		DoFinally(func(e error) { calls++; got = e }).
-		Collect(context.Background())
+	out, err := Collect(context.Background(), Empty[int]().
+		DoFinally(func(e error) { calls++; got = e }))
 
 	require.NoError(t, err)
 	require.Empty(t, out)
@@ -288,10 +277,9 @@ func TestDoFinally_MultipleHooksAllFire(t *testing.T) {
 	var a, b error
 	var aCalls, bCalls int
 
-	_, err := errAt(Just(1, 2, 3), 2, boom).
+	_, err := Collect(context.Background(), errAt(Just(1, 2, 3), 2, boom).
 		DoFinally(func(e error) { aCalls++; a = e }).
-		DoFinally(func(e error) { bCalls++; b = e }).
-		Collect(context.Background())
+		DoFinally(func(e error) { bCalls++; b = e }))
 
 	require.Error(t, err)
 	require.Equal(t, 1, aCalls)
@@ -307,14 +295,13 @@ func TestDoFinally_PipelinePanicFiresRecoveredError(t *testing.T) {
 	var calls int
 	var got error
 
-	_, err := Map(Just(1, 2, 3), func(i int) int {
+	_, err := Collect(context.Background(), Map(Just(1, 2, 3), func(i int) int {
 		if i == 2 {
 			panic("pipeline boom")
 		}
 		return i
 	}).
-		DoFinally(func(e error) { calls++; got = e }).
-		Collect(context.Background())
+		DoFinally(func(e error) { calls++; got = e }))
 
 	require.Error(t, err)
 	require.ErrorContains(t, err, "pipeline boom")
@@ -328,14 +315,13 @@ func TestDoFinally_PipelinePanicWithErrorValueFiresMatchingError(t *testing.T) {
 	boom := errors.New("boom")
 	var got error
 
-	_, err := Map(Just(1, 2, 3), func(i int) int {
+	_, err := Collect(context.Background(), Map(Just(1, 2, 3), func(i int) int {
 		if i == 2 {
 			panic(boom)
 		}
 		return i
 	}).
-		DoFinally(func(e error) { got = e }).
-		Collect(context.Background())
+		DoFinally(func(e error) { got = e }))
 
 	require.ErrorIs(t, err, boom)
 	require.ErrorIs(t, got, boom)
@@ -347,7 +333,7 @@ func TestDoFinally_DownstreamPanicFiresNil(t *testing.T) {
 	var calls int
 	var got error = errors.New("sentinel-not-called")
 
-	_, err := Map(
+	_, err := Collect(context.Background(), Map(
 		Just(1, 2, 3).DoFinally(func(e error) { calls++; got = e }),
 		func(i int) int {
 			if i == 2 {
@@ -355,7 +341,7 @@ func TestDoFinally_DownstreamPanicFiresNil(t *testing.T) {
 			}
 			return i
 		},
-	).Collect(context.Background())
+	))
 
 	require.Error(t, err)
 	require.Equal(t, 1, calls)
@@ -388,14 +374,13 @@ func TestDoFinally_LegacyPanicNilDoesNotCorruptStream(t *testing.T) {
 	t.Setenv("GODEBUG", "panicnil=1")
 
 	var got error
-	out, err := Map(Just(1, 2, 3), func(i int) int {
+	out, err := Collect(context.Background(), Map(Just(1, 2, 3), func(i int) int {
 		if i == 2 {
 			panic(nil)
 		}
 		return i
 	}).
-		DoFinally(func(e error) { got = e }).
-		Collect(context.Background())
+		DoFinally(func(e error) { got = e }))
 
 	require.Error(t, err)
 	require.NotContains(t, out, 0) // no spurious zero element
@@ -415,11 +400,11 @@ func TestDoFinally_ReconsumeAfterPanicFiresOwnOutcome(t *testing.T) {
 		return i
 	}).DoFinally(func(e error) { outcomes = append(outcomes, e) })
 
-	_, err := s.Collect(context.Background())
+	_, err := Collect(context.Background(), s)
 	require.Error(t, err)
 
 	shouldPanic = false
-	out, err := s.Collect(context.Background())
+	out, err := Collect(context.Background(), s)
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3}, out)
 
@@ -439,14 +424,13 @@ func TestDoFinally_GoexitFiresNil(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_, _ = Map(Just(1, 2, 3), func(i int) int {
+		_, _ = Collect(context.Background(), Map(Just(1, 2, 3), func(i int) int {
 			if i == 2 {
 				runtime.Goexit()
 			}
 			return i
 		}).
-			DoFinally(func(e error) { calls++; got = e }).
-			Collect(context.Background())
+			DoFinally(func(e error) { calls++; got = e }))
 	}()
 	<-done
 
