@@ -1,6 +1,6 @@
 module github.com/shpandrak/shpanstream/integrations/sql
 
-go 1.23
+go 1.27
 
 require (
 	// test dependency only

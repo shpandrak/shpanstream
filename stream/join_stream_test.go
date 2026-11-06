@@ -87,8 +87,8 @@ func TestJoinSortedStreams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(
 				t,
-				tt.want.MustCollect(),
-				Map(
+				MustCollect(tt.want),
+				MustCollect(Map(
 					JoinSortedStreams(
 						tt.leftStream,
 						tt.rightStream,
@@ -103,7 +103,7 @@ func TestJoinSortedStreams(t *testing.T) {
 					func(t shpanstream.Tuple2[int, int]) int {
 						return t.A
 					},
-				).MustCollect(),
+				)),
 			)
 		})
 	}

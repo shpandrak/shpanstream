@@ -11,13 +11,11 @@ import (
 func TestDoFirst_RunsBeforeSourceOpen(t *testing.T) {
 	var order []string
 
-	out, err := Just(1, 2, 3).
-		WithAdditionalLifecycle(NewLifecycle(
-			func(ctx context.Context) error { order = append(order, "source-open"); return nil },
-			func() { order = append(order, "source-close") },
-		)).
-		DoFirst(func(context.Context) { order = append(order, "first") }).
-		Collect(context.Background())
+	out, err := Collect(context.Background(), WithAdditionalLifecycle(Just(1, 2, 3), NewLifecycle(
+		func(ctx context.Context) error { order = append(order, "source-open"); return nil },
+		func() { order = append(order, "source-close") },
+	)).
+		DoFirst(func(context.Context) { order = append(order, "first") }))
 
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3}, out)
@@ -29,10 +27,9 @@ func TestDoFirst_OpenFailureHookRanAndDoFinallyGetsError(t *testing.T) {
 	var firstCalls, finallyCalls int
 	var got error
 
-	_, err := Error[int](boom).
+	_, err := Collect(context.Background(), Error[int](boom).
 		DoFirst(func(context.Context) { firstCalls++ }).
-		DoFinally(func(e error) { finallyCalls++; got = e }).
-		Collect(context.Background())
+		DoFinally(func(e error) { finallyCalls++; got = e }))
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, boom)
@@ -45,18 +42,17 @@ func TestDoFirst_FiresPerConsumption(t *testing.T) {
 	var calls int
 	s := Just(1).DoFirst(func(context.Context) { calls++ })
 
-	_, err := s.Collect(context.Background())
+	_, err := Collect(context.Background(), s)
 	require.NoError(t, err)
-	_, err = s.Collect(context.Background())
+	_, err = Collect(context.Background(), s)
 	require.NoError(t, err)
 
 	require.Equal(t, 2, calls)
 }
 
 func TestDoFirst_PanickingHookDoesNotFailDrain(t *testing.T) {
-	out, err := Just(1, 2).
-		DoFirst(func(context.Context) { panic("kaboom") }).
-		Collect(context.Background())
+	out, err := Collect(context.Background(), Just(1, 2).
+		DoFirst(func(context.Context) { panic("kaboom") }))
 
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2}, out)
@@ -65,10 +61,9 @@ func TestDoFirst_PanickingHookDoesNotFailDrain(t *testing.T) {
 func TestDoFirst_MultipleHooksLastDeclaredRunsFirst(t *testing.T) {
 	var order []string
 
-	_, err := Just(1).
+	_, err := Collect(context.Background(), Just(1).
 		DoFirst(func(context.Context) { order = append(order, "a") }).
-		DoFirst(func(context.Context) { order = append(order, "b") }).
-		Collect(context.Background())
+		DoFirst(func(context.Context) { order = append(order, "b") }))
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"b", "a"}, order)
@@ -77,13 +72,12 @@ func TestDoFirst_MultipleHooksLastDeclaredRunsFirst(t *testing.T) {
 func TestDoFirst_StaysFirstUnderDownstreamOperators(t *testing.T) {
 	var order []string
 
-	s := Just(1, 2, 3).
-		DoFirst(func(context.Context) { order = append(order, "first") }).
-		WithAdditionalLifecycle(NewLifecycle(
-			func(ctx context.Context) error { order = append(order, "later-open"); return nil },
-			nil,
-		))
-	out, err := s.Filter(func(i int) bool { return i > 1 }).Collect(context.Background())
+	s := WithAdditionalLifecycle(Just(1, 2, 3).
+		DoFirst(func(context.Context) { order = append(order, "first") }), NewLifecycle(
+		func(ctx context.Context) error { order = append(order, "later-open"); return nil },
+		nil,
+	))
+	out, err := Collect(context.Background(), s.Filter(func(i int) bool { return i > 1 }))
 
 	require.NoError(t, err)
 	require.Equal(t, []int{2, 3}, out)

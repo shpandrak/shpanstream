@@ -44,7 +44,7 @@ func TestOverrideFieldMetadataFilter_OverrideUrn(t *testing.T) {
 	require.Equal(t, "count", result.Meta().Unit())
 
 	// Verify data stream unchanged
-	resultRecords := result.Data().MustCollect()
+	resultRecords := stream.MustCollect(result.Data())
 	require.Equal(t, records, resultRecords)
 }
 
@@ -80,7 +80,7 @@ func TestOverrideFieldMetadataFilter_OverrideUnit(t *testing.T) {
 	require.Equal(t, true, result.Meta().Required())
 
 	// Verify data stream unchanged
-	resultRecords := result.Data().MustCollect()
+	resultRecords := stream.MustCollect(result.Data())
 	require.Equal(t, records, resultRecords)
 }
 
@@ -131,7 +131,7 @@ func TestOverrideFieldMetadataFilter_OverrideCustomMeta(t *testing.T) {
 	require.Equal(t, "units", result.Meta().Unit())
 
 	// Verify data stream unchanged
-	resultRecords := result.Data().MustCollect()
+	resultRecords := stream.MustCollect(result.Data())
 	require.Equal(t, records, resultRecords)
 }
 
@@ -178,7 +178,7 @@ func TestOverrideFieldMetadataFilter_OverrideMultipleFields(t *testing.T) {
 	require.Equal(t, true, result.Meta().Required())
 
 	// Verify data stream unchanged
-	resultRecords := result.Data().MustCollect()
+	resultRecords := stream.MustCollect(result.Data())
 	require.Equal(t, records, resultRecords)
 }
 
@@ -210,7 +210,7 @@ func TestOverrideFieldMetadataFilter_NoOverrides(t *testing.T) {
 	require.Equal(t, true, result.Meta().Required())
 
 	// Verify data stream unchanged
-	resultRecords := result.Data().MustCollect()
+	resultRecords := stream.MustCollect(result.Data())
 	require.Equal(t, records, resultRecords)
 }
 
@@ -373,6 +373,6 @@ func TestOverrideFieldMetadataFilter_PreservesStreamData(t *testing.T) {
 	require.Equal(t, newCustomMeta, result.Meta().CustomMeta())
 
 	// Verify data stream is completely unchanged
-	resultRecords := result.Data().MustCollect()
+	resultRecords := stream.MustCollect(result.Data())
 	require.Equal(t, records, resultRecords)
 }

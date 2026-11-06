@@ -141,11 +141,11 @@ func TestJoinMultipleSortedStreams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := JoinMultipleSortedStreams(
+			got := MustCollect(JoinMultipleSortedStreams(
 				tt.streams,
 				shpanstream.ComparatorForOrdered[int](),
 				joiner,
-			).MustCollect()
+			))
 
 			require.Equal(t, tt.want, got)
 		})
@@ -165,7 +165,7 @@ func TestJoinMultipleSortedStreams_UnsortedStreamError(t *testing.T) {
 	)
 
 	require.Panics(t, func() {
-		stream.MustCollect()
+		MustCollect(stream)
 	})
 }
 
@@ -183,7 +183,7 @@ func TestJoinMultipleSortedStreams_MultipleUnsortedStreams(t *testing.T) {
 	)
 
 	require.Panics(t, func() {
-		stream.MustCollect()
+		MustCollect(stream)
 	})
 }
 
@@ -215,11 +215,11 @@ func TestJoinMultipleSortedStreams_CustomJoiner(t *testing.T) {
 		}
 	}
 
-	result := JoinMultipleSortedStreams(
+	result := MustCollect(JoinMultipleSortedStreams(
 		[]Stream[int]{ids, addresses, phones},
 		shpanstream.ComparatorForOrdered[int](),
 		joiner,
-	).MustCollect()
+	))
 
 	// Only ID 3 appears in all three streams
 	expected := []person{
@@ -239,11 +239,11 @@ func TestJoinMultipleSortedStreams_IntegerJoiner(t *testing.T) {
 		return sum
 	}
 
-	result := JoinMultipleSortedStreams(
+	result := MustCollect(JoinMultipleSortedStreams(
 		[]Stream[int]{Just(1, 2, 3), Just(1, 2, 3), Just(1, 2, 3)},
 		shpanstream.ComparatorForOrdered[int](),
 		sumJoiner,
-	).MustCollect()
+	))
 
 	expected := []int{3, 6, 9} // 1+1+1, 2+2+2, 3+3+3
 

@@ -43,7 +43,7 @@ func (cf ConditionFilter) Filter(ctx context.Context, result Result) (Result, er
 	}
 
 	// Filter the stream to keep only rows where the condition is true
-	filteredStream := result.Data().FilterWithErAndCtx(
+	filteredStream := result.Data().FilterWithErrAndCtx(
 		func(ctx context.Context, record timeseries.TsRecord[any]) (bool, error) {
 			conditionValue, err := valueSupplier(ctx, record)
 			if err != nil {

@@ -86,7 +86,7 @@ func TestReductionDatasource_SumAllDatasources_Decimal(t *testing.T) {
 	require.Equal(t, "", meta.Unit()) // Different units, so no unit preserved
 
 	// Verify values
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// First record: 20.0 + 60.0 + 1013.0 = 1093.0
@@ -138,7 +138,7 @@ func TestReductionDatasource_Sum_Integer(t *testing.T) {
 	require.Equal(t, "items", meta.Unit()) // Same unit preserved
 
 	// Verify values
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// First record: 10 + 20 + 30 = 60
@@ -185,7 +185,7 @@ func TestReductionDatasource_AvgAllDatasources_Decimal(t *testing.T) {
 	require.True(t, meta.Required())
 
 	// Verify values
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 
 	// (20.0 + 60.0 + 90.0) / 3 = 56.666...
@@ -217,7 +217,7 @@ func TestReductionDatasource_MinMax_Integer(t *testing.T) {
 	minResult, err := reductionDSMin.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	minRecords := minResult.Data().MustCollect()
+	minRecords := stream.MustCollect(minResult.Data())
 	require.Equal(t, int64(50), minRecords[0].Value) // min(100, 50) = 50
 
 	// Test MAX
@@ -232,7 +232,7 @@ func TestReductionDatasource_MinMax_Integer(t *testing.T) {
 	maxResult, err := reductionDSMax.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	maxRecords := maxResult.Data().MustCollect()
+	maxRecords := stream.MustCollect(maxResult.Data())
 	require.Equal(t, int64(75), maxRecords[0].Value) // max(50, 75) = 75
 }
 
@@ -273,7 +273,7 @@ func TestReductionDatasource_Count(t *testing.T) {
 	require.True(t, meta.Required())
 
 	// Verify values
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 
 	// Count of 3 datasources
@@ -444,7 +444,7 @@ func TestReductionDatasource_MultipleRecordsProcessedCorrectly(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify all records processed
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 4)
 
 	// Verify each record's sum
@@ -503,7 +503,7 @@ func TestReductionDatasource_AlignsMisalignedData_Sum(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify records
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// At 0:00 - DS1 has 100 (exact), DS2 needs interpolation (smearing first value) = 200
@@ -564,7 +564,7 @@ func TestReductionDatasource_AlignsMisalignedData_WeightedAverage(t *testing.T) 
 	require.NoError(t, err)
 
 	// Verify records
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// At 0:00 - DS1 = 10.0, DS2 smears first value = 100.0
@@ -629,7 +629,7 @@ func TestReductionDatasource_HandlesPartialOverlap(t *testing.T) {
 	// Hour 2: DS1 has 30, DS2 interpolates between 100@1:15 and 200@2:15 = 175 (halfway) -> record (205)
 	// Hour 3: DS1 has 40, DS2 interpolates between 200@2:15 and 300@3:15 = 275 (halfway) -> record (315)
 	// Hour 4: DS2 has data, DS1 doesn't = no record (inner join)
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3) // Hours 1, 2, 3
 
 	// Verify timestamps and values
@@ -675,7 +675,7 @@ func TestReductionDatasource_NoAligner(t *testing.T) {
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	require.Equal(t, int64(30), records[0].Value)
 	require.Equal(t, baseTime, records[0].Timestamp)
@@ -738,7 +738,7 @@ func TestReductionDatasource_SingleDatasource_Sum(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify data returned as-is
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 	require.Equal(t, int64(100), records[0].Value)
 	require.Equal(t, int64(200), records[1].Value)
@@ -776,7 +776,7 @@ func TestReductionDatasource_SingleDatasource_Avg(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify data returned as-is
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	require.Equal(t, 42.5, records[0].Value)
 
@@ -810,7 +810,7 @@ func TestReductionDatasource_SingleDatasource_MinMax(t *testing.T) {
 	minResult, err := reductionDSMin.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	minRecords := minResult.Data().MustCollect()
+	minRecords := stream.MustCollect(minResult.Data())
 	require.Len(t, minRecords, 2)
 	require.Equal(t, int64(50), minRecords[0].Value)
 	require.Equal(t, int64(75), minRecords[1].Value)
@@ -827,7 +827,7 @@ func TestReductionDatasource_SingleDatasource_MinMax(t *testing.T) {
 	maxResult, err := reductionDSMax.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	maxRecords := maxResult.Data().MustCollect()
+	maxRecords := stream.MustCollect(maxResult.Data())
 	require.Len(t, maxRecords, 2)
 	require.Equal(t, int64(50), maxRecords[0].Value)
 	require.Equal(t, int64(75), maxRecords[1].Value)
@@ -863,7 +863,7 @@ func TestReductionDatasource_SingleDatasource_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify Count returns 1 for each record, NOT the original values
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 	require.Equal(t, int64(1), records[0].Value) // NOT 100
 	require.Equal(t, int64(1), records[1].Value) // NOT 200
@@ -912,7 +912,7 @@ func TestReductionDatasource_FirstWithString(t *testing.T) {
 	require.True(t, meta.Required())
 
 	// Verify values - first datasource's value should be selected
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 	require.Equal(t, "host-a", records[0].Value)
 	require.Equal(t, "host-a", records[1].Value)
@@ -954,7 +954,7 @@ func TestReductionDatasource_IncludePartial_SumWithGaps(t *testing.T) {
 		result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 		require.NoError(t, err)
 
-		records := result.Data().MustCollect()
+		records := stream.MustCollect(result.Data())
 		require.Len(t, records, 3) // Only T1-T3 where all sources have data
 
 		require.Equal(t, 111.0, records[0].Value) // 10 + 100 + 1
@@ -980,7 +980,7 @@ func TestReductionDatasource_IncludePartial_SumWithGaps(t *testing.T) {
 		result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 		require.NoError(t, err)
 
-		records := result.Data().MustCollect()
+		records := stream.MustCollect(result.Data())
 		require.Len(t, records, 6) // All 6 timestamps
 
 		// T1-T3: all sources present → A+B+C
@@ -1026,7 +1026,7 @@ func TestReductionDatasource_IncludePartial_AvgWithGaps(t *testing.T) {
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// T1: all 3 present → (30+60+90)/3 = 60.0
@@ -1070,7 +1070,7 @@ func TestReductionDatasource_IncludePartial_CountWithGaps(t *testing.T) {
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// T1: all 3 present → count = 3
@@ -1108,7 +1108,7 @@ func TestReductionDatasource_IncludePartial_NoOverlap(t *testing.T) {
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 4) // All 4 timestamps produce results
 
 	// T1: only A → sum = 10.0
@@ -1154,7 +1154,7 @@ func TestReductionDatasource_IncludePartial_SingleDatasource(t *testing.T) {
 	require.NoError(t, err)
 
 	// Identity optimization should still apply — data returned as-is
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 	require.Equal(t, int64(100), records[0].Value)
 	require.Equal(t, int64(200), records[1].Value)

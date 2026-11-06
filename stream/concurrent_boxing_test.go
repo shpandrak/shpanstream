@@ -21,11 +21,11 @@ type boxedElem struct {
 
 func TestConcurrentMap_StructElementsRoundTrip(t *testing.T) {
 	src := []boxedElem{{"a", 1}, {"b", 2}, {"c", 3}, {"d", 4}, {"e", 5}}
-	out, err := Map(
+	out, err := Collect(context.Background(), Map(
 		FromSlice(src),
 		func(e boxedElem) boxedElem { return boxedElem{Id: e.Id + e.Id, Rank: e.Rank * 10} },
 		WithConcurrentMapOption(3),
-	).Collect(context.Background())
+	))
 	require.NoError(t, err)
 	sort.Slice(out, func(i, j int) bool { return out[i].Rank < out[j].Rank })
 	require.Equal(t, []boxedElem{{"aa", 10}, {"bb", 20}, {"cc", 30}, {"dd", 40}, {"ee", 50}}, out)
@@ -34,11 +34,11 @@ func TestConcurrentMap_StructElementsRoundTrip(t *testing.T) {
 func TestConcurrentMap_InterfaceElementsIncludingNil(t *testing.T) {
 	// A nil `any` element must survive boxing as a nil element, not get dropped or panic on unbox.
 	src := []any{nil, 1, "two", nil, 3.0}
-	out, err := Map(
+	out, err := Collect(context.Background(), Map(
 		FromSlice(src),
 		func(v any) any { return v },
 		WithConcurrentMapOption(2),
-	).Collect(context.Background())
+	))
 	require.NoError(t, err)
 	require.Len(t, out, len(src))
 	nils := 0
@@ -53,11 +53,11 @@ func TestConcurrentMap_InterfaceElementsIncludingNil(t *testing.T) {
 func TestConcurrentMap_TypedNilPointerElements(t *testing.T) {
 	one := 1
 	src := []*int{&one, nil, &one, nil}
-	out, err := Map(
+	out, err := Collect(context.Background(), Map(
 		FromSlice(src),
 		func(p *int) *int { return p },
 		WithConcurrentMapOption(2),
-	).Collect(context.Background())
+	))
 	require.NoError(t, err)
 	require.Len(t, out, 4)
 	nils, ones := 0, 0
@@ -74,11 +74,11 @@ func TestConcurrentMap_TypedNilPointerElements(t *testing.T) {
 }
 
 func TestConcurrentMap_ZeroValuedResultsAreKept(t *testing.T) {
-	out, err := Map(
+	out, err := Collect(context.Background(), Map(
 		Just(1, 2, 3, 4),
 		func(int) int { return 0 },
 		WithConcurrentMapOption(2),
-	).Collect(context.Background())
+	))
 	require.NoError(t, err)
 	require.Equal(t, []int{0, 0, 0, 0}, out)
 }
@@ -90,20 +90,19 @@ func TestConcurrentMap_SourceErrorSurfacedAndStreamClosed(t *testing.T) {
 		func(ctx context.Context) (int, error) { return 0, boom },
 		WithCloseFuncOption(func() { closed.Add(1) }),
 	)
-	_, err := Map(src, func(v int) int { return v }, WithConcurrentMapOption(2)).Collect(context.Background())
+	_, err := Collect(context.Background(), Map(src, func(v int) int { return v }, WithConcurrentMapOption(2)))
 	require.ErrorIs(t, err, boom)
 	require.Equal(t, int32(1), closed.Load(), "the source must be closed exactly once after a source error")
 }
 
 func TestConcurrentMap_OpenFailureSurfaced(t *testing.T) {
 	boom := errors.New("open boom")
-	_, err := Map(Error[int](boom), func(v int) int { return v }, WithConcurrentMapOption(2)).Collect(context.Background())
+	_, err := Collect(context.Background(), Map(Error[int](boom), func(v int) int { return v }, WithConcurrentMapOption(2)))
 	require.ErrorIs(t, err, boom)
 }
 
 func TestConcurrentMap_RejectsUnsupportedOption(t *testing.T) {
-	_, err := MapWithErrAndCtx(Just(1), func(_ context.Context, v int) (int, error) { return v, nil }, unsupportedMapOption{}).
-		Collect(context.Background())
+	_, err := Collect(context.Background(), MapWithErrAndCtx(Just(1), func(_ context.Context, v int) (int, error) { return v, nil }, unsupportedMapOption{}))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported map stream option type")
 }

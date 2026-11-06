@@ -1,6 +1,6 @@
 module compilesize
 
-go 1.23
+go 1.27
 
 require github.com/shpandrak/shpanstream v0.0.0
 

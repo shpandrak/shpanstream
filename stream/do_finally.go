@@ -44,9 +44,12 @@ import (
 // consumer-side failure (the consume callback erroring, or a consumer panic) is not the stream's
 // terminal outcome and is reported here as err == nil — that error remains the return value of
 // Consume/Collect/Reduce.
-//
+func (s Stream[T]) DoFinally[F ~func(err error)](f F) Stream[T] {
+	return doFinally(s, (func(error))(f))
+}
+
 //go:noinline
-func (s Stream[T]) DoFinally(f func(err error)) Stream[T] {
+func doFinally[T any](s Stream[T], f func(err error)) Stream[T] {
 	n := &finallyNode{f: f}
 	return newStream(
 		func(ctx context.Context) (v T, err error) {

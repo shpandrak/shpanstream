@@ -7,8 +7,11 @@ import (
 	"github.com/shpandrak/shpanstream/internal/util"
 )
 
+// Limit returns a stream of at most the first limit elements of s. Once limit elements have been
+// emitted, no further element is pulled from s.
+//
 //go:noinline
-func (s Stream[T]) Limit(limit int) Stream[T] {
+func Limit[T any](s Stream[T], limit int) Stream[T] {
 	if limit <= 0 {
 		return Empty[T]()
 	}
@@ -28,8 +31,10 @@ func (s Stream[T]) Limit(limit int) Stream[T] {
 	}, s.allLifecycleElement)
 }
 
+// Skip returns a stream of the elements of s after the first skip ones.
+//
 //go:noinline
-func (s Stream[T]) Skip(skip int) Stream[T] {
+func Skip[T any](s Stream[T], skip int) Stream[T] {
 	alreadySkipped := false
 	return newStream[T](func(ctx context.Context) (T, error) {
 		if ctx.Err() != nil {
@@ -49,10 +54,12 @@ func (s Stream[T]) Skip(skip int) Stream[T] {
 	}, s.allLifecycleElement)
 }
 
-func (s Stream[T]) Page(pageNum int, pageSize int) Stream[T] {
+// Page returns page pageNum (counted from 0) of s, in pages of pageSize elements:
+// Limit(Skip(s, pageNum*pageSize), pageSize). An invalid page gives an empty stream.
+func Page[T any](s Stream[T], pageNum int, pageSize int) Stream[T] {
 	if pageNum < 0 || pageSize <= 0 {
 		return Empty[T]()
 	}
 	skipped := pageNum * pageSize
-	return s.Skip(skipped).Limit(pageSize)
+	return Limit(Skip(s, skipped), pageSize)
 }

@@ -394,7 +394,7 @@ func TestAlignerFilter_OptionalFieldNil_AlignWithReductions_GaugeBoundary(t *tes
 	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
-	got, err := out.Stream().Collect(ctx)
+	got, err := stream.Collect(ctx, out.Stream())
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 
@@ -430,7 +430,7 @@ func TestAlignerFilter_OptionalFieldNil_AlignByInterpolation(t *testing.T) {
 	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
-	got, err := out.Stream().Collect(ctx)
+	got, err := stream.Collect(ctx, out.Stream())
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 
@@ -471,7 +471,7 @@ func TestAlignerFilter_OptionalFieldNil_FillGaps_LinearPerField(t *testing.T) {
 	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
-	got, err := out.Stream().Collect(ctx)
+	got, err := stream.Collect(ctx, out.Stream())
 	require.NoError(t, err)
 	require.Len(t, got, 3)
 
@@ -516,7 +516,7 @@ func TestAlignerFilter_OptionalFieldNil_FillGaps_SingleMode(t *testing.T) {
 	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
-	got, err := out.Stream().Collect(ctx)
+	got, err := stream.Collect(ctx, out.Stream())
 	require.NoError(t, err)
 	require.Len(t, got, 3)
 
@@ -545,7 +545,7 @@ func TestAlignerFilter_RequiredFieldNil_ReturnsTypedError(t *testing.T) {
 	out, err := af.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
-	_, err = out.Stream().Collect(ctx)
+	_, err = stream.Collect(ctx, out.Stream())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `aligner field "must_be_set" is required but has nil bracketing sample`)
 }
@@ -586,7 +586,7 @@ func testAlignerFilterAsExpected(
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
-	result := outputResult.Stream().MustCollect() // Use MustCollect for simplicity in tests
+	result := stream.MustCollect(outputResult.Stream()) // Use MustCollect for simplicity in tests
 
 	// Assert the results
 	// Compare timestamps first for easier debugging if lengths differ
@@ -641,7 +641,7 @@ func testAlignerFilterWithFieldMeta(
 	require.NoError(t, err)
 
 	// Collect the resulting aligned records
-	result := outputResult.Stream().MustCollect() // Use MustCollect for simplicity in tests
+	result := stream.MustCollect(outputResult.Stream()) // Use MustCollect for simplicity in tests
 
 	// Assert the results
 	// Compare timestamps first for easier debugging if lengths differ

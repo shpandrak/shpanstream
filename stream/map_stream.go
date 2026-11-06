@@ -27,7 +27,7 @@ func (c *concurrentMapOption) mapStreamOptionName() string {
 	return "concurrent"
 }
 
-// concurrentMapOptionOf interprets the map options: the first option decides, as it always did. It
+// concurrentMapOptionOf interprets the map options: the first option decides. It
 // reports the concurrency if that option is a concurrent one, or an error for an unsupported option.
 func concurrentMapOptionOf(options []MapOption) (concurrency int, concurrent bool, err error) {
 	for _, opt := range options {
@@ -126,6 +126,26 @@ func MapWhileFilteringWithErrAndCtx[SRC any, TGT any](
 			return *p
 		},
 	)
+}
+
+// Map is the method form of the package-level Map: s.Map(mapper) == Map(s, mapper).
+func (s Stream[T]) Map[U any](mapper func(T) U, options ...MapOption) Stream[U] {
+	return Map[T, U](s, mapper, options...)
+}
+
+// MapWithErr is the method form of the package-level MapWithErr.
+func (s Stream[T]) MapWithErr[U any](mapper func(T) (U, error), options ...MapOption) Stream[U] {
+	return MapWithErr[T, U](s, mapper, options...)
+}
+
+// MapWithErrAndCtx is the method form of the package-level MapWithErrAndCtx.
+func (s Stream[T]) MapWithErrAndCtx[U any](mapper func(context.Context, T) (U, error), options ...MapOption) Stream[U] {
+	return MapWithErrAndCtx[T, U](s, mapper, options...)
+}
+
+// FlatMap is the method form of the package-level FlatMap.
+func (s Stream[T]) FlatMap[U any](mapper func(T) Stream[U]) Stream[U] {
+	return FlatMap[T, U](s, mapper)
 }
 
 // FlatMap maps a single element of the source stream to a stream of elements and flattens the result to a single stream.

@@ -13,18 +13,18 @@ import (
 func TestDoubleCollectionOfMergedStreamWithLocks(t *testing.T) {
 	mu := &sync.RWMutex{}
 
-	s1 := Just(1, 3, 5).WithLockWhileMaterializing(mu.RLocker())
-	s2 := Just(2, 4, 6).WithLockWhileMaterializing(mu.RLocker())
+	s1 := WithLockWhileMaterializing(Just(1, 3, 5), mu.RLocker())
+	s2 := WithLockWhileMaterializing(Just(2, 4, 6), mu.RLocker())
 
 	merged := MergeSortedStreams(cmp.Compare, s1, s2)
 
 	// First collection should work
-	result1, err := merged.Collect(context.Background())
+	result1, err := Collect(context.Background(), merged)
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3, 4, 5, 6}, result1)
 
 	// Second collection should also work
-	result2, err := merged.Collect(context.Background())
+	result2, err := Collect(context.Background(), merged)
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3, 4, 5, 6}, result2, "Second collection should return same results")
 }
@@ -34,25 +34,25 @@ func TestConcatStreamDoubleCollection(t *testing.T) {
 	mu := &sync.RWMutex{}
 
 	innerStreams := []Stream[int]{
-		Just(1, 2, 3).WithLockWhileMaterializing(mu.RLocker()),
-		Just(4, 5, 6).WithLockWhileMaterializing(mu.RLocker()),
-		Just(7, 8, 9).WithLockWhileMaterializing(mu.RLocker()),
+		WithLockWhileMaterializing(Just(1, 2, 3), mu.RLocker()),
+		WithLockWhileMaterializing(Just(4, 5, 6), mu.RLocker()),
+		WithLockWhileMaterializing(Just(7, 8, 9), mu.RLocker()),
 	}
 	outerStream := Just(innerStreams...)
 	concatenated := Concat(outerStream)
 
 	// First collection
-	result1, err := concatenated.Collect(context.Background())
+	result1, err := Collect(context.Background(), concatenated)
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8, 9}, result1)
 
 	// Second collection
-	result2, err := concatenated.Collect(context.Background())
+	result2, err := Collect(context.Background(), concatenated)
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8, 9}, result2, "Second collection should return same results")
 
 	// Third collection to verify no memory leak
-	result3, err := concatenated.Collect(context.Background())
+	result3, err := Collect(context.Background(), concatenated)
 	require.NoError(t, err)
 	require.Equal(t, []int{1, 2, 3, 4, 5, 6, 7, 8, 9}, result3, "Third collection should return same results")
 }
@@ -66,12 +66,12 @@ func TestFlatMapDoubleCollection(t *testing.T) {
 	})
 
 	// First collection
-	result1, err := flatMapped.Collect(context.Background())
+	result1, err := Collect(context.Background(), flatMapped)
 	require.NoError(t, err)
 	require.Equal(t, []int{10, 11, 12, 20, 21, 22, 30, 31, 32}, result1)
 
 	// Second collection - THIS IS THE BUG!
-	result2, err := flatMapped.Collect(context.Background())
+	result2, err := Collect(context.Background(), flatMapped)
 	require.NoError(t, err)
 	require.Equal(t, []int{10, 11, 12, 20, 21, 22, 30, 31, 32}, result2, "Second collection should return same results")
 }
@@ -87,12 +87,12 @@ func TestFromMapKeysDoubleCollection(t *testing.T) {
 	stream := FromMapKeys(m)
 
 	// First collection
-	result1, err := stream.Collect(context.Background())
+	result1, err := Collect(context.Background(), stream)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(result1))
 
 	// Second collection - BUG: Returns empty!
-	result2, err := stream.Collect(context.Background())
+	result2, err := Collect(context.Background(), stream)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(result2), "Second collection should return same results - BUG: Iterator not reset!")
 }
@@ -108,12 +108,12 @@ func TestFromMapValuesDoubleCollection(t *testing.T) {
 	stream := FromMapValues(m)
 
 	// First collection
-	result1, err := stream.Collect(context.Background())
+	result1, err := Collect(context.Background(), stream)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(result1))
 
 	// Second collection - BUG: Returns empty!
-	result2, err := stream.Collect(context.Background())
+	result2, err := Collect(context.Background(), stream)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(result2), "Second collection should return same results - BUG: Iterator not reset!")
 }

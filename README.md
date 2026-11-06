@@ -5,14 +5,13 @@ inspired by modern functional programming languages.
 
 ## At a glance
 
-```go  
+```go
 // Find the first even number in a stream
-first, found, err := Just(1, 2, 3, 4, 5).
-    Filter(func(x int) bool {
-        return x%2 == 0
-    }).
-    FindFirst(ctx)
-	
+first, found, err := stream.FindFirst(ctx,
+    stream.Just(1, 2, 3, 4, 5).
+        Filter(func(x int) bool {
+            return x%2 == 0
+        }))
 ```
 
 ## But... go has channels
@@ -20,15 +19,15 @@ first, found, err := Just(1, 2, 3, 4, 5).
 Channels are powerful low-level concurrency primitives and are the backbone of Go's concurrency model.
 Shpanstream library leverage that, and works great on top of channels, among other options for stream sources.
 
-To get create a stream from a channel, you can use the `FromChannel` function:
+To create a stream from a channel, you can use the `FromChannel` function:
 ```go
 ch := make(chan string)
 
-stream.FromChannel(ch).
+longWords := stream.FromChannel(ch).
     Filter(func(x string) bool {
-        return len(strings) > 10
-    }).
-    //... the rest of the pipeline
+        return len(x) > 10
+    })
+//... the rest of the pipeline
 ```
 
 While channels are great, they lack the composability needed for building complex data processing pipelines.
@@ -43,37 +42,37 @@ manipulate it and stream json response to a clients.
 
 ## Addressing the elephant in the room
 
-So... Go is not a functional programming language, not even close. Go syntax makes it impossible to write "fluent" functional code like in other languages.
+So... Go is not a functional programming language, not even close.
 
 E.g. the following typescript code:
 
 ```typescript
-
 people
     .filter(p => p.age > 18)
     .map(p => p.name)
     .findFirst()
+```
 
-````
-
-is not possible in Go. go generics as implemented today do not allow generics when invoking methods on a type.
-
-with shpanstream you can write similar code, but it will be less fluent and more verbose.
-we have to use the `stream.Map` function to map the stream.
+reads like this with shpanstream:
 
 ```go
-stream.Map(
+firstName, found, err := stream.FindFirst(ctx,
     people.
         Filter(func(p Person) bool {
             return p.Age > 18
-        }),
-	func (p Person) string {
-        return p.Name
-    }).
-    FindFirst(ctx)
+        }).
+        Map(func(p Person) string {
+            return p.Name
+        }))
 ```
 
-Together with go's verbose lambda syntax, and error handling model, it makes the code less fluent and more verbose than in other languages.
+The operations that take a function, such as `Filter` and `Map`, are methods (Go 1.27 generic methods), so they chain.
+The rest are package functions that take the stream: terminal operations such as `stream.FindFirst(ctx, s)`
+and `stream.Collect(ctx, s)`, and a few transforms such as `stream.Limit(s, n)`.
+Keeping them off the type means a program compiles only the operations it calls, for each element type it streams
+(see [why Stream has no plain methods](docs/stream-api-generic-methods.md)).
+
+Still, go's verbose lambda syntax and error handling model make the code more verbose than in other languages.
 
 But... This alone doesn't mean we have to throw the baby out with the bathwater.
 when working with stream processing, functional programming paradigm is more than just syntax sugar.
@@ -89,32 +88,32 @@ Time to unleash the power of functional style stream-processing for Gophers!
 ## 🚀 Install
 
 ```sh
-go get github.com/shpandrak/shpanstream@v0.4.30
+go get github.com/shpandrak/shpanstream@v0.6.0
 ```
+
+Requires Go 1.27 or later. Upgrading from an earlier version? See the [migration guide](docs/migration.md).
 
 ## Examples
 
 ### Functional and Composability
 Streams can be easily composed together, allow building complex data processing pipelines.
 using declarative functional "programming style" API, code can focus on higher-order functions to manipulate data.
-While go generics limits generic functions, making the api less "fluent" than other languages, we can still achiever relatively clean flow
+Operations that take a function chain as methods, and the rest wrap the chain as package functions:
 
-```go  
-    
-// Prints the first 5 weapons of non Hobit LOTR characters
-stream.Map(
+```go
+// Prints the first 5 weapons of non Hobbit LOTR characters
+stream.Limit(
     lotrCharactersRepo.Stream().
         Filter(func(c Character) bool {
             return c.Race != "Hobbit"
+        }).
+        Map(func(c Character) string {
+            return c.Weapon
         }),
-    func (c Character) string {
-        return c.Weapon
-    }).
-    Limit(5).
-    MustConsume(func (w string) {
-        fmt.Println(w)
-    })
-	
+    5,
+).MustConsume(func(w string) {
+    fmt.Println(w)
+})
 ```
 
 ### Idiomatic Error propagation
@@ -127,39 +126,30 @@ this allows streams operations to be composed together without having to add boi
 When errors occur, streams automatically close all the underlying resources using the Provider Close handler (e.g database cursor, file...)
 and propagate the error to the final consumer
 
-Let's go back to the country flags example, and add error handling to the pipeline
-For simplicity, previous iteration ignored errors and used the `stream.Map` that is meant for simple mapping
-since fetching external resources can fail, we will use the `stream.MapWithErr` that allows the mapper to return an error
-
+Let's take the country flags example (see [Concurrency](#concurrency) below), and add error handling to the pipeline.
+`Map` is meant for simple mapping; since fetching external resources can fail, we use `MapWithErr`,
+which allows the mapper to return an error. Here the mapper is
+`fetchCountryFlagCanErr(countryCode string) (CountryInfo, error)`, which fetches the country flag
+from an external resource and returns an error if the request fails.
 
 ```go
-func fetchCountryFlagCanErr(string) (CountryInfo, error) {
-    // Fetch the country flag from an external resource
-    // This function can return an error if the request fails
-    // ...
-}
-
 // if there is an error at any point in the pipeline, it will propagate to the final error and close the stream
 // with all the underlying resources cleaned up
-err: = stream.MapWithErr(
-    // Query external resource for all country codes
-    fetchCountryCodes(),
+err := fetchCountryCodes(). // Query external resource for all country codes
     // For each country code, fetch the country flag via external resource
-    fetchCountryFlagCanErr, // this function signature allows returning an error
-    stream.WithConcurrent(10),
-).Consume(context.Background(), func (countryInfo CountryInfo) {
-    fmt.Println(countryInfo)
-})
+    MapWithErr(fetchCountryFlagCanErr, stream.WithConcurrentMapOption(10)).
+    Consume(context.Background(), func(countryInfo CountryInfo) {
+        fmt.Println(countryInfo)
+    })
 
 if err != nil {
     // do the "normal" go error handling :)
 }
-
 ```
 
-What about when fetchCountryCodes()  fail?
+What about when fetchCountryCodes() fails?
 
-Great question 🙂! Since fetchCountryCodesToNames() also access external resources, it might fail.
+Great question 🙂! Since fetchCountryCodes() also accesses external resources, it might fail.
 Since it returns a stream, it the error is already 'included' , and will be propagated to the final consumer.
 
 stream processing will fail if
@@ -173,7 +163,7 @@ and none of the downstream operations will be executed.
 ```go
 func fetchCountryCodes() stream.Stream[string] {
 
-    if (currentUserDoesNotHavePermission()) {
+    if currentUserDoesNotHavePermission() {
         return stream.Error[string](fmt.Errorf("user %s does not have permission", getCurrentUser()))
     }
     return stream.Just("US", "CA", "GB")
@@ -190,28 +180,22 @@ in favor of a more readable and maintainable code.
 
 ### Context propagation
 When using external resources, it is important to be able to cancel the request if the stream is cancelled.
-for that there is an additional version of the Map function that in addition to supporting errors, allows passing context to the maper
+for that there is an additional version of the Map function, `MapWithErrAndCtx`, that in addition to supporting errors, passes the context to the mapper.
 While this is not needed in simple stream processing examples, it can be crucial when using external resources.
-Passing context allows to cancel the request if the stream is cancelled, and also allows to set a timeout for the entire pipeline
+Passing context allows to cancel the request if the stream is cancelled, and also allows to set a timeout for the entire pipeline.
+Here the mapper is `fetchCountryFlagFull(ctx context.Context, countryCode string) (CountryInfo, error)`,
+which passes the "materialization context" to its downstream requests so they can be cancelled.
 
 ```go
-func fetchCountryFlagFull(ctx context.Context, string) (CountryInfo, error) {
-    // Fetch the country flag from an external resource
-    // Pass the "materialization context" to the downstream requests so it can be cancelled
-}
-
 // Creating a context with a timeout for the entire pipeline execution
-ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
 
-err: = stream.MapWithErrAndCtx(
-    // Query external resource for all country codes
-    fetchCountryCodes(),
-    // For each country code, fetch the country flag via external resource
-    fetchCountryFlagCanErr, // this function signature allows returning an error
-    stream.WithConcurrent(10),
-).Consume(ctx, func (countryInfo CountryInfo) {
-    fmt.Println(countryInfo)
-})
+err := fetchCountryCodes().
+    MapWithErrAndCtx(fetchCountryFlagFull, stream.WithConcurrentMapOption(10)).
+    Consume(ctx, func(countryInfo CountryInfo) {
+        fmt.Println(countryInfo)
+    })
 ```
 
 ### Using channels
@@ -220,10 +204,10 @@ The channel can be either a buffered or unbuffered channel. from the stream pers
 The stream will stay open until the channel is closed, and will automatically close and collapse the pipeline accordingly.
 In case the channel is never closed, the stream will keep processing as any other infinite stream source
 
-for full example using channels see the [Channel Test Example](channel_stream_provider_test.go)
+for full example using channels see the [Channel Test Example](stream/channel_stream_provider_test.go)
 
 Since channels are powerful, shpanstream uses them internally to implement some of the out-of-the-box functionality.
-for example "Buffer" exposes a shpanstream backed by a buffer channel. see [Buffer implementation](buffered_stream.go)
+for example `Buffered` exposes a shpanstream backed by a buffer channel. see [Buffered implementation](stream/buffered_stream.go)
 
 ### Streaming a lazily fetched slice
 When the data is already available as a slice, `FromSlice` (or `Just`) creates a stream out of it.
@@ -231,33 +215,36 @@ When fetching that slice is expensive, `FromSliceProvider` keeps it lazy: the pr
 only when the stream is materialized, and gets the "materialization context", so it can be cancelled along with the pipeline.
 
 ```go
-stream.FromSliceProvider(func(ctx context.Context) ([]Country, error) {
+bigCountries := stream.FromSliceProvider(func(ctx context.Context) ([]Country, error) {
     // Only invoked once the pipeline runs, and once per materialization
     return queryCountries(ctx)
 }).
     Filter(func(c Country) bool {
         return c.Population > 1_000_000
-    }).
-    //... the rest of the pipeline
+    })
+//... the rest of the pipeline
 ```
 
 The same deferral exists for the other shapes: `FromValueProvider(func(ctx) (T, error))` for a single value,
-`FromOptionalProvider(func(ctx) (T, bool, error))` for a value that may be absent (the shape `FindFirst` returns, so
-`FromOptionalProvider(s.FindFirst)` is a stream of `s`'s first element) and `FromStreamProvider(func(ctx) (Stream[T], error))`
-for a stream that has to be fetched before it can be streamed.
+`FromOptionalProvider(func(ctx) (T, bool, error))` for a value that may be absent (the shape `stream.FindFirst` returns,
+so `FromOptionalProvider` over a closure that calls `stream.FindFirst(ctx, s)` is a stream of `s`'s first element) and
+`FromStreamProvider(func(ctx) (Stream[T], error))` for a stream that has to be fetched before it can be streamed.
 
 ### Finding elements
-`FindFirst(ctx)` and `FindLast(ctx)` return `(T, bool, error)`: the bool reports whether the stream had an element,
+`stream.FindFirst(ctx, s)` and `stream.FindLast(ctx, s)` return `(T, bool, error)`: the bool reports whether the stream had an element,
 an empty stream is not an error. `FindFirst` stops (and closes) the stream as soon as the first element is read.
-Since v0.5.0 package `stream` no longer depends on package `lazy`; see the [migration note](docs/migration-stream-without-lazy.md).
+Package `stream` does not depend on package `lazy`; if you want a `lazy.Lazy`, the bridges in package `lazy`
+(`lazy.FindFirst(s)`, `lazy.Reduce(s, ...)`, ...) build one over a stream.
 
 ### Iterate over a stream
-Shpanstream supports iterating over a stream using the range operator via the `Iterate` function.
+Shpanstream supports iterating over a stream using the range operator via the `stream.MustValues` function,
+which returns an `iter.Seq[T]` (`stream.MustAll` returns an `iter.Seq2[int, T]` with each element's index).
+Both panic if the stream fails, hence the `Must` prefix; use `Consume` or `Collect` to get the error instead.
 The stream will be automatically closed when the iteration is done, and the pipeline will be collapsed accordingly.
 
 ```go
-for curr := range Just(1, 1, 2, 3, 5, 8, 13, 21, 34, 55).Iterator {
-    fmt.Sprintf(" %d", curr)
+for curr := range stream.MustValues(stream.Just(1, 1, 2, 3, 5, 8, 13, 21, 34, 55)) {
+    fmt.Printf(" %d", curr)
 }
 ```
 
@@ -270,34 +257,26 @@ See [Full flags example](examples/flags/flags_example.go)
 
 Lets take this example, here is a non-concurrent pipeline to process a stream of country codes and maps it to a struct that contains the country name and flag SVG
 ```go
-
 // Synchronous processing of the stream
-stream.Map(
-    // Query external resource for all country codes
-    fetchCountryCodes(),
+fetchCountryCodes(). // Query external resource for all country codes
     // For each country code, fetch the country flag via external resource
-    fetchCountryFlag
-).MustConsume(func (countryInfo CountryInfo) {,
-    fmt.Println(countryInfo)
-})
-    
+    Map(fetchCountryFlag).
+    MustConsume(func(countryInfo CountryInfo) {
+        fmt.Println(countryInfo)
+    })
 ```
 Since for each country code we need to fetch the country flag from an external resource, this can take a while,
 and we can easily make it faster by adding the "concurrent" option to the stream without
 changing any of the logic of the piepline or introducing lowe level code to synchronize goroutines and collect the result.
 
 ```go
-
-// Concurrent processing of the stream 
-stream.Map(
-    // Query external resource for all country codes
-    fetchCountryCodes(),
+// Concurrent processing of the stream
+fetchCountryCodes(). // Query external resource for all country codes
     // For each country code, fetch the country flag via external resource
-    fetchCountryFlag,
-    stream.WithConcurrent(10), /* This is the only change */
-).MustConsume(func (countryInfo CountryInfo) {
-    fmt.Println(countryInfo)
-})
+    Map(fetchCountryFlag, stream.WithConcurrentMapOption(10) /* This is the only change */).
+    MustConsume(func(countryInfo CountryInfo) {
+        fmt.Println(countryInfo)
+    })
 ```
 
 As you can test for yourself, using the [flags example](examples/flags/flags_example.go), this can make a huge difference in performance.
@@ -317,15 +296,13 @@ As you can test for yourself, using the [flags example](examples/flags/flags_exa
 > In addition, while the first example only loaded into memory one element at a time, the concurrent
 > option will load more elements (up to the concurrency requested), take that into account when using
 
-### Redcue
+### Reduce
 
 Shpanstream provides a standard reduce implementation for streams
 
-
-
 ```go
-sum := MustReduce(
-    Just(2, 4, 6),
+sum := stream.MustReduce(
+    stream.Just(2, 4, 6),
     0,
     func(acc, v int) int {
         return acc + v
@@ -334,7 +311,6 @@ sum := MustReduce(
 
 // Output: 12
 fmt.Println(sum)
-
 ```
 
 ### Sliding windows
@@ -343,17 +319,19 @@ Shpanstream provides a simple way to create sliding windows over streams of data
 ```go
 // demonstrates how to use the Window function with a sliding window.
 // It returns the first window of 3 elements that contains at least 2 even numbers.
-results, found, err := Window(
-    Just(1, 3, 3, 5, 11, 6, 7, 8, 8, 8, 10, 10, 12, 13, 14, 15, 16, 17, 18, 19),
-    3,
-    WithSlidingWindowStepOption(1),
-).
-    Filter(func(currWindow []int) bool {
-        return Just(currWindow...).
-            Filter(func(src int) bool {
-                return src%2 == 0
-            }).MustCount() >= 2
-    }).FindFirst(ctx)
+results, found, err := stream.FindFirst(ctx,
+    stream.Window(
+        stream.Just(1, 3, 3, 5, 11, 6, 7, 8, 8, 8, 10, 10, 12, 13, 14, 15, 16, 17, 18, 19),
+        3,
+        stream.WithSlidingWindowStepOption(1),
+    ).
+        Filter(func(currWindow []int) bool {
+            return stream.MustCount(
+                stream.Just(currWindow...).
+                    Filter(func(src int) bool {
+                        return src%2 == 0
+                    })) >= 2
+        }))
 
 // Print the result
 fmt.Println(results, found, err)
@@ -362,11 +340,11 @@ fmt.Println(results, found, err)
 
 ### Buffering
 When using external resources, it is important to be able to buffer the data in order to avoid blocking the stream.
-this will prevent"bursty" readers from blocking the stream and allow to process the data in a more efficient way.
+this will prevent "bursty" readers from blocking the stream and allow to process the data in a more efficient way.
 ```go
-// Buffer the stream of country codes before processing it
-Buffer(stocks.StreamUpdates(), 10).
-    MustConsume(func (stockInfo StockInfo) {
+// Buffer the stream of stock updates before processing it
+stream.Buffered(stocks.StreamUpdates(), 10).
+    MustConsume(func(stockInfo StockInfo) {
         teller.Buy(stockInfo, 13)
     })
 ```
@@ -375,19 +353,16 @@ Buffer(stocks.StreamUpdates(), 10).
 There are multiple ways to merge streams together, a very useful one is to merge multiple streams that are already sorted.
 This can be very handy with time series data that tends to be sorted by time, and have multiple sources of data.
 ```go
-// Merge two sorted streams of integers
-mergedStream := stream.MergedSortedStream(
-    cmp.Compare,
+// Merge sorted streams of integers
+merged := stream.MustCollect(stream.MergeSortedStreams(
+    cmp.Compare[int],
     stream.Just(1, 4, 7),
     stream.Just(2, 5, 8, 9),
     stream.Empty[int](),
     stream.Just(3, 6, 9),
-)
+))
 
-// Expected result after merging 
-expected := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 9}
-    
-
+// merged: [1 2 3 4 5 6 7 8 9 9]
 ```
 
 ### Paging 
@@ -395,16 +370,16 @@ When using underlying data sources that doesn't natively support paging streams 
 Since streams are composable this also work when composing multiple streams together into a single pageable stream.
 
 ```go
-    
-// Return page 2 of size 10 from the merged stream of LOTR and The Hobbit characters
-stream.ConcatStreams(
-    lotrCharactersRepo.Stream(),
-    theHobbitCharactersRepo.Stream(),
-).
-Page(2, 10).
-    MustConsume(func (name string) {
-        fmt.Println(name)
-    })
+// Print page 2 (pages count from 0) of size 10 from the concatenated stream of LOTR and The Hobbit characters
+stream.Page(
+    stream.ConcatStreams(
+        lotrCharactersRepo.Stream(),
+        theHobbitCharactersRepo.Stream(),
+    ),
+    2, 10,
+).MustConsume(func(c Character) {
+    fmt.Println(c.Name)
+})
 ```
 
 ### Json streaming tools
@@ -433,7 +408,7 @@ The stream is aligned mapped to timeseries data and aligned to produce consisten
 
 ```go
 // Align the stream to 3 seconds getting weighted average for price
-timeseries.AlignStream(
+err := timeseries.AlignStream(
 
     // Map stock entries prices to timeseries.TsRecord[float64] (while filtering irrelevant data)
     stream.MapWhileFiltering(

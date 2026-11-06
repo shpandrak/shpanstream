@@ -111,7 +111,7 @@ func TestReduceField_SumAllFields_Decimal(t *testing.T) {
 	require.Equal(t, "", fieldsMeta[0].Unit()) // Different units, so no unit preserved
 
 	// Verify values
-	records := reducedResult.Stream().MustCollect()
+	records := stream.MustCollect(reducedResult.Stream())
 	require.Len(t, records, 3)
 
 	// First record: 20.0 + 60.0 + 1013.0 = 1093.0
@@ -156,7 +156,7 @@ func TestReduceField_SumSpecificFields_Integer(t *testing.T) {
 	require.Equal(t, "items", fieldsMeta[0].Unit()) // Same unit preserved
 
 	// Verify values
-	records := reducedResult.Stream().MustCollect()
+	records := stream.MustCollect(reducedResult.Stream())
 	require.Len(t, records, 2)
 
 	// First record: 10 + 20 = 30
@@ -198,7 +198,7 @@ func TestReduceField_AvgAllFields_Decimal(t *testing.T) {
 	require.True(t, fieldsMeta[0].Required())
 
 	// Verify values
-	records := reducedResult.Stream().MustCollect()
+	records := stream.MustCollect(reducedResult.Stream())
 	require.Len(t, records, 1)
 
 	// (20.0 + 60.0 + 90.0) / 3 = 56.666...
@@ -226,7 +226,7 @@ func TestReduceField_MinMax_Integer(t *testing.T) {
 	minResult, err := minFilter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	minRecords := minResult.Stream().MustCollect()
+	minRecords := stream.MustCollect(minResult.Stream())
 	require.Equal(t, int64(50), minRecords[0].Value[0]) // min(100, 50) = 50
 
 	// Test MAX
@@ -245,7 +245,7 @@ func TestReduceField_MinMax_Integer(t *testing.T) {
 	maxResult, err := maxFilter.Filter(ctx, result2)
 	require.NoError(t, err)
 
-	maxRecords := maxResult.Stream().MustCollect()
+	maxRecords := stream.MustCollect(maxResult.Stream())
 	require.Equal(t, int64(75), maxRecords[0].Value[0]) // max(50, 75) = 75
 }
 
@@ -281,7 +281,7 @@ func TestReduceField_Count(t *testing.T) {
 	require.True(t, fieldsMeta[0].Required())
 
 	// Verify values
-	records := reducedResult.Stream().MustCollect()
+	records := stream.MustCollect(reducedResult.Stream())
 	require.Len(t, records, 1)
 
 	// Count of 3 fields
@@ -461,7 +461,7 @@ func TestReduceField_MultipleRecordsProcessedCorrectly(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify all records processed
-	records := reducedResult.Stream().MustCollect()
+	records := stream.MustCollect(reducedResult.Stream())
 	require.Len(t, records, 4)
 
 	// Verify each record's sum
@@ -510,7 +510,7 @@ func TestReduceField_FirstWithString(t *testing.T) {
 	require.True(t, fieldsMeta[0].Required())
 
 	// Verify values - first field's value should be selected
-	records := reducedResult.Stream().MustCollect()
+	records := stream.MustCollect(reducedResult.Stream())
 	require.Len(t, records, 2)
 	require.Equal(t, "alpha", records[0].Value[0])
 	require.Equal(t, "alpha2", records[1].Value[0])

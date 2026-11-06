@@ -1,6 +1,6 @@
 module github.com/shpandrak/shpanstream
 
-go 1.23
+go 1.27
 
 require github.com/stretchr/testify v1.11.1
 

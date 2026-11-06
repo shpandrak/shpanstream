@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1163,7 +1164,7 @@ func TestMatchesDay_Timezone_UTCPlus_DayShift(t *testing.T) {
 	// → In Tokyo it's Saturday → weekday check fails
 	date := time.Date(2024, 6, 14, 20, 0, 0, 0, time.UTC)
 	require.Equal(t, time.Friday, date.Weekday()) // UTC is Friday
-	require.False(t, s.MatchesDay(date))           // Tokyo is Saturday → false
+	require.False(t, s.MatchesDay(date))          // Tokyo is Saturday → false
 
 	// Friday June 14 2024 at 14:00 UTC = Friday June 14 23:00 Tokyo
 	// → In Tokyo it's still Friday → weekday check passes
@@ -1211,8 +1212,8 @@ func TestMatchesDay_EnergyPeakDay_Realistic(t *testing.T) {
 	// Peak schedule: weekdays, summer period (Jun–Sep), exclude July 4
 	peakCond, err := NewScheduleCondition(
 		[]ScheduleTimeSlot{mustTimeSlot(t, 14, 0, 18, 0)}, // 2–6 PM peak hours
-		[]int{1, 2, 3, 4, 5},                               // weekdays
-		[]SchedulePeriod{mustPeriod(t, 6, 1, 9, 30)},       // summer
+		[]int{1, 2, 3, 4, 5},                              // weekdays
+		[]SchedulePeriod{mustPeriod(t, 6, 1, 9, 30)},      // summer
 		nil,
 		nil, []string{"2024-07-04"}, // exclude Independence Day
 	)
@@ -1283,7 +1284,7 @@ func TestActiveWindows_SingleSlot_FullDay(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 1)
 	require.Equal(t, time.Date(2024, 6, 15, 9, 0, 0, 0, time.UTC), windows[0].From)
@@ -1294,7 +1295,7 @@ func TestActiveWindows_NoConditions_Empty(t *testing.T) {
 	s := NewSchedule(nil, nil, nil, nil, time.UTC)
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	require.Empty(t, s.ActiveWindows(from, to).MustCollect())
+	require.Empty(t, stream.MustCollect(s.ActiveWindows(from, to)))
 }
 
 func TestActiveWindows_EmptyCondition_AllDay(t *testing.T) {
@@ -1305,7 +1306,7 @@ func TestActiveWindows_EmptyCondition_AllDay(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 1)
 	require.Equal(t, from, windows[0].From)
@@ -1320,10 +1321,10 @@ func TestActiveWindows_InvalidRange_Empty(t *testing.T) {
 	// to before from
 	to := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	from := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	require.Empty(t, s.ActiveWindows(from, to).MustCollect())
+	require.Empty(t, stream.MustCollect(s.ActiveWindows(from, to)))
 
 	// equal
-	require.Empty(t, s.ActiveWindows(from, from).MustCollect())
+	require.Empty(t, stream.MustCollect(s.ActiveWindows(from, from)))
 }
 
 // --- ActiveWindows: Multiple Slots ---
@@ -1342,7 +1343,7 @@ func TestActiveWindows_MultipleSlots_SameDay(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 2)
 	require.Equal(t, time.Date(2024, 6, 15, 9, 0, 0, 0, time.UTC), windows[0].From)
@@ -1365,7 +1366,7 @@ func TestActiveWindows_CrossMidnight_SingleDay(t *testing.T) {
 	// Query a full day — should get two pieces: 00:00–06:00 and 22:00–00:00
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 2)
 	require.Equal(t, time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC), windows[0].From)
@@ -1385,7 +1386,7 @@ func TestActiveWindows_CrossMidnight_TwoDays_Merges(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 17, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	// Day 15: 00:00–06:00, 22:00–00:00
 	// Day 16: 00:00–06:00, 22:00–00:00
@@ -1414,7 +1415,7 @@ func TestActiveWindows_MultipleDays_BusinessHours(t *testing.T) {
 	// Monday June 17 through Sunday June 23 (full week)
 	from := time.Date(2024, 6, 17, 0, 0, 0, 0, time.UTC) // Monday
 	to := time.Date(2024, 6, 24, 0, 0, 0, 0, time.UTC)   // Next Monday
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	// 5 weekdays × 1 window each
 	require.Len(t, windows, 5)
@@ -1440,7 +1441,7 @@ func TestActiveWindows_SkipsNonMatchingDays(t *testing.T) {
 	// Two weeks
 	from := time.Date(2024, 6, 17, 0, 0, 0, 0, time.UTC) // Monday
 	to := time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC)    // Monday
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 2) // June 17, June 24
 	require.Equal(t, 17, windows[0].From.Day())
@@ -1466,7 +1467,7 @@ func TestActiveWindows_Exclude_LunchHour(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 2)
 	require.Equal(t, time.Date(2024, 6, 15, 9, 0, 0, 0, time.UTC), windows[0].From)
@@ -1490,7 +1491,7 @@ func TestActiveWindows_Exclude_EntireDay(t *testing.T) {
 	// Three days: June 15-17
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 18, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	// June 16 is fully excluded → only June 15 and 17
 	require.Len(t, windows, 2)
@@ -1511,7 +1512,7 @@ func TestActiveWindows_Bounds_ClippedByStartTime(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	// Should start at 10:30 (clipped by startTime), end at 17:00
 	require.Len(t, windows, 1)
@@ -1530,7 +1531,7 @@ func TestActiveWindows_Bounds_ClippedByEndTime(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	// Should start at 09:00, end at 14:00 (clipped by endTime)
 	require.Len(t, windows, 1)
@@ -1548,7 +1549,7 @@ func TestActiveWindows_Bounds_EntirelyOutside(t *testing.T) {
 	// Query June — entirely before schedule bounds
 	from := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC)
-	require.Empty(t, s.ActiveWindows(from, to).MustCollect())
+	require.Empty(t, stream.MustCollect(s.ActiveWindows(from, to)))
 }
 
 // --- ActiveWindows: Partial day query ---
@@ -1564,7 +1565,7 @@ func TestActiveWindows_PartialDay_Afternoon(t *testing.T) {
 	// Query 14:00-16:00 only
 	from := time.Date(2024, 6, 15, 14, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 15, 16, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 1)
 	require.Equal(t, from, windows[0].From)
@@ -1582,7 +1583,7 @@ func TestActiveWindows_PartialDay_SpansBoundary(t *testing.T) {
 	// Query 15:00-20:00 — partially inside slot
 	from := time.Date(2024, 6, 15, 15, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 15, 20, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 1)
 	require.Equal(t, time.Date(2024, 6, 15, 15, 0, 0, 0, time.UTC), windows[0].From)
@@ -1604,7 +1605,7 @@ func TestActiveWindows_Timezone_NonUTC(t *testing.T) {
 	// Query in UTC: full day June 15
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	// 09:00–17:00 UTC+3 = 06:00–14:00 UTC
 	// But windows are returned in schedule tz (UTC+3).
@@ -1630,7 +1631,7 @@ func TestActiveWindows_Timezone_Tokyo_Weekday(t *testing.T) {
 	// Query: Friday June 14 2024 in Tokyo time
 	from := time.Date(2024, 6, 14, 0, 0, 0, 0, tokyo)
 	to := time.Date(2024, 6, 15, 0, 0, 0, 0, tokyo) // Saturday
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 1)
 	require.Equal(t, time.Date(2024, 6, 14, 9, 0, 0, 0, tokyo), windows[0].From)
@@ -1639,7 +1640,7 @@ func TestActiveWindows_Timezone_Tokyo_Weekday(t *testing.T) {
 	// Query Saturday — no windows
 	from2 := time.Date(2024, 6, 15, 0, 0, 0, 0, tokyo)
 	to2 := time.Date(2024, 6, 16, 0, 0, 0, 0, tokyo)
-	require.Empty(t, s.ActiveWindows(from2, to2).MustCollect())
+	require.Empty(t, stream.MustCollect(s.ActiveWindows(from2, to2)))
 }
 
 func TestActiveWindows_Timezone_DST_SpringForward(t *testing.T) {
@@ -1656,7 +1657,7 @@ func TestActiveWindows_Timezone_DST_SpringForward(t *testing.T) {
 	// Query the DST transition day
 	from := time.Date(2024, 3, 10, 0, 0, 0, 0, eastern)
 	to := time.Date(2024, 3, 11, 0, 0, 0, 0, eastern)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	// 01:00-02:00 exists, 02:00-03:00 is skipped (spring forward), 03:00-04:00 exists
 	// The schedule should still produce a window, though its duration may be shorter
@@ -1688,7 +1689,7 @@ func TestActiveWindows_PerConditionExclude_HolidayReducedHours(t *testing.T) {
 	// Dec 25 (Wednesday) — weekday condition excluded, holiday condition applies
 	from := time.Date(2024, 12, 25, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 12, 26, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 1)
 	require.Equal(t, time.Date(2024, 12, 25, 10, 0, 0, 0, time.UTC), windows[0].From)
@@ -1697,7 +1698,7 @@ func TestActiveWindows_PerConditionExclude_HolidayReducedHours(t *testing.T) {
 	// Dec 26 (Thursday) — normal weekday hours
 	from2 := time.Date(2024, 12, 26, 0, 0, 0, 0, time.UTC)
 	to2 := time.Date(2024, 12, 27, 0, 0, 0, 0, time.UTC)
-	windows2 := s.ActiveWindows(from2, to2).MustCollect()
+	windows2 := stream.MustCollect(s.ActiveWindows(from2, to2))
 
 	require.Len(t, windows2, 1)
 	require.Equal(t, time.Date(2024, 12, 26, 9, 0, 0, 0, time.UTC), windows2[0].From)
@@ -1721,7 +1722,7 @@ func TestActiveWindows_EnergyPeakSchedule(t *testing.T) {
 	// Week of July 1-7, 2024: Mon(1), Tue(2), Wed(3), Thu(4=excl), Fri(5), Sat(6), Sun(7)
 	from := time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 7, 8, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	// 4 weekdays (July 4 excluded, weekend excluded)
 	require.Len(t, windows, 4)
@@ -1748,7 +1749,7 @@ func TestActiveWindows_MultiWeek_OnlyMatchingDays(t *testing.T) {
 	// June 2024: Wednesdays are 5, 12, 19, 26
 	from := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 4)
 	for i, w := range windows {
@@ -1772,12 +1773,12 @@ func TestActiveWindows_AsMatchesBetween(t *testing.T) {
 	// Weekday range — has windows
 	from := time.Date(2024, 6, 17, 0, 0, 0, 0, time.UTC) // Monday
 	to := time.Date(2024, 6, 18, 0, 0, 0, 0, time.UTC)
-	require.True(t, len(s.ActiveWindows(from, to).MustCollect()) > 0)
+	require.True(t, len(stream.MustCollect(s.ActiveWindows(from, to))) > 0)
 
 	// Weekend range — no windows
 	from2 := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC) // Saturday
 	to2 := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	require.True(t, len(s.ActiveWindows(from2, to2).MustCollect()) == 0)
+	require.True(t, len(stream.MustCollect(s.ActiveWindows(from2, to2))) == 0)
 }
 
 // --- ActiveWindows: OR conditions union ---
@@ -1799,7 +1800,7 @@ func TestActiveWindows_ORConditions_Union(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	require.Len(t, windows, 2)
 	require.Equal(t, 9, windows[0].From.Hour())
@@ -1825,7 +1826,7 @@ func TestActiveWindows_ORConditions_Overlapping_Merged(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	// Overlapping → merged into single 09:00-17:00
 	require.Len(t, windows, 1)
@@ -1851,7 +1852,7 @@ func TestActiveWindows_TotalDuration(t *testing.T) {
 
 	from := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2024, 6, 16, 0, 0, 0, 0, time.UTC)
-	windows := s.ActiveWindows(from, to).MustCollect()
+	windows := stream.MustCollect(s.ActiveWindows(from, to))
 
 	var totalMinutes int
 	for _, w := range windows {

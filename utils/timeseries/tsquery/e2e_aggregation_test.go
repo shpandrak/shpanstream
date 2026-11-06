@@ -702,7 +702,7 @@ func TestReductionDatasource_First(t *testing.T) {
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	require.Equal(t, int64(100), records[0].Value) // first = first datasource's value
 }
@@ -728,7 +728,7 @@ func TestReductionDatasource_Last(t *testing.T) {
 	result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	require.Equal(t, int64(300), records[0].Value) // last = last datasource's value
 }
@@ -753,7 +753,7 @@ func TestReductionDatasource_FirstLast_SingleDatasource(t *testing.T) {
 	firstResult, err := firstDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	firstRecords := firstResult.Data().MustCollect()
+	firstRecords := stream.MustCollect(firstResult.Data())
 	require.Len(t, firstRecords, 2)
 	require.Equal(t, int64(42), firstRecords[0].Value)
 	require.Equal(t, int64(99), firstRecords[1].Value)
@@ -802,7 +802,7 @@ func TestReductionDatasource_AllSevenReductions(t *testing.T) {
 			result, err := reductionDS.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 			require.NoError(t, err)
 
-			records := result.Data().MustCollect()
+			records := stream.MustCollect(result.Data())
 			require.Len(t, records, 1)
 
 			expected := expectedValues[i]

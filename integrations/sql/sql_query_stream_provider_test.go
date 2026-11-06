@@ -5,6 +5,7 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/shpandrak/shpanstream/internal/util"
+	"github.com/shpandrak/shpanstream/stream"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -39,7 +40,7 @@ func TestStreamSqlQuery(t *testing.T) {
 		timestamp time.Time
 	}
 	require.Equal(t, 100,
-		StreamSqlQuery[myRow](func() (*sql.DB, error) {
+		stream.MustCount(StreamSqlQuery[myRow](func() (*sql.DB, error) {
 			return db, nil
 		}, "SELECT id, name, timestamp FROM my_table", nil, func(rows *sql.Rows) (myRow, error) {
 			var row myRow
@@ -48,7 +49,7 @@ func TestStreamSqlQuery(t *testing.T) {
 				return util.DefaultValue[myRow](), fmt.Errorf("failed scanning row: %w", err)
 			}
 			return row, nil
-		}).MustCount())
+		})))
 
 	require.Equal(t, 1, 1)
 }

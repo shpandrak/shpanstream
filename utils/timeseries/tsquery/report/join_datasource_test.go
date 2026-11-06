@@ -81,7 +81,7 @@ func TestJoinDatasource_InnerJoin_ThreeStreams(t *testing.T) {
 
 	// Create join datasource with inner join
 	joinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS, diskDS))),
 		InnerJoin,
 	)
 
@@ -102,7 +102,7 @@ func TestJoinDatasource_InnerJoin_ThreeStreams(t *testing.T) {
 	assert.Equal(t, "DiskMetrics:WriteMBps", fieldsMeta[5].Urn())
 
 	// Collect results
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 
 	// Inner join: only timestamps present in ALL streams
 	// Only hour 2 and hour 4 are present in all three
@@ -163,7 +163,7 @@ func TestJoinDatasource_LeftJoin_ThreeStreams(t *testing.T) {
 
 	// Create join datasource with left join
 	joinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS, diskDS))),
 		LeftJoin,
 	)
 
@@ -176,7 +176,7 @@ func TestJoinDatasource_LeftJoin_ThreeStreams(t *testing.T) {
 	require.Len(t, fieldsMeta, 6) // 2 CPU + 2 Memory + 2 Disk
 
 	// Collect results
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 
 	// Left join: all timestamps from the LEFT stream (CPU)
 	require.Len(t, records, 5)
@@ -263,7 +263,7 @@ func TestJoinDatasource_FullJoin_ThreeStreams(t *testing.T) {
 
 	// Create join datasource with full join
 	joinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS, diskDS))),
 		FullJoin,
 	)
 
@@ -281,7 +281,7 @@ func TestJoinDatasource_FullJoin_ThreeStreams(t *testing.T) {
 	}
 
 	// Collect results
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 
 	// Full join: all unique timestamps from ANY stream
 	// Hours: 0, 1, 2, 3, 4
@@ -350,32 +350,32 @@ func TestJoinDatasource_EmptyStreams(t *testing.T) {
 
 	// Test InnerJoin with empty streams
 	innerJoinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS, diskDS))),
 		InnerJoin,
 	)
 	result, err := innerJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
 	require.NoError(t, err)
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	assert.Len(t, records, 0)
 
 	// Test LeftJoin with empty streams
 	leftJoinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS, diskDS))),
 		LeftJoin,
 	)
 	result, err = leftJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
 	require.NoError(t, err)
-	records = result.Stream().MustCollect()
+	records = stream.MustCollect(result.Stream())
 	assert.Len(t, records, 0)
 
 	// Test FullJoin with empty streams
 	fullJoinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS, diskDS))),
 		FullJoin,
 	)
 	result, err = fullJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
 	require.NoError(t, err)
-	records = result.Stream().MustCollect()
+	records = stream.MustCollect(result.Stream())
 	assert.Len(t, records, 0)
 }
 
@@ -411,22 +411,22 @@ func TestJoinDatasource_NoOverlap(t *testing.T) {
 
 	// InnerJoin with no overlap should return empty
 	innerJoinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS, diskDS))),
 		InnerJoin,
 	)
 	result, err := innerJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
 	require.NoError(t, err)
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	assert.Len(t, records, 0)
 
 	// FullJoin should return all 6 timestamps
 	fullJoinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS, diskDS))),
 		FullJoin,
 	)
 	result, err = fullJoinDS.Execute(ctx, baseTime, baseTime.Add(10*time.Hour))
 	require.NoError(t, err)
-	records = result.Stream().MustCollect()
+	records = stream.MustCollect(result.Stream())
 	assert.Len(t, records, 6)
 }
 
@@ -464,7 +464,7 @@ func TestJoinDatasource_TimeFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	joinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS, diskDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS, diskDS))),
 		InnerJoin,
 	)
 
@@ -474,7 +474,7 @@ func TestJoinDatasource_TimeFiltering(t *testing.T) {
 	result, err := joinDS.Execute(ctx, baseTime.Add(1*time.Hour), baseTime.Add(3*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2) // Hours 1 and 2
 
 	assert.Equal(t, baseTime.Add(1*time.Hour), records[0].Timestamp)
@@ -510,7 +510,7 @@ func TestJoinDatasource_LeftJoin_RequiredFields_MarkOptional(t *testing.T) {
 	)}
 
 	joinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS))),
 		LeftJoin,
 	)
 
@@ -524,7 +524,7 @@ func TestJoinDatasource_LeftJoin_RequiredFields_MarkOptional(t *testing.T) {
 	assert.True(t, fieldsMeta[0].Required(), "left-side field should stay required")
 	assert.False(t, fieldsMeta[1].Required(), "right-side field should be marked optional after left join")
 
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 3)
 
 	// Hour 0: CPU only, memory is nil
@@ -567,7 +567,7 @@ func TestJoinDatasource_LeftJoin_NumericExpressionWithNil_NoPanic(t *testing.T) 
 	)}
 
 	joinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](cpuDS, memDS).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](cpuDS, memDS))),
 		LeftJoin,
 	)
 
@@ -591,7 +591,7 @@ func TestJoinDatasource_LeftJoin_NumericExpressionWithNil_NoPanic(t *testing.T) 
 	require.NoError(t, err)
 
 	// Should not panic — this is the key assertion
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 2)
 
 	// Hour 0: mem:used is nil → computed field should be nil
@@ -635,7 +635,7 @@ func TestJoinDatasource_FullJoin_NumericExpressionWithNil_NoPanic(t *testing.T) 
 	)}
 
 	joinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](ds1, ds2).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](ds1, ds2))),
 		FullJoin,
 	)
 
@@ -659,7 +659,7 @@ func TestJoinDatasource_FullJoin_NumericExpressionWithNil_NoPanic(t *testing.T) 
 	require.NoError(t, err)
 
 	// Should not panic — this is the key assertion
-	records := filteredResult.Stream().MustCollect()
+	records := stream.MustCollect(filteredResult.Stream())
 	require.Len(t, records, 3)
 
 	// Hour 0: b:val is nil → computed field should be nil
@@ -701,7 +701,7 @@ func TestJoinDatasource_FullJoin_RequiredFields_AllOptional(t *testing.T) {
 	)}
 
 	joinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](ds1, ds2).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](ds1, ds2))),
 		FullJoin,
 	)
 
@@ -715,7 +715,7 @@ func TestJoinDatasource_FullJoin_RequiredFields_AllOptional(t *testing.T) {
 	assert.False(t, fieldsMeta[0].Required(), "first field should be optional after full join")
 	assert.False(t, fieldsMeta[1].Required(), "second field should be optional after full join")
 
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 
 	// Hour 0: only ds1 has data
@@ -750,7 +750,7 @@ func TestJoinDatasource_InnerJoin_RequiredFields_Unchanged(t *testing.T) {
 	)}
 
 	joinDS := NewJoinDatasource(
-		NewListMultiDatasource(stream.Just[DataSource](ds1, ds2).MustCollect()),
+		NewListMultiDatasource(stream.MustCollect(stream.Just[DataSource](ds1, ds2))),
 		InnerJoin,
 	)
 

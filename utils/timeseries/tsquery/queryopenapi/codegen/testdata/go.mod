@@ -1,6 +1,6 @@
 module github.com/shpandrak/shpanstream/utils/timeseries/tsquery/queryopenapi/codegen/testdata
 
-go 1.24.2
+go 1.27
 
 replace github.com/shpandrak/shpanstream => ../../../../../..
 

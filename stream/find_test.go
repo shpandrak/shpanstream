@@ -59,30 +59,30 @@ func recorded(n, failAt int, failErr error) (Stream[int], *[]string) {
 func TestStream_FindFirst(t *testing.T) {
 	ctx := context.Background()
 
-	v, found, err := Just(1, 2, 3, 4, 5).FindFirst(ctx)
+	v, found, err := FindFirst(ctx, Just(1, 2, 3, 4, 5))
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 1, v)
 
-	v, found, err = Just(1, 2, 3, 4, 5).Skip(1).FindFirst(ctx)
+	v, found, err = FindFirst(ctx, Skip(Just(1, 2, 3, 4, 5), 1))
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 2, v)
 
-	v, found, err = Just(7).FindFirst(ctx)
+	v, found, err = FindFirst(ctx, Just(7))
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 7, v)
 
 	for _, empty := range []Stream[int]{Empty[int](), Just[int]()} {
-		v, found, err = empty.FindFirst(ctx)
+		v, found, err = FindFirst(ctx, empty)
 		require.NoError(t, err)
 		require.False(t, found)
 		require.Zero(t, v)
 	}
 
 	boom := errors.New("boom")
-	v, found, err = Error[int](boom).FindFirst(ctx)
+	v, found, err = FindFirst(ctx, Error[int](boom))
 	require.ErrorIs(t, err, boom)
 	require.False(t, found)
 	require.Zero(t, v)
@@ -90,7 +90,7 @@ func TestStream_FindFirst(t *testing.T) {
 
 func TestStream_FindFirst_StopsAfterFirstElement(t *testing.T) {
 	s, events := recorded(5, 0, nil)
-	v, found, err := s.FindFirst(context.Background())
+	v, found, err := FindFirst(context.Background(), s)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 1, v)
@@ -99,7 +99,7 @@ func TestStream_FindFirst_StopsAfterFirstElement(t *testing.T) {
 
 	// Re-materialization starts over.
 	*events = nil
-	v, found, err = s.FindFirst(context.Background())
+	v, found, err = FindFirst(context.Background(), s)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 1, v)
@@ -108,7 +108,7 @@ func TestStream_FindFirst_StopsAfterFirstElement(t *testing.T) {
 
 func TestStream_FindFirst_EmptyLifecycle(t *testing.T) {
 	s, events := recorded(0, 0, nil)
-	_, found, err := s.FindFirst(context.Background())
+	_, found, err := FindFirst(context.Background(), s)
 	require.NoError(t, err)
 	require.False(t, found)
 	require.Equal(t, []string{"open", "eof", "close", "finally <nil>"}, *events)
@@ -117,7 +117,7 @@ func TestStream_FindFirst_EmptyLifecycle(t *testing.T) {
 func TestStream_FindFirst_ErrorOnFirstPull(t *testing.T) {
 	boom := errors.New("boom")
 	s, events := recorded(5, 1, boom)
-	v, found, err := s.FindFirst(context.Background())
+	v, found, err := FindFirst(context.Background(), s)
 	require.ErrorIs(t, err, boom)
 	require.False(t, found)
 	require.Zero(t, v)
@@ -127,7 +127,7 @@ func TestStream_FindFirst_ErrorOnFirstPull(t *testing.T) {
 func TestStream_FindFirst_ErrorAfterFirstIsNotReached(t *testing.T) {
 	// The failing element is never pulled, so FindFirst succeeds.
 	s, events := recorded(5, 2, errors.New("boom"))
-	v, found, err := s.FindFirst(context.Background())
+	v, found, err := FindFirst(context.Background(), s)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 1, v)
@@ -136,7 +136,7 @@ func TestStream_FindFirst_ErrorAfterFirstIsNotReached(t *testing.T) {
 
 func TestStream_FindFirst_FilterPullsUntilMatch(t *testing.T) {
 	s, events := recorded(5, 0, nil)
-	v, found, err := s.Filter(func(i int) bool { return i == 3 }).FindFirst(context.Background())
+	v, found, err := FindFirst(context.Background(), s.Filter(func(i int) bool { return i == 3 }))
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 3, v)
@@ -150,7 +150,7 @@ func TestStream_FindFirst_OpenFailure(t *testing.T) {
 		t.Fatal("must not pull when open failed")
 		return 0, nil
 	}, WithOpenFuncOption(func(ctx context.Context) error { return boom }), WithCloseFuncOption(func() { closed = true }))
-	_, found, err := s.FindFirst(context.Background())
+	_, found, err := FindFirst(context.Background(), s)
 	require.ErrorIs(t, err, boom)
 	require.False(t, found)
 	require.False(t, closed, "a lifecycle element that failed to open is not closed")
@@ -159,13 +159,13 @@ func TestStream_FindFirst_OpenFailure(t *testing.T) {
 func TestStream_FindFirst_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, found, err := Just(1, 2, 3).FindFirst(ctx)
+	_, found, err := FindFirst(ctx, Just(1, 2, 3))
 	require.ErrorIs(t, err, context.Canceled)
 	require.False(t, found)
 }
 
 func TestStream_FindFirst_PanicInPipeline(t *testing.T) {
-	v, found, err := Map(Just(1, 2), func(int) int { panic("kaboom") }).FindFirst(context.Background())
+	v, found, err := FindFirst(context.Background(), Map(Just(1, 2), func(int) int { panic("kaboom") }))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "kaboom")
 	require.False(t, found)
@@ -175,23 +175,23 @@ func TestStream_FindFirst_PanicInPipeline(t *testing.T) {
 func TestStream_FindLast(t *testing.T) {
 	ctx := context.Background()
 
-	v, found, err := Just(1, 2, 3, 4, 5).FindLast(ctx)
+	v, found, err := FindLast(ctx, Just(1, 2, 3, 4, 5))
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 5, v)
 
-	v, found, err = Just(7).FindLast(ctx)
+	v, found, err = FindLast(ctx, Just(7))
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 7, v)
 
-	v, found, err = Empty[int]().FindLast(ctx)
+	v, found, err = FindLast(ctx, Empty[int]())
 	require.NoError(t, err)
 	require.False(t, found)
 	require.Zero(t, v)
 
 	s, events := recorded(3, 0, nil)
-	v, found, err = s.FindLast(ctx)
+	v, found, err = FindLast(ctx, s)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 3, v)
@@ -199,7 +199,7 @@ func TestStream_FindLast(t *testing.T) {
 
 	boom := errors.New("boom")
 	s, events = recorded(5, 3, boom)
-	v, found, err = s.FindLast(ctx)
+	v, found, err = FindLast(ctx, s)
 	require.ErrorIs(t, err, boom)
 	require.False(t, found, "a failed stream has no last element, even if earlier ones were read")
 	require.Zero(t, v)
@@ -235,26 +235,26 @@ func TestFindFirstAndLast(t *testing.T) {
 func TestStream_IsEmpty(t *testing.T) {
 	ctx := context.Background()
 
-	empty, err := Empty[int]().IsEmpty(ctx)
+	empty, err := IsEmpty(ctx, Empty[int]())
 	require.NoError(t, err)
 	require.True(t, empty)
 
 	s, events := recorded(5, 0, nil)
-	empty, err = s.IsEmpty(ctx)
+	empty, err = IsEmpty(ctx, s)
 	require.NoError(t, err)
 	require.False(t, empty)
 	require.Equal(t, []string{"open", "emit 1", "close", "finally <nil>"}, *events)
 
 	boom := errors.New("boom")
-	empty, err = Error[int](boom).IsEmpty(ctx)
+	empty, err = IsEmpty(ctx, Error[int](boom))
 	require.ErrorIs(t, err, boom)
 	require.False(t, empty)
 }
 
-func TestStream_Iterator_BreakClosesWithoutFurtherPulls(t *testing.T) {
+func TestStream_MustValues_BreakClosesWithoutFurtherPulls(t *testing.T) {
 	s, events := recorded(5, 0, nil)
 	var got []int
-	for v := range s.Iterator {
+	for v := range MustValues(s) {
 		got = append(got, v)
 		if v == 2 {
 			break
@@ -265,7 +265,7 @@ func TestStream_Iterator_BreakClosesWithoutFurtherPulls(t *testing.T) {
 
 	*events = nil
 	var idx []int
-	for i, v := range s.IndexedIterator {
+	for i, v := range MustAll(s) {
 		idx = append(idx, i)
 		got = append(got, v)
 		if i == 1 {
@@ -277,14 +277,14 @@ func TestStream_Iterator_BreakClosesWithoutFurtherPulls(t *testing.T) {
 
 	*events = nil
 	n := 0
-	for range s.Iterator {
+	for range MustValues(s) {
 		n++
 	}
 	require.Equal(t, 5, n)
 	require.Equal(t, []string{"open", "emit 1", "emit 2", "emit 3", "emit 4", "emit 5", "eof", "close", "finally <nil>"}, *events)
 }
 
-func TestStream_Iterator_PanicsOnStreamError(t *testing.T) {
+func TestStream_MustValues_PanicsOnStreamError(t *testing.T) {
 	boom := errors.New("boom")
 	recoverErr := func(f func()) (err error) {
 		defer func() { err, _ = recover().(error) }()
@@ -292,11 +292,11 @@ func TestStream_Iterator_PanicsOnStreamError(t *testing.T) {
 		return nil
 	}
 	require.ErrorIs(t, recoverErr(func() {
-		for range Error[int](boom).Iterator {
+		for range MustValues(Error[int](boom)) {
 		}
 	}), boom)
 	require.ErrorIs(t, recoverErr(func() {
-		for range Error[int](boom).IndexedIterator {
+		for range MustAll(Error[int](boom)) {
 		}
 	}), boom)
 }
@@ -309,12 +309,12 @@ func TestFromValueProvider(t *testing.T) {
 		return 42, nil
 	})
 	require.Equal(t, 0, calls, "the provider is deferred until materialization")
-	require.Equal(t, []int{42}, s.MustCollect())
-	require.Equal(t, []int{42}, s.MustCollect(), "each materialization fetches again")
+	require.Equal(t, []int{42}, MustCollect(s))
+	require.Equal(t, []int{42}, MustCollect(s), "each materialization fetches again")
 	require.Equal(t, 2, calls)
 
 	boom := errors.New("boom")
-	_, err := FromValueProvider(func(ctx context.Context) (int, error) { return 0, boom }).Collect(ctx)
+	_, err := Collect(ctx, FromValueProvider(func(ctx context.Context) (int, error) { return 0, boom }))
 	require.Equal(t, boom, err, "the provider's error is the stream's error, unwrapped")
 }
 
@@ -327,18 +327,21 @@ func TestFromOptionalProvider(t *testing.T) {
 		return "v", present, nil
 	})
 	require.Equal(t, 0, calls)
-	require.Equal(t, []string{"v"}, s.MustCollect())
+	require.Equal(t, []string{"v"}, MustCollect(s))
 	present = false
-	require.Empty(t, s.MustCollect())
+	require.Empty(t, MustCollect(s))
 	require.Equal(t, 2, calls)
 
 	boom := errors.New("boom")
-	_, err := FromOptionalProvider(func(ctx context.Context) (string, bool, error) { return "", false, boom }).Collect(ctx)
+	_, err := Collect(ctx, FromOptionalProvider(func(ctx context.Context) (string, bool, error) { return "", false, boom }))
 	require.Equal(t, boom, err)
 
-	// FindFirst has the provider shape.
-	require.Equal(t, []int{3}, FromOptionalProvider(Just(3, 4).FindFirst).MustCollect())
-	require.Empty(t, FromOptionalProvider(Empty[int]().FindFirst).MustCollect())
+	// FindFirst bound to a stream has the provider shape.
+	findFirst := func(s Stream[int]) func(context.Context) (int, bool, error) {
+		return func(ctx context.Context) (int, bool, error) { return FindFirst(ctx, s) }
+	}
+	require.Equal(t, []int{3}, MustCollect(FromOptionalProvider(findFirst(Just(3, 4)))))
+	require.Empty(t, MustCollect(FromOptionalProvider(findFirst(Empty[int]()))))
 }
 
 func TestFromStreamProvider(t *testing.T) {
@@ -352,10 +355,10 @@ func TestFromStreamProvider(t *testing.T) {
 		return inner, nil
 	})
 	require.Equal(t, 0, calls)
-	require.Equal(t, []int{1, 2, 3}, s.MustCollect())
+	require.Equal(t, []int{1, 2, 3}, MustCollect(s))
 	require.Equal(t, []string{"open", "emit 1", "emit 2", "emit 3", "eof", "close", "finally <nil>"}, *events)
 
-	v, found, err := s.FindFirst(ctx)
+	v, found, err := FindFirst(ctx, s)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 1, v)
@@ -363,26 +366,26 @@ func TestFromStreamProvider(t *testing.T) {
 	require.Equal(t, 2, calls)
 
 	boom := errors.New("boom")
-	_, err = FromStreamProvider(func(ctx context.Context) (Stream[int], error) { return Empty[int](), boom }).Collect(ctx)
+	_, err = Collect(ctx, FromStreamProvider(func(ctx context.Context) (Stream[int], error) { return Empty[int](), boom }))
 	require.ErrorIs(t, err, boom)
 }
 
 func TestStream_FindFirst_CancelAfterFirstElementReturnsIt(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	v, found, err := NewSimpleStream(func(ctx context.Context) (int, error) {
+	v, found, err := FindFirst(ctx, NewSimpleStream(func(ctx context.Context) (int, error) {
 		cancel()
 		return 7, nil
-	}).FindFirst(ctx)
+	}))
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, 7, v)
 }
 
-func TestStream_Iterator_LoopBodyPanicClosesStream(t *testing.T) {
+func TestStream_MustValues_LoopBodyPanicClosesStream(t *testing.T) {
 	s, events := recorded(5, 0, nil)
 	require.Panics(t, func() {
-		for v := range s.Iterator {
+		for v := range MustValues(s) {
 			if v == 2 {
 				panic("body")
 			}
@@ -420,20 +423,20 @@ func TestStream_EarlyStopTearsDownConcurrentPipelines(t *testing.T) {
 	for name, build := range pipelines {
 		t.Run(name, func(t *testing.T) {
 			for i := 0; i < 20; i++ {
-				_, found, err := build().FindFirst(context.Background())
+				_, found, err := FindFirst(context.Background(), build())
 				require.NoError(t, err)
 				require.True(t, found)
 				require.True(t, closedA.Load(), "source closed after FindFirst")
 
 				n := 0
-				for range build().Iterator {
+				for range MustValues(build()) {
 					if n++; n == 3 {
 						break
 					}
 				}
-				require.True(t, closedA.Load(), "source closed after Iterator break")
+				require.True(t, closedA.Load(), "source closed after MustValues break")
 
-				empty, err := build().IsEmpty(context.Background())
+				empty, err := IsEmpty(context.Background(), build())
 				require.NoError(t, err)
 				require.False(t, empty)
 			}

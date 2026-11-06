@@ -47,9 +47,9 @@ func (a DropFieldsFilter) Filter(ctx context.Context, result Result) (Result, er
 			stream.FromSlice(fieldsMeta),
 			tsquery.FieldMeta.Urn,
 		))
-		missingFields := stream.FromMapKeys(a.fieldUrnsSetToRemove).Filter(func(urn string) bool {
+		missingFields := stream.MustCollect(stream.FromMapKeys(a.fieldUrnsSetToRemove).Filter(func(urn string) bool {
 			return !existingFieldUrns[urn]
-		}).MustCollect()
+		}))
 		return util.DefaultValue[Result](), fmt.Errorf("cannot drop fields, since they do not exist: %v", missingFields)
 	}
 

@@ -11,23 +11,23 @@ import (
 
 // This file bridges package stream and Lazy. Package stream does not depend on lazy (a Stream
 // element type would otherwise compile all of Lazy's methods, see
-// docs/compile-size-per-element-type.md), so the Lazy-returning helpers over streams live here.
+// docs/stream-api-generic-methods.md), so the Lazy-returning helpers over streams live here.
 // Each is a thin wrapper over the stream API; code that does not otherwise need a Lazy should call
-// that API directly (see docs/migration-stream-without-lazy.md).
+// that API directly.
 
 // FindFirst returns a Lazy of the stream's first element, empty when the stream is empty (Get then
-// fails). Stream.FindFirst(ctx) is the direct form.
+// fails). stream.FindFirst(ctx, s) is the direct form.
 func FindFirst[T any](s stream.Stream[T]) Lazy[T] {
 	return NewLazyOptional(func(ctx context.Context) (*T, error) {
-		return optional(s.FindFirst(ctx))
+		return optional(stream.FindFirst(ctx, s))
 	}).OrElseThrow(errNoFirstElement)
 }
 
 // FindLast returns a Lazy of the stream's last element, empty when the stream is empty (Get then
-// fails). Stream.FindLast(ctx) is the direct form.
+// fails). stream.FindLast(ctx, s) is the direct form.
 func FindLast[T any](s stream.Stream[T]) Lazy[T] {
 	return NewLazyOptional(func(ctx context.Context) (*T, error) {
-		return optional(s.FindLast(ctx))
+		return optional(stream.FindLast(ctx, s))
 	}).OrElseThrow(errNoLastElement)
 }
 

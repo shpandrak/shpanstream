@@ -95,7 +95,7 @@ func TestNewStaticStructDatasource_ValidStruct(t *testing.T) {
 	assert.Equal(t, tsquery.DataTypeBoolean, fieldsMeta[3].DataType())
 
 	// Verify stream data
-	records := ds.result.Stream().MustCollect()
+	records := stream.MustCollect(ds.result.Stream())
 	require.Len(t, records, 3)
 
 	// Check first record
@@ -201,7 +201,7 @@ func TestStaticStructDatasource_Execute_TimeFiltering(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime.Add(1*time.Hour), baseTime.Add(3*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 2)
 
 	assert.Equal(t, baseTime.Add(1*time.Hour), records[0].Timestamp)
@@ -227,7 +227,7 @@ func TestStaticStructDatasource_Execute_EmptyResult(t *testing.T) {
 	result, err := ds.Execute(ctx, baseTime.Add(1*time.Hour), baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
 
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	assert.Len(t, records, 0)
 }
 
@@ -248,7 +248,7 @@ func TestStaticStructDatasource_Execute_BoundaryConditions(t *testing.T) {
 	// Test: from is inclusive
 	result, err := ds.Execute(ctx, baseTime, baseTime.Add(1*time.Hour))
 	require.NoError(t, err)
-	records := result.Stream().MustCollect()
+	records := stream.MustCollect(result.Stream())
 	require.Len(t, records, 1)
 	assert.Equal(t, baseTime, records[0].Timestamp)
 
@@ -259,7 +259,7 @@ func TestStaticStructDatasource_Execute_BoundaryConditions(t *testing.T) {
 
 	result2, err := ds2.Execute(ctx, baseTime, baseTime.Add(2*time.Hour))
 	require.NoError(t, err)
-	records2 := result2.Stream().MustCollect()
+	records2 := stream.MustCollect(result2.Stream())
 	require.Len(t, records2, 2)
 	assert.Equal(t, baseTime, records2[0].Timestamp)
 	assert.Equal(t, baseTime.Add(1*time.Hour), records2[1].Timestamp)

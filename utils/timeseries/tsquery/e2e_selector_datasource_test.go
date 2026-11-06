@@ -97,7 +97,7 @@ func TestSelectorDatasource_BooleanToString_Production(t *testing.T) {
 	require.True(t, meta.Required())
 
 	// Verify values
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 4)
 	require.Equal(t, "production", records[0].Value)
 	require.Equal(t, "development", records[1].Value)
@@ -157,7 +157,7 @@ func TestSelectorDatasource_IntegerThreshold_HighLow(t *testing.T) {
 	require.True(t, meta.Required())
 
 	// Verify values: 50 (low), 150 (high), 75 (low), 200 (high), 90 (low)
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 5)
 	require.Equal(t, "low", records[0].Value)  // 50 <= 100
 	require.Equal(t, "high", records[1].Value) // 150 > 100
@@ -223,7 +223,7 @@ func TestSelectorDatasource_SquareRootThreshold_Fun(t *testing.T) {
 	// sqrt(144) = int(12) > 10 → "large"
 	// sqrt(81) = int(9) <= 10 → "small"
 	// sqrt(225) = int(15) > 10 → "large"
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 4)
 	require.Equal(t, "small", records[0].Value) // sqrt(64) = int(8)
 	require.Equal(t, "large", records[1].Value) // sqrt(144) = int(12)
@@ -271,7 +271,7 @@ func TestSelectorDatasource_NumericSelector_Decimal(t *testing.T) {
 	require.Equal(t, "usd", meta.Unit())
 
 	// Verify values
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 	require.Equal(t, 99.99, records[0].Value)  // premium
 	require.Equal(t, 149.99, records[1].Value) // standard

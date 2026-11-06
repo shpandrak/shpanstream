@@ -25,8 +25,12 @@ func tsRow(unixSec int64, vals ...any) timeseries.TsRecord[[]any] {
 	return timeseries.TsRecord[[]any]{Timestamp: time.Unix(unixSec, 0).UTC(), Value: vals}
 }
 
-func minuteUTC() timeseries.AlignmentPeriod { return timeseries.NewFixedAlignmentPeriod(time.Minute, time.UTC) }
-func hourUTC() timeseries.AlignmentPeriod   { return timeseries.NewFixedAlignmentPeriod(time.Hour, time.UTC) }
+func minuteUTC() timeseries.AlignmentPeriod {
+	return timeseries.NewFixedAlignmentPeriod(time.Minute, time.UTC)
+}
+func hourUTC() timeseries.AlignmentPeriod {
+	return timeseries.NewFixedAlignmentPeriod(time.Hour, time.UTC)
+}
 
 func collectAligned(
 	t *testing.T,
@@ -37,7 +41,7 @@ func collectAligned(
 	t.Helper()
 	out, err := af.Filter(context.Background(), NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
-	return out, out.Stream().MustCollect()
+	return out, stream.MustCollect(out.Stream())
 }
 
 func filterErr(
@@ -363,7 +367,7 @@ func TestReportAligner_ReductionAndFillOverridesCombined(t *testing.T) {
 		kindedField(t, "temp", tsquery.DataTypeDecimal, tsquery.MetricKindGauge),
 	}
 	af := NewInterpolatingAlignerFilter(minuteUTC(), timeseries.FillModeLinear).
-		WithFieldReduction("temp", tsquery.ReductionTypeMax).  // reduce gauge by Max instead of interpolating
+		WithFieldReduction("temp", tsquery.ReductionTypeMax).       // reduce gauge by Max instead of interpolating
 		WithFieldFillMode("energy", timeseries.FillModeForwardFill) // forward-fill the summed delta
 	_, rows := collectAligned(t, af, fields,
 		tsRow(0, 10.0, 1.0), tsRow(30, 20.0, 5.0), // bucket [0,60): energy sum=30, temp max=5

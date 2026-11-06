@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -112,4 +113,43 @@ func TestStream_ConsumeConcurrently(t *testing.T) {
 		// With concurrency 4 and 8 items with 50ms work, we should consistently see 3-4 concurrent workers
 		require.GreaterOrEqual(t, maxConcurrent.Load(), int32(3))
 	})
+}
+
+// newRendezvous returns a function that blocks until n calls are in flight at once, so each call
+// reports whether n callers really ran concurrently. A call gives up after a timeout and returns
+// false, which is what a sequential caller sees.
+func newRendezvous(n int) func() bool {
+	var arrived atomic.Int32
+	all := make(chan struct{})
+	return func() bool {
+		if arrived.Add(1) == int32(n) {
+			close(all)
+		}
+		select {
+		case <-all:
+			return true
+		case <-time.After(5 * time.Second):
+			return false
+		}
+	}
+}
+
+func TestStream_ConsumeMethod_ConcurrentOption(t *testing.T) {
+	// All four calls of f must be in flight at once: only a concurrency of 4 lets them meet.
+	meet := newRendezvous(4)
+	var mu sync.Mutex
+	var got []int
+	var overlapped atomic.Int32
+	err := Just(1, 2, 3, 4).Consume(context.Background(), func(v int) {
+		if meet() {
+			overlapped.Add(1)
+		}
+		mu.Lock()
+		got = append(got, v)
+		mu.Unlock()
+	}, WithConcurrentConsumeOption(4))
+
+	require.NoError(t, err)
+	require.ElementsMatch(t, []int{1, 2, 3, 4}, got)
+	require.Equal(t, int32(4), overlapped.Load(), "Consume did not run f concurrently")
 }

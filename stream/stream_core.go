@@ -13,21 +13,20 @@ import (
 // This file holds the type-independent half of Stream[T]: the drain loop, the lifecycle
 // bookkeeping and the panic guards. Everything here is compiled once. The generic methods in
 // shpan_stream.go and friends are thin shells over it, so that an element type costs the compiler
-// only the closures that really touch T (see docs/compile-size-per-element-type.md).
+// only the closures that really touch T (see docs/stream-api-generic-methods.md).
 //
 // A note on `//go:noinline` across the package: a generic method or function that creates a
-// closure is marked noinline. Otherwise the compiler inlines it into every call site — including
-// the pointer-receiver wrappers it generates for every Stream[T] method — and emits a fresh copy
-// of the closure body each time; the measured baseline had nine copies of the Filter closure per
-// element type. These are stream-construction calls, never per-element ones, so the lost inlining
+// closure is marked noinline. Otherwise the compiler inlines it into every call site (and into
+// the pointer-receiver wrapper of a plain method) and emits a fresh copy of the closure body each
+// time; nine copies of the Filter closure per element type were measured that way. These are stream-construction calls, never per-element ones, so the lost inlining
 // costs nothing on the hot path.
 
 // consumeStep is the typed part of a sequential drain: it pulls one element from the provider and
 // hands it to the consumer. pulled reports whether an element came out of the provider; when it is
 // false, err is the provider's error (io.EOF for normal completion). When it is true, err is the
-// consumer's error — and is never read as io.EOF, matching the pre-refactor loop exactly.
+// consumer's error — and is never read as io.EOF.
 // A step may also return (false, io.EOF) after it has pulled an element, to end the drain early
-// and cleanly (FindFirst, a break out of Iterator): the stream is closed without a further pull.
+// and cleanly (FindFirst, a break out of MustValues): the stream is closed without a further pull.
 type consumeStep func(ctx context.Context) (pulled bool, err error)
 
 // consumeLoop drives one sequential drain of a stream: it opens the lifecycle elements, runs step
@@ -35,7 +34,7 @@ type consumeStep func(ctx context.Context) (pulled bool, err error)
 // elements, all under the consumer-boundary panic guard.
 //
 // noinline, like the other closure-creating helpers here: inlined into the generic consume
-// methods, its closure body would be stamped out once per element type and consume flavour.
+// functions, its closure body would be stamped out once per element type and consume flavour.
 //
 //go:noinline
 func consumeLoop(ctx context.Context, lifecycles []Lifecycle, step consumeStep) error {

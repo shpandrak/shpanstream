@@ -75,7 +75,7 @@ Create a `go.mod` with a replace directive pointing to the shpanstream root:
 ```go
 module your-module/queryopenapi
 
-go 1.24.2
+go 1.27
 
 replace github.com/shpandrak/shpanstream => /path/to/shpanstream
 

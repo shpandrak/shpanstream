@@ -42,9 +42,8 @@ func ExampleStreamFromFile() {
 	tallestXmenName := lazy.Map(
 		lazy.Reduce(
 			stream.MapWithErr(
-				StreamFromFile("xmen-heights.csv", false).
-					// Skip the header
-					Skip(1),
+				stream.Skip(StreamFromFile("xmen-heights.csv", false), // Skip the header
+					1),
 				lineParser,
 			),
 			characterInfo{Name: "None", Height: 0},

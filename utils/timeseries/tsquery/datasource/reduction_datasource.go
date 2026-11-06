@@ -79,7 +79,7 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 
 	// Execute datasources, applying alignment if configured
 	datasourceResultsToToReduce, err :=
-		stream.MapWithErrAndCtx(
+		stream.Collect(ctx, stream.MapWithErrAndCtx(
 			r.multiDataSource.GetDatasources(ctx),
 			func(ctx context.Context, ds DataSource) (Result, error) {
 				if r.alignerFilter != nil {
@@ -87,7 +87,7 @@ func (r ReductionDatasource) Execute(ctx context.Context, from time.Time, to tim
 				}
 				return ds.Execute(ctx, from, to)
 			},
-		).Collect(ctx)
+		))
 
 	if err != nil {
 		return util.DefaultValue[Result](), fmt.Errorf("reduction datasource failed to downstream datasources: %w", err)

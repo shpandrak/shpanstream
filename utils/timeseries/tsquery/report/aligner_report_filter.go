@@ -306,7 +306,7 @@ func (af AlignerFilter) alignByInterpolation(
 			lastItemOnPreviousCluster *timeseries.TsRecord[[]any],
 		) (timeseries.TsRecord[[]any], error) {
 
-			firstItem, found, err := clusterStream.FindFirst(ctx)
+			firstItem, found, err := stream.FindFirst(ctx, clusterStream)
 			if err != nil {
 				return util.DefaultValue[timeseries.TsRecord[[]any]](), err
 			}

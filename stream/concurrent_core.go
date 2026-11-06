@@ -12,8 +12,8 @@ import (
 // The concurrent fan-out (WithConcurrentMapOption / WithConcurrentConsumeOption) is compiled once,
 // over boxed `any` values, instead of once per element type: the generic entry points only box the
 // source provider, the mapper and the consumer and unbox the result (see
-// docs/compile-size-per-element-type.md). Boxing a struct element allocates, but only on these
-// opt-in concurrent paths and in Untyped(), which reuses boxProvider below and has always boxed;
+// docs/stream-api-generic-methods.md). Boxing a struct element allocates, but only on these
+// opt-in concurrent paths and in Untyped(), which reuses boxProvider below and boxes by definition;
 // no other sequential path goes through this file.
 
 // anyProviderFunc is a ProviderFunc whose element is boxed.

@@ -38,7 +38,7 @@ func TestRateFilter_Decimal(t *testing.T) {
 	require.True(t, meta.Required())
 
 	// Verify rates
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// Rate 1: (150 - 100) / 3600 = 50/3600 ≈ 0.01389 kW
@@ -72,7 +72,7 @@ func TestRateFilter_Integer(t *testing.T) {
 	require.Equal(t, tsquery.DataTypeDecimal, meta.DataType())
 	require.Equal(t, "count/s", meta.Unit())
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 
 	// (4600 - 1000) / 3600 = 1.0
@@ -115,7 +115,7 @@ func TestRateFilter_VaryingTimeIntervals(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// Rate 1: 30 / (30*60) = 30/1800 = 1/60 per second
@@ -142,7 +142,7 @@ func TestRateFilter_NegativeRate(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 
 	// (50 - 100) / 3600 = -50/3600 ≈ -0.01389
@@ -163,7 +163,7 @@ func TestRateFilter_EmptyStream(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Empty(t, records)
 }
 
@@ -179,7 +179,7 @@ func TestRateFilter_SingleItem(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Empty(t, records)
 }
 
@@ -217,7 +217,7 @@ func TestRateFilter_PerSeconds(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// Rate 1: (150 - 100) / 3600 * 3600 = 50 kW
@@ -248,7 +248,7 @@ func TestRateFilter_NonNegative(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// Rate 1: (200 - 100) / 3600 = 100/3600
@@ -283,7 +283,7 @@ func TestRateFilter_NonNegative_EmitOnReset(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// Rate 1: (200 - 100) / 3600 = 100/3600
@@ -314,7 +314,7 @@ func TestRateFilter_NonNegativeWithMaxCounterValue(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// Rate 1: reset detected (100 < 900), delta = (1000 - 900) + 100 = 200, rate = 200/3600
@@ -360,7 +360,7 @@ func TestRateFilter_MaxGapDuration_DropsLargeGap(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// Rate 1: (200 - 100) / 3600s = 100/3600
@@ -390,7 +390,7 @@ func TestRateFilter_MaxGapDuration_NormalSpacingPasses(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2) // all rates emitted
 
 	require.InDelta(t, 100.0/3600.0, records[0].Value.(float64), 1e-10)
@@ -415,7 +415,7 @@ func TestRateFilter_MaxGapDuration_WithNonNegative(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// Rate 1: (200-100)/3600

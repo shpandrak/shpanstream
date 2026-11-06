@@ -36,7 +36,7 @@ func TestTimeShiftFilter_NegativeOffset(t *testing.T) {
 	require.Equal(t, tsquery.DataTypeDecimal, meta.DataType())
 	require.Equal(t, "kWh", meta.Unit())
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 3)
 
 	// Timestamps shifted back by 1 hour
@@ -67,7 +67,7 @@ func TestTimeShiftFilter_PositiveOffset(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	require.Equal(t, time.Date(2025, 1, 1, 0, 30, 0, 0, time.UTC), records[0].Timestamp)
@@ -101,7 +101,7 @@ func TestTimeShiftFilter_MultipleDataTypes(t *testing.T) {
 			result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 			require.NoError(t, err)
 
-			records := result.Data().MustCollect()
+			records := stream.MustCollect(result.Data())
 			require.Len(t, records, 2)
 
 			// Timestamps shifted back 2 hours
@@ -129,7 +129,7 @@ func TestTimeShiftFilter_EmptyStream(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Empty(t, records)
 }
 
@@ -145,7 +145,7 @@ func TestTimeShiftFilter_SingleItem(t *testing.T) {
 	result, err := filtered.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 1)
 	require.Equal(t, time.Date(2025, 1, 1, 11, 0, 0, 0, time.UTC), records[0].Timestamp)
 	require.Equal(t, 42.0, records[0].Value)
@@ -184,7 +184,7 @@ func TestTimeShiftReportFilter(t *testing.T) {
 	require.Equal(t, "Energy", shifted.FieldsMeta()[0].Urn())
 	require.Equal(t, "kWh", shifted.FieldsMeta()[0].Unit())
 
-	records := shifted.Stream().MustCollect()
+	records := stream.MustCollect(shifted.Stream())
 	require.Len(t, records, 3)
 
 	// Timestamps shifted back 1 hour
@@ -219,7 +219,7 @@ func TestTimeShiftFilter_CompositionWithDelta(t *testing.T) {
 	result, err := withShift.Execute(ctx, time.Time{}, time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
-	records := result.Data().MustCollect()
+	records := stream.MustCollect(result.Data())
 	require.Len(t, records, 2)
 
 	// Delta values: 150, 150

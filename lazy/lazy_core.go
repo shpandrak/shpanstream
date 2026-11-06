@@ -10,7 +10,7 @@ import (
 // the empty-value rule and the combinators over it. The value travels as a boxed *T — a nil
 // interface when the value is absent — so boxing it is free (a pointer never allocates when
 // converted to an interface) and Lazy[T] itself is reduced to unboxing and to the adapter closures
-// that touch T (see docs/compile-size-per-element-type.md).
+// that touch T (see docs/stream-api-generic-methods.md).
 type lazyCore struct {
 	fetcher               anyFetcher
 	emptyValueErrSupplier func() error

@@ -70,11 +70,11 @@ func TestZipN(t *testing.T) {
 			{10, 11, 12},
 			{13, 14, 15},
 		},
-		ZipN(
+		MustCollect(ZipN(
 			Just(1, 4, 7, 10, 13),
 			Just(2, 5, 8, 11, 14),
 			Just(3, 6, 9, 12, 15),
-		).MustCollect(),
+		)),
 	)
 }
 
@@ -87,21 +87,21 @@ func TestZipNMissingData(t *testing.T) {
 			{4, 5, 6},
 			{7, 8, 9},
 		},
-		ZipN(
+		MustCollect(ZipN(
 			Just(1, 4, 7, 10, 13),
 			Just(2, 5, 8),
 			Just(3, 6, 9, 12, 15),
-		).MustCollect(),
+		)),
 	)
 
 	require.Len(
 		t,
-		ZipN(
+		MustCollect(ZipN(
 			Just(1, 4, 7, 10, 13),
 			Just(2, 5, 8),
 			Empty[int](),
 			Just(3, 6, 9, 12, 15),
-		).MustCollect(),
+		)),
 		0,
 	)
 }
@@ -110,11 +110,11 @@ func TestZipN_ResourceMgmt(t *testing.T) {
 
 	tu := newTestStreamUtil(t)
 
-	ZipN(
-		Just(1, 4, 7, 10, 13).WithAdditionalLifecycle(tu.AddLifecycleWatcher("1")),
-		Just(2, 5, 8, 11, 14).WithAdditionalLifecycle(tu.AddLifecycleWatcher("2")),
-		Just(3, 6, 9, 12, 15).WithAdditionalLifecycle(tu.AddLifecycleWatcher("3")),
-	).WithAdditionalLifecycle(tu.AddLifecycleWatcher("4")).MustCollect()
+	MustCollect(WithAdditionalLifecycle(ZipN(
+		WithAdditionalLifecycle(Just(1, 4, 7, 10, 13), tu.AddLifecycleWatcher("1")),
+		WithAdditionalLifecycle(Just(2, 5, 8, 11, 14), tu.AddLifecycleWatcher("2")),
+		WithAdditionalLifecycle(Just(3, 6, 9, 12, 15), tu.AddLifecycleWatcher("3")),
+	), tu.AddLifecycleWatcher("4")))
 
 	// Assert all lifecycle watchers were visited
 	tu.requireAllWatchersVisited()
@@ -124,12 +124,12 @@ func TestZipN_ResourceMgmt(t *testing.T) {
 func TestZipN_ErrorStream(t *testing.T) {
 	// Test with stream that fails to open
 	tu := newTestStreamUtil(t)
-	_, err := ZipN(
-		Just(1, 4, 7, 10, 13).WithAdditionalLifecycle(tu.AddLifecycleWatcher("1")),
-		Just(2, 5, 8, 11, 14).WithAdditionalLifecycle(tu.AddLifecycleWatcher("2")),
-		Error[int](errors.New("test error")).WithAdditionalLifecycle(tu.AddLifecycleWatcher("3")),
-		Just(3, 6, 9, 12, 15).WithAdditionalLifecycle(tu.AddLifecycleWatcher("4")),
-	).WithAdditionalLifecycle(tu.AddLifecycleWatcher("5")).Collect(context.Background())
+	_, err := Collect(context.Background(), WithAdditionalLifecycle(ZipN(
+		WithAdditionalLifecycle(Just(1, 4, 7, 10, 13), tu.AddLifecycleWatcher("1")),
+		WithAdditionalLifecycle(Just(2, 5, 8, 11, 14), tu.AddLifecycleWatcher("2")),
+		WithAdditionalLifecycle(Error[int](errors.New("test error")), tu.AddLifecycleWatcher("3")),
+		WithAdditionalLifecycle(Just(3, 6, 9, 12, 15), tu.AddLifecycleWatcher("4")),
+	), tu.AddLifecycleWatcher("5")))
 	require.Error(t, err)
 
 	tu.requireOnlyWatchersVisited("1", "2")
@@ -139,17 +139,17 @@ func TestZipN_ErrorStream(t *testing.T) {
 func TestZipN_StreamWithError(t *testing.T) {
 	// Test with stream that fails to emit
 	tu := newTestStreamUtil(t)
-	_, err := ZipN(
-		Just(1, 4, 7, 10, 13).WithAdditionalLifecycle(tu.AddLifecycleWatcher("1")),
-		Just(2, 5, 8, 11, 14).WithAdditionalLifecycle(tu.AddLifecycleWatcher("2")),
-		MapWithErr(Just[int](1, 2, 3, 4), func(i int) (int, error) {
+	_, err := Collect(context.Background(), WithAdditionalLifecycle(ZipN(
+		WithAdditionalLifecycle(Just(1, 4, 7, 10, 13), tu.AddLifecycleWatcher("1")),
+		WithAdditionalLifecycle(Just(2, 5, 8, 11, 14), tu.AddLifecycleWatcher("2")),
+		WithAdditionalLifecycle(MapWithErr(Just[int](1, 2, 3, 4), func(i int) (int, error) {
 			if i == 3 {
 				return 0, errors.New("test error")
 			}
 			return i, nil
-		}).WithAdditionalLifecycle(tu.AddLifecycleWatcher("3")),
-		Just(3, 6, 9, 12, 15).WithAdditionalLifecycle(tu.AddLifecycleWatcher("4")),
-	).WithAdditionalLifecycle(tu.AddLifecycleWatcher("5")).Collect(context.Background())
+		}), tu.AddLifecycleWatcher("3")),
+		WithAdditionalLifecycle(Just(3, 6, 9, 12, 15), tu.AddLifecycleWatcher("4")),
+	), tu.AddLifecycleWatcher("5")))
 	require.Error(t, err)
 
 	tu.requireAllWatchersVisited()

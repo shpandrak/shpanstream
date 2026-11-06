@@ -46,7 +46,7 @@ func TestScheduleFilter_MixedMatching(t *testing.T) {
 	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 	require.Len(t, resultData, 2)
 	require.Equal(t, int64(2), resultData[0].Value)
@@ -81,7 +81,7 @@ func TestScheduleFilter_AllPass(t *testing.T) {
 	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 	require.Len(t, resultData, 3)
 }
@@ -115,7 +115,7 @@ func TestScheduleFilter_AllFiltered(t *testing.T) {
 	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 	require.Len(t, resultData, 0)
 }
@@ -142,7 +142,7 @@ func TestScheduleFilter_EmptyStream(t *testing.T) {
 	filteredResult, err := filter.Filter(ctx, result)
 	require.NoError(t, err)
 
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 	require.Len(t, resultData, 0)
 }
@@ -184,7 +184,7 @@ func TestScheduleFilter_MetadataPreserved(t *testing.T) {
 	require.Equal(t, "meters", resultMeta.Unit())
 	require.Equal(t, "value", resultMeta.CustomMeta()["custom"])
 
-	resultData, err := filteredResult.Data().Collect(ctx)
+	resultData, err := stream.Collect(ctx, filteredResult.Data())
 	require.NoError(t, err)
 	require.Len(t, resultData, 1)
 	require.Equal(t, 10.5, resultData[0].Value)

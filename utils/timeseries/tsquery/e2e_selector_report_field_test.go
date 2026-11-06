@@ -77,7 +77,7 @@ func TestSelectorField_DecimalValues_SelectTrue(t *testing.T) {
 	require.Equal(t, "ms", fieldsMeta[0].Unit())
 
 	// Verify values - all should be production latency since IsProduction=true
-	records := selectedResult.Stream().MustCollect()
+	records := stream.MustCollect(selectedResult.Stream())
 	require.Len(t, records, 3)
 	require.Equal(t, 10.5, records[0].Value[0])
 	require.Equal(t, 12.3, records[1].Value[0])
@@ -113,7 +113,7 @@ func TestSelectorField_DecimalValues_SelectFalse(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify values - all should be dev latency since IsProduction=false
-	records := selectedResult.Stream().MustCollect()
+	records := stream.MustCollect(selectedResult.Stream())
 	require.Len(t, records, 2)
 	require.Equal(t, 25.0, records[0].Value[0])
 	require.Equal(t, 30.0, records[1].Value[0])
@@ -150,7 +150,7 @@ func TestSelectorField_DecimalValues_MixedSelection(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify values alternate between prod and dev
-	records := selectedResult.Stream().MustCollect()
+	records := stream.MustCollect(selectedResult.Stream())
 	require.Len(t, records, 4)
 	require.Equal(t, 10.5, records[0].Value[0]) // prod (true)
 	require.Equal(t, 30.0, records[1].Value[0]) // dev (false)
@@ -211,7 +211,7 @@ func TestSelectorField_IntegerValues(t *testing.T) {
 	require.Equal(t, "requests/sec", fieldsMeta[0].Unit())
 
 	// Verify values
-	records := selectedResult.Stream().MustCollect()
+	records := stream.MustCollect(selectedResult.Stream())
 	require.Len(t, records, 3)
 	require.Equal(t, int64(1000), records[0].Value[0]) // prod (true)
 	require.Equal(t, int64(60), records[1].Value[0])   // dev (false)
@@ -257,7 +257,7 @@ func TestSelectorField_StringValues(t *testing.T) {
 	require.True(t, fieldsMeta[0].Required())
 
 	// Verify values
-	records := selectedResult.Stream().MustCollect()
+	records := stream.MustCollect(selectedResult.Stream())
 	require.Len(t, records, 3)
 	require.Equal(t, "turbo", records[0].Value[0]) // high perf (true)
 	require.Equal(t, "eco", records[1].Value[0])   // low perf (false)
@@ -345,14 +345,14 @@ func TestSelectorField_WithConditionAsSelector(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify prices
-	priceRecords := priceResult.Stream().MustCollect()
+	priceRecords := stream.MustCollect(priceResult.Stream())
 	require.Len(t, priceRecords, 3)
 	require.Equal(t, 100.0, priceRecords[0].Value[0]) // premium price
 	require.Equal(t, 150.0, priceRecords[1].Value[0]) // standard price
 	require.Equal(t, 100.0, priceRecords[2].Value[0]) // premium price
 
 	// Verify discounts
-	discountRecords := discountResult.Stream().MustCollect()
+	discountRecords := stream.MustCollect(discountResult.Stream())
 	require.Len(t, discountRecords, 3)
 	require.Equal(t, 20.0, discountRecords[0].Value[0]) // premium discount
 	require.Equal(t, 5.0, discountRecords[1].Value[0])  // standard discount

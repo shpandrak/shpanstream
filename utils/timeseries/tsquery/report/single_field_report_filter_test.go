@@ -31,7 +31,7 @@ func TestSingleFieldFilter_WithRefField(t *testing.T) {
 	require.Equal(t, "field_b", result.FieldsMeta()[0].Urn())
 
 	// Verify values
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 2)
 	require.Equal(t, []any{2.0}, collectedRecords[0].Value)
 	require.Equal(t, []any{5.0}, collectedRecords[1].Value)
@@ -60,7 +60,7 @@ func TestSingleFieldFilter_WithConstantField(t *testing.T) {
 	require.Equal(t, "constant", result.FieldsMeta()[0].Urn())
 
 	// Verify all records have the constant value
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 3)
 	require.Equal(t, []any{42.0}, collectedRecords[0].Value)
 	require.Equal(t, []any{42.0}, collectedRecords[1].Value)
@@ -82,7 +82,7 @@ func TestSingleFieldFilter_FirstField(t *testing.T) {
 	require.Len(t, result.FieldsMeta(), 1)
 	require.Equal(t, "first", result.FieldsMeta()[0].Urn())
 
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Equal(t, []any{10.0}, collectedRecords[0].Value)
 }
 
@@ -101,7 +101,7 @@ func TestSingleFieldFilter_LastField(t *testing.T) {
 	require.Len(t, result.FieldsMeta(), 1)
 	require.Equal(t, "third", result.FieldsMeta()[0].Urn())
 
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Equal(t, []any{30.0}, collectedRecords[0].Value)
 }
 
@@ -124,7 +124,7 @@ func TestSingleFieldFilter_PreservesTimestamps(t *testing.T) {
 	result, err := singleFieldFilter.Filter(ctx, NewResult(fieldsMeta, stream.Just(records...)))
 	require.NoError(t, err)
 
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 3)
 	require.Equal(t, timestamps[0], collectedRecords[0].Timestamp)
 	require.Equal(t, timestamps[1], collectedRecords[1].Timestamp)
@@ -142,7 +142,7 @@ func TestSingleFieldFilter_EmptyStream(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, result.FieldsMeta(), 1)
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 0)
 }
 
@@ -181,7 +181,7 @@ func TestSingleFieldFilter_ManyRecords(t *testing.T) {
 
 	require.Len(t, result.FieldsMeta(), 1)
 
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, numRecords)
 
 	// Spot check values
@@ -215,7 +215,7 @@ func TestSingleFieldFilter_WithCustomField(t *testing.T) {
 	require.Len(t, result.FieldsMeta(), 1)
 	require.Equal(t, "doubled", result.FieldsMeta()[0].Urn())
 
-	collectedRecords := result.Stream().MustCollect()
+	collectedRecords := stream.MustCollect(result.Stream())
 	require.Len(t, collectedRecords, 2)
 	require.Equal(t, []any{2.0}, collectedRecords[0].Value) // 1.0 * 2
 	require.Equal(t, []any{6.0}, collectedRecords[1].Value) // 3.0 * 2
@@ -242,7 +242,7 @@ func TestSingleFieldFilter_ErrorInValueSupplier(t *testing.T) {
 	require.NoError(t, err) // Filter itself doesn't error
 
 	// Error occurs during stream consumption
-	_, err = result.Stream().Collect(ctx)
+	_, err = stream.Collect(ctx, result.Stream())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "intentional error")
 }
@@ -279,7 +279,7 @@ func TestSingleFieldFilter_WithDifferentDataTypes(t *testing.T) {
 			require.Len(t, result.FieldsMeta(), 1)
 			require.Equal(t, tc.dataType, result.FieldsMeta()[0].DataType())
 
-			collectedRecords := result.Stream().MustCollect()
+			collectedRecords := stream.MustCollect(result.Stream())
 			require.Len(t, collectedRecords, 1)
 			require.Equal(t, []any{tc.value}, collectedRecords[0].Value)
 		})
